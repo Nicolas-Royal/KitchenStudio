@@ -8,13 +8,20 @@ lógica: los usa como motores.
 |---|---|---|
 | **Proyecto** | Diseño global de la cocina: tipo de frente, manija y material (con foto), tarja por defecto y medidas comunes de gabinetes. Vista previa en vivo. Se guarda en el `.skp`. | — |
 | **Catálogo** | Los módulos de siempre. Cada uno abre su página con **Diseño** y **Avanzado**. | KitchenCatalog |
-| **Creaciones** | Piezas únicas (generadas desde CSV, formulario o «Avanzado»). Botones «+ Gabinete/Alacena/Esquinero» para crear desde cero. | KitchenCatalog + KitchenCreator |
+| **Creaciones** | Piezas únicas (generadas desde CSV, formulario o «Avanzado»). Botón «+ Gabinete» para crear desde cero. | KitchenCatalog + KitchenCreator |
 | **Crear desde CSV** | Importa `.csv`/`.xlsx` (plantilla de Royal Catalog Creator), valida con sus reglas, permite editar cada fila y genera en lote a Creaciones. | KitchenCreator |
 | **Ajustes** | Carpetas (catálogo, creaciones, proyecto del creador) y estado de los plugins. | — |
 
+> Por ahora Studio trabaja **solo con gabinetes** (`FAMILIAS_ACTIVAS` en
+> `ui/app.js`); alacena y esquinero se habilitarán después.
+
 ## Página de un módulo
 
-- **Diseño**
+Vista previa al centro (rueda = zoom, arrastrar = moverse, doble clic =
+ajustar) y el diseño en una barra a la derecha. No se usan fotos de módulo:
+tarjetas y página muestran el alzado generado.
+
+- **Diseño** (barra derecha)
   - «Configuración del proyecto»: el módulo sigue el diseño global.
   - «Personalizar este módulo»: medidas con presets, tarja, frente, manija y
     material propios. Solo ese módulo cambia; se guarda en el proyecto.
@@ -24,7 +31,7 @@ lógica: los usa como motores.
   - Creaciones: el diseño se aplica de verdad (se regenera desde su receta).
     Módulos del catálogo: se aplican las medidas; el diseño es vista previa
     (para fabricarlo con ese diseño, «Avanzado»).
-- **Avanzado**: todas las variables del manifiesto de Royal Catalog Creator
+- **Avanzado…** (ventana emergente): todas las variables del manifiesto de Royal Catalog Creator
   para la familia del módulo, con sus mismas reglas (visibilidad, valores
   fijados, presupuesto de cajones, errores). **Generar** inserta en la escena
   y/o guarda en Creaciones.

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0] - 2026-10-08
+
+- Por ahora solo gabinete: catálogo, creaciones, «+ Gabinete» y CSV muestran
+  y generan solo esa familia (las filas de otras quedan como «Solo gabinete»).
+- Sin fotos de módulo: tarjetas y página del módulo muestran el alzado
+  generado con el diseño efectivo.
+- Vista previa con zoom (rueda, + / −), desplazamiento (arrastrar) y
+  «Ajustar» (doble clic) en un marco fijo que no se desborda.
+- Página del módulo: vista al centro y el diseño en una barra a la derecha;
+  «Avanzado…» abre una ventana emergente con todas las variables y su propia
+  vista previa. Cambiar el diseño en la barra rearma «Avanzado» desde él.
+
 ## [0.1.0] - 2026-10-08
 
 Primera versión.

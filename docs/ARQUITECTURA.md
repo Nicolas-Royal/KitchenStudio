@@ -31,7 +31,8 @@ src/royal_kitchens_studio/
   dialogo.rb    HtmlDialog y callbacks (respuestas: window.RKS.<fn>)
   ui/index.html secciones: proyecto, lista (catálogo/creaciones), módulo, csv, ajustes
   ui/app.js     controlador
-  ui/vista.js   RKVista: alzado SVG («Así se verá»)
+  ui/vista.js   RKVista: alzado SVG («Así se verá»); puro, se prueba en node
+  ui/visor.js   RKVisor: marco con zoom/desplazamiento sobre el viewBox del SVG
   ui/avanzado.js RKAvanzado: formulario de manifiesto + receta ↔ formulario
   ui/style.css  tokens y teclas de KitchenCatalog + layout de Studio
 ```
@@ -79,6 +80,9 @@ suelta el callback (`UI.start_timer`) para que la interfaz pinte «Trabajando…
 antes; SketchUp puede mostrar su aviso «la operación está tardando».
 
 ## Límites conocidos
+
+- Por ahora solo **gabinete** (`FAMILIAS_ACTIVAS` en `ui/app.js`): las listas,
+  «+ nuevo» y el CSV filtran el resto.
 
 - Tarja, frente, manija y material se aplican de verdad solo en **gabinete**
   (única familia con mapeo en `opciones.json`). Alacena y esquinero: medidas y

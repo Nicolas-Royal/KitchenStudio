@@ -101,68 +101,40 @@
             <h1 id="md-name"></h1>
             <div id="md-tags"></div>
           </div>
-          <div class="tabs" role="tablist">
-            <button role="tab" data-tab="diseno" class="tab active">Diseño</button>
-            <button role="tab" data-tab="avanzado" class="tab">Avanzado</button>
-          </div>
+          <button class="key key-ico" id="md-avanzado" title="Todas las variables de Royal Catalog Creator">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
+            <span>Avanzado…</span>
+          </button>
         </header>
 
-        <div class="split split-modulo">
-          <div class="plate preview-plate">
-            <div class="duo">
-              <figure>
-                <div class="screen"><img id="md-thumb" alt=""></div>
-                <figcaption class="stamp">Módulo</figcaption>
-              </figure>
-              <figure>
-                <div class="preview" id="md-preview"></div>
-                <figcaption class="stamp">Así se verá</figcaption>
-              </figure>
-            </div>
+        <div class="mod-body">
+          <!-- Vista previa: ocupa el centro, con zoom y desplazamiento -->
+          <div class="plate mod-vista">
+            <div class="preview" id="md-preview"></div>
             <p class="hint" id="md-preview-note"></p>
             <div class="specs" id="md-specs"></div>
           </div>
 
-          <!-- Diseño: global o personalizado -->
-          <div class="plate" id="tab-diseno">
-            <div class="seg seg-big" id="md-modo">
-              <button data-modo="global" class="chip">Configuración del proyecto</button>
-              <button data-modo="personal" class="chip">Personalizar este módulo</button>
+          <!-- Diseño: barra a la derecha -->
+          <aside class="plate side" id="tab-diseno">
+            <div class="side-scroll">
+              <div class="seg seg-big" id="md-modo"></div>
+              <p class="hint" id="md-modo-note"></p>
+              <h3 class="stamp">Dimensiones (mm)</h3>
+              <div id="md-medidas"></div>
+              <div id="md-tarja-wrap">
+                <h3 class="stamp">¿Módulo para tarja?</h3>
+                <div class="seg" id="md-tarja"></div>
+              </div>
+              <h3 class="stamp">Frente, manija y material</h3>
+              <div class="pickers" id="md-pickers"></div>
+              <p class="cf-error" id="md-error" hidden></p>
             </div>
-            <p class="hint" id="md-modo-note"></p>
-            <h3 class="stamp">Dimensiones (mm)</h3>
-            <div id="md-medidas"></div>
-            <div id="md-tarja-wrap">
-              <h3 class="stamp">¿Módulo para tarja?</h3>
-              <div class="seg" id="md-tarja"></div>
-            </div>
-            <h3 class="stamp">Frente, manija y material</h3>
-            <div class="pickers" id="md-pickers"></div>
-            <p class="cf-error" id="md-error" hidden></p>
             <footer class="actions">
               <button class="key" id="md-asis">Insertar tal cual</button>
               <button class="use" id="md-insert">Insertar con este diseño</button>
             </footer>
-          </div>
-
-          <!-- Avanzado: todas las variables de KitchenCreator -->
-          <div class="plate" id="tab-avanzado" hidden>
-            <div class="adv-head">
-              <label class="field-name">
-                <span class="stamp">Nombre del módulo</span>
-                <input id="av-nombre" type="text" autocomplete="off">
-              </label>
-              <button class="key" id="av-reset" title="Volver a los valores de la receta o del manifiesto">Restablecer</button>
-            </div>
-            <p class="hint" id="av-note"></p>
-            <div id="av-form" class="adv-form"></div>
-            <div class="cf-error" id="av-errores" hidden></div>
-            <footer class="actions">
-              <label class="switch"><input type="checkbox" id="av-escena" checked><span class="switch-track"><span class="switch-thumb"></span></span><span>Insertar en la escena</span></label>
-              <label class="switch"><input type="checkbox" id="av-publicar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Guardar en Creaciones</span></label>
-              <button class="use" id="av-generar">Generar</button>
-            </footer>
-          </div>
+          </aside>
         </div>
       </section>
 
@@ -215,6 +187,42 @@
     </main>
   </div>
 
+  <!-- Avanzado: todas las variables de KitchenCreator, en emergente -->
+  <div id="avanzado" class="overlay" hidden>
+    <div class="sheet sheet-adv" role="dialog" aria-modal="true" aria-labelledby="av-title">
+      <header class="sheet-head">
+        <div class="grow">
+          <div class="stamp">Configuración avanzada</div>
+          <h2 id="av-title"></h2>
+        </div>
+        <label class="field-name">
+          <span class="stamp">Nombre del módulo</span>
+          <input id="av-nombre" type="text" autocomplete="off">
+        </label>
+        <button class="key" id="av-reset" title="Volver a los valores de la receta o del manifiesto">Restablecer</button>
+        <button id="av-close" class="icon-btn" title="Cerrar" aria-label="Cerrar">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </header>
+      <div class="adv-body">
+        <div class="adv-scroll">
+          <p class="hint" id="av-note"></p>
+          <div id="av-form" class="adv-form"></div>
+        </div>
+        <div class="adv-vista">
+          <div class="preview" id="av-preview"></div>
+          <p class="hint">Vista según estas variables.</p>
+        </div>
+      </div>
+      <footer class="actions sheet-foot">
+        <div class="cf-error grow" id="av-errores" hidden></div>
+        <label class="switch"><input type="checkbox" id="av-escena" checked><span class="switch-track"><span class="switch-thumb"></span></span><span>Insertar en la escena</span></label>
+        <label class="switch"><input type="checkbox" id="av-publicar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Guardar en Creaciones</span></label>
+        <button class="use" id="av-generar">Generar</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Selector con fotos (frente / manija / material) -->
   <div id="picker" class="overlay" hidden>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pk-title">
@@ -239,6 +247,7 @@
   <div id="toast" hidden role="status"></div>
 
   <script src="vista.js"></script>
+  <script src="visor.js"></script>
   <script src="avanzado.js"></script>
   <script src="app.js"></script>
 </body>

@@ -9,7 +9,7 @@ module RoyalKitchens
   module Studio
     PLUGIN_ID   = "royal_kitchens_studio".freeze
     PLUGIN_NAME = "Royal Kitchens Studio".freeze
-    VERSION     = "0.1.0".freeze
+    VERSION     = "0.2.0".freeze
 
     unless defined?(@registrado)
       @registrado = true

@@ -39,6 +39,8 @@ function setImg(img, url, fallback) {
 
 // Categoría del catálogo -> familia de KitchenCreator (para «Avanzado»).
 const FAMILIA_DE_CATEGORIA = { Gabinetes: "gabinete", Alacenas: "alacena", Esquineros: "esquinero" };
+// Por ahora Studio solo trabaja con gabinetes; alacena y esquinero vienen después.
+const FAMILIAS_ACTIVAS = ["gabinete"];
 const SPEC_LABELS = { sku: "SKU", ancho_mm: "Ancho", alto_mm: "Alto", fondo_mm: "Fondo" };
 
 const S = {
@@ -51,7 +53,7 @@ const S = {
   opciones: { medidas: {}, frentes: [], tiradores: [], materiales: [], familias: {} },
   manifiestos: {}, rcc: null,
   sec: "proyecto", lista: "catalogo", q: "", cat: null,
-  mod: null, tab: "diseno", av: {},
+  mod: null, avAbierto: false, av: {},
   csv: null,
 };
 
@@ -98,7 +100,7 @@ window.RKS = {
     if (!r.ok) return aviso("Error: " + (r.error || "no se pudo leer el archivo"));
     if (!S.rcc) return aviso("Error: falta Royal Catalog Creator 1.2+");
     const imp = S.rcc.construirImportacion(r);
-    S.csv = { imp, sel: new Set(imp.filas.map((f, i) => (f.estado !== "error" ? i : -1)).filter((i) => i >= 0)), hechos: {} };
+    S.csv = { imp, sel: new Set(imp.filas.map((f, i) => (csvUsable(f) ? i : -1)).filter((i) => i >= 0)), hechos: {} };
     pintarCsv();
   },
   onPlantilla(r) {
@@ -144,6 +146,8 @@ function pintarSeccion() {
   const navSel = S.sec === "lista" || S.sec === "modulo" ? (S.mod && S.mod._source === "csv" ? "csv" : S.lista) : S.sec;
   $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.sec === navSel));
   ["proyecto", "lista", "modulo", "csv", "ajustes"].forEach((s) => { $("#sec-" + s).hidden = S.sec !== s; });
+  if (S.sec !== "modulo") S.avAbierto = false;
+  $("#avanzado").hidden = !S.avAbierto;
   if (S.sec === "proyecto") pintarProyecto();
   if (S.sec === "lista") pintarLista();
   if (S.sec === "modulo") pintarModulo();
@@ -152,8 +156,9 @@ function pintarSeccion() {
 }
 
 function contadores() {
-  $("#n-catalogo").textContent = S.modulos.filter((m) => m._source !== "creaciones").length;
-  $("#n-creaciones").textContent = S.modulos.filter((m) => m._source === "creaciones").length;
+  const activos = S.modulos.filter(activo);
+  $("#n-catalogo").textContent = activos.filter((m) => m._source !== "creaciones").length;
+  $("#n-creaciones").textContent = activos.filter((m) => m._source === "creaciones").length;
 }
 
 function pintarDeps() {
@@ -192,7 +197,7 @@ function pintarPreviewProyecto() {
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
     d31_z2_contenido: "2", d32_z2_cant_cajones: "3", b01_gola_o_tirador: "1", a02_alto_zoclo: "100mm" }, { ancho: 600, alto });
-  $("#pr-preview").innerHTML = RKVista.svg(lay, disenoSvg(g, false));
+  visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto");
   $("#pr-preview-note").textContent = "Ejemplo: gabinete de 600 mm con puerta doble y 3 cajones.";
 }
 
@@ -365,7 +370,11 @@ function filaMedida(k, valor, onCambio, deshabilitado, etiqueta) {
 }
 
 // ==== Catálogo / Creaciones ====================================================
+function activo(m) {
+  return FAMILIAS_ACTIVAS.includes(familiaDe(m));
+}
 function enLista(m) {
+  if (!activo(m)) return false;
   return S.lista === "creaciones" ? m._source === "creaciones" : m._source !== "creaciones";
 }
 
@@ -376,15 +385,16 @@ function pintarLista() {
   const acc = $("#ls-actions");
   acc.innerHTML = "";
   if (cre) {
-    acc.innerHTML = `<button class="key" data-nuevo="gabinete">+ Gabinete</button><button class="key" data-nuevo="alacena">+ Alacena</button>` +
-      `<button class="key" data-nuevo="esquinero">+ Esquinero</button><button class="use" id="ls-csv">Crear desde CSV</button>`;
+    acc.innerHTML = FAMILIAS_ACTIVAS.map((f) => `<button class="key" data-nuevo="${f}">+ ${esc((S.manifiestos[f] || {}).titulo || f)}</button>`).join("") +
+      `<button class="use" id="ls-csv">Crear desde CSV</button>`;
     $$("[data-nuevo]", acc).forEach((b) => (b.onclick = () => nuevoModulo(b.dataset.nuevo)));
     $("#ls-csv", acc).onclick = () => irA("csv");
   }
   const enPanel = S.modulos.filter(enLista);
-  const cats = (cre ? [...new Set(enPanel.map((m) => m.category))] : S.categorias).filter(Boolean);
+  const cats = [...new Set(enPanel.map((m) => m.category))].filter(Boolean);
   const chips = $("#chips");
   chips.innerHTML = "";
+  chips.hidden = cats.length < 2;
   [["", "Todas"]].concat(cats.map((c) => [c, c])).forEach(([v, t]) => {
     const b = document.createElement("button");
     b.className = "chip" + ((S.cat || "") === v ? " active" : "");
@@ -412,10 +422,9 @@ function tarjeta(m) {
   const sku = (m.specs && m.specs.sku) || "";
   c.innerHTML = `<div class="vents" aria-hidden="true"><i></i><i></i><i></i></div>` +
     (per ? `<span class="badge">Personalizado</span>` : "") +
-    `<div class="screen"><img loading="lazy" alt=""></div><div class="body"><div class="name">${esc(m.name)}</div>` +
+    `<div class="screen preview-mini" aria-hidden="true">${svgModulo(m)}</div><div class="body"><div class="name">${esc(m.name)}</div>` +
     `<div class="meta">${esc(m.category)}${sku ? " · " + esc(sku) : ""}</div>` +
     `<div class="card-actions"><button class="use sm">Configurar</button><button class="key sm" title="Insertar como está">Usar</button></div></div>`;
-  setImg($("img", c), thumbURL(m));
   const [conf, usar] = $$("button", c);
   conf.onclick = (e) => { e.stopPropagation(); abrirModulo(m); };
   usar.onclick = (e) => { e.stopPropagation(); insertar(m, null); };
@@ -424,12 +433,6 @@ function tarjeta(m) {
   return c;
 }
 
-function thumbURL(m) {
-  if (m._abs) return fileURL(m.thumb_path);
-  if (!S.carpetas.catalogo) return THUMB_FALLBACK;
-  const rel = m.thumb_path || `modules/${m._dir || m.id}/${m.thumbnail || "thumb.png"}`;
-  return fileURL(S.carpetas.catalogo).replace(/\/$/, "") + "/" + rel;
-}
 
 // ==== Página del módulo =========================================================
 function familiaDe(m) {
@@ -467,11 +470,24 @@ function disenoDe(m) {
   return d;
 }
 
-function abrirModulo(m, tab) {
+function abrirModulo(m, avanzado) {
   S.mod = m;
-  S.tab = tab || "diseno";
+  S.avAbierto = !!avanzado;
   S.sec = "modulo";
   pintarSeccion();
+}
+
+function abrirAvanzado(on) {
+  S.avAbierto = on;
+  $("#avanzado").hidden = !on;
+  if (on) pintarAvanzado(S.mod);
+  else pintarPreviewModulo(S.mod);
+}
+
+/* El diseño cambió en la barra: «Avanzado» se vuelve a armar desde él. */
+function cambioDiseno(m) {
+  delete S.av[m.id];
+  guardarProyecto();
 }
 
 function nuevoModulo(fam) {
@@ -479,7 +495,7 @@ function nuevoModulo(fam) {
   if (!man) return aviso("Error: falta el manifiesto de " + fam + " (Royal Catalog Creator)");
   const cat = Object.keys(FAMILIA_DE_CATEGORIA).find((k) => FAMILIA_DE_CATEGORIA[k] === fam);
   abrirModulo({ id: "nuevo-" + fam, name: "Nuevo " + man.titulo.toLowerCase(), category: cat, familia: fam,
-    _source: "nuevo", _virtual: true, specs: {}, features: {} }, "avanzado");
+    _source: "nuevo", _virtual: true, specs: {}, features: {} }, true);
 }
 
 function pintarModulo() {
@@ -490,39 +506,38 @@ function pintarModulo() {
   $("#md-stamp").textContent = { creaciones: "Creación personalizada", csv: "Fila del CSV", nuevo: "Módulo nuevo" }[m._source] || "Catálogo";
   $("#md-name").textContent = m.name;
   $("#md-tags").innerHTML = Object.values(m.features || {}).flat().map((t) => `<span class="tag">${esc(t)}</span>`).join("");
-  setImg($("#md-thumb"), m._virtual ? placeholder("Se genera al terminar") : thumbURL(m));
-  $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === S.tab));
-  $("#tab-diseno").hidden = S.tab !== "diseno";
-  $("#tab-avanzado").hidden = S.tab !== "avanzado";
-  $$(".tab")[0].disabled = !!m._virtual;
+  // Módulo nuevo o fila del CSV: no hay diseño que heredar, todo se define en «Avanzado».
+  $("#tab-diseno").hidden = !!m._virtual;
+  $(".mod-body").classList.toggle("solo-vista", !!m._virtual);
 
   const specs = $("#md-specs");
   specs.innerHTML = "";
   Object.entries(m.specs || {}).forEach(([k, v]) => specs.insertAdjacentHTML("beforeend", `<div>${esc(SPEC_LABELS[k] || k)}</div><div>${esc(v)}${k.endsWith("_mm") ? " mm" : ""}</div>`));
 
-  if (S.tab === "diseno") pintarDiseno(m, d, real);
-  else pintarAvanzado(m);
+  if (!m._virtual) pintarDiseno(m, d, real);
+  pintarPreviewModulo(m);
+  if (S.avAbierto) pintarAvanzado(m);
 }
 
 function pintarDiseno(m, d, real) {
   const personal = d.modo === "personal";
   const fc = cfgFamilia(m);
   const gola = esGola(m);
-  pintarSeg($("#md-modo"), [["global", "Configuración del proyecto"], ["personal", "Personalizar este módulo"]], d.modo, (v) => {
+  pintarSeg($("#md-modo"), [["global", "Del proyecto"], ["personal", "Personalizado"]], d.modo, (v) => {
     if (v === "personal") {
       const g = disenoDe(m);
       S.proyecto.modulos[m.id] = { personalizado: true, frente: g.frente, manija: g.manija, material: g.material, tarja: g.tarja,
         medidas: { ancho: g.ancho, alto: g.alto, fondo: g.fondo } };
     } else delete S.proyecto.modulos[m.id];
-    guardarProyecto();
+    cambioDiseno(m);
     pintarModulo();
   });
   $("#md-modo-note").textContent = personal
     ? "Este módulo tiene su propio diseño; el resto del proyecto no cambia."
-    : "Sigue el diseño del proyecto (sección Proyecto). Para cambiar solo este, elige «Personalizar este módulo».";
+    : "Sigue el diseño del proyecto (sección Proyecto). Para cambiar solo este, elige «Personalizado».";
 
   const o = S.proyecto.modulos[m.id];
-  const set = (k, v) => { o.medidas = o.medidas || {}; o.medidas[k] = v; guardarProyecto(); pintarPreviewModulo(m); };
+  const set = (k, v) => { o.medidas = o.medidas || {}; o.medidas[k] = v; cambioDiseno(m); pintarPreviewModulo(m); };
   const md = $("#md-medidas");
   md.innerHTML = "";
   const totales = !real;
@@ -532,37 +547,47 @@ function pintarDiseno(m, d, real) {
   // Tarja solo donde se puede aplicar de verdad (creación con receta).
   $("#md-tarja-wrap").hidden = !(fc && fc.tarja && real);
   pintarSeg($("#md-tarja"), [["0", "No"], ["1", "Sí · refuerzos para fregadero"]], d.tarja ? "1" : "0", (v) => {
-    o.tarja = v === "1"; guardarProyecto(); pintarModulo();
+    o.tarja = v === "1"; cambioDiseno(m); pintarModulo();
   }, !personal || !real);
 
-  pintarPickers($("#md-pickers"), personal ? o : d, personal, () => { guardarProyecto(); pintarModulo(); }, { gola });
+  pintarPickers($("#md-pickers"), personal ? o : d, personal, () => { cambioDiseno(m); pintarModulo(); }, { gola });
   $("#md-error").hidden = true;
   $("#md-insert").textContent = real ? "Insertar con este diseño" : "Insertar con estas medidas";
   $("#md-insert").onclick = () => insertar(m, d);
   $("#md-asis").onclick = () => insertar(m, null);
-  pintarPreviewModulo(m);
+}
+
+/* Alzado SVG del módulo: con su diseño efectivo, o con las variables de
+   «Avanzado» (+avanzado+, solo gabinete). */
+function svgModulo(m, avanzado) {
+  if (avanzado && S.av[m.id] && familiaDe(m) === "gabinete") {
+    const st = S.av[m.id];
+    const v = st.reg.valores;
+    const lay = RKVista.desdeValores(v, { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
+    return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija: v.d16_z1_tirador_tipo || v.e01_tirador_tipo,
+      material: st.material }, v.b01_gola_o_tirador === "2"));
+  }
+  const d = disenoDe(m);
+  const lay = m.receta && familiaDe(m) === "gabinete"
+    ? RKVista.desdeValores(m.receta.valores, { ancho: d.ancho, alto: d.alto })
+    : RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
+  return RKVista.svg(lay, disenoSvg(d, esGola(m)));
 }
 
 function pintarPreviewModulo(m) {
-  const d = disenoDe(m);
-  const gola = esGola(m);
-  let lay;
-  if (S.tab === "avanzado" && S.av[m.id] && familiaDe(m) === "gabinete") {
-    const v = S.av[m.id].reg.valores;
-    lay = RKVista.desdeValores(v, { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
-    $("#md-preview").innerHTML = RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija: v.d16_z1_tirador_tipo || v.e01_tirador_tipo,
-      material: S.av[m.id].material }, v.b01_gola_o_tirador === "2"));
-    $("#md-preview-note").textContent = "Vista según las variables de «Avanzado».";
-    return;
-  }
-  if (m.receta && familiaDe(m) === "gabinete") lay = RKVista.desdeValores(m.receta.valores, { ancho: d.ancho, alto: d.alto });
-  else {
-    lay = RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
-  }
-  $("#md-preview").innerHTML = RKVista.svg(lay, disenoSvg(d, gola));
-  $("#md-preview-note").textContent = tieneReceta(m)
-    ? "Así quedará: al insertar se regenera la pieza con este diseño."
+  if (!m) return;
+  // Módulo nuevo / fila CSV: la vista sigue a «Avanzado» (no tiene otro diseño).
+  const porAvanzado = !!m._virtual && !!estadoAvanzado(m);
+  visor("#md-preview").mostrar(svgModulo(m, porAvanzado), m.id);
+  if (S.avAbierto && S.av[m.id]) visor("#av-preview").mostrar(svgModulo(m, true), m.id);
+  $("#md-preview-note").textContent = porAvanzado ? "Vista según las variables de «Avanzado»."
+    : tieneReceta(m) ? "Así quedará: al insertar se regenera la pieza con este diseño."
     : "Vista previa del diseño. Este módulo del catálogo se inserta con su diseño original (solo cambian las medidas); para fabricarlo con este diseño usa «Avanzado».";
+}
+
+// Un visor (zoom + desplazamiento) por contenedor de vista previa.
+function visor(sel) {
+  return RKVisor.crear($(sel));
 }
 
 // ---- Avanzado ------------------------------------------------------------------
@@ -620,6 +645,7 @@ function equivalenteGabinete(man, v, m) {
 function pintarAvanzado(m) {
   const st = estadoAvanzado(m);
   const form = $("#av-form");
+  $("#av-title").textContent = m.name;
   if (!st) {
     form.innerHTML = `<p class="empty">${S.rcc ? "Esta familia no tiene manifiesto en Royal Catalog Creator" : "Falta Royal Catalog Creator 1.2+"}</p>`;
     $("#av-generar").disabled = true;
@@ -689,6 +715,11 @@ function insertar(m, d) {
   bridge("insertar", JSON.stringify({ id: m.id, eleccion }));
 }
 
+// Por ahora solo se generan las filas de familias activas (gabinete).
+function csvUsable(f) {
+  return f.estado !== "error" && FAMILIAS_ACTIVAS.includes(f.familia);
+}
+
 // ==== CSV ============================================================================
 function pintarCsv() {
   const c = S.csv;
@@ -696,7 +727,7 @@ function pintarCsv() {
   $("#csv-tabla-wrap").hidden = !c;
   if (!c) return;
   const imp = c.imp;
-  const ok = imp.filas.filter((f) => f.estado !== "error").length;
+  const ok = imp.filas.filter(csvUsable).length;
   $("#csv-resumen").textContent = `${imp.filas.length} filas · ${ok} listas · ${imp.filas.length - ok} con error · ${c.sel.size} seleccionadas`;
   $("#csv-generar").disabled = !c.sel.size || !!c.cola;
   const t = $("#csv-tabla");
@@ -706,17 +737,17 @@ function pintarCsv() {
     const man = S.manifiestos[f.familia];
     const msgs = [f.error].concat(Object.values(f.errores || {})).filter(Boolean);
     const hecho = c.hechos[i];
-    const estado = hecho ? hecho.estado : f.estado;
+    const estado = hecho ? hecho.estado : (FAMILIAS_ACTIVAS.includes(f.familia) ? f.estado : "pendiente");
     const tr = document.createElement("tr");
     tr.className = "st-" + estado;
-    tr.innerHTML = `<td><input type="checkbox" ${c.sel.has(i) ? "checked" : ""} ${f.estado === "error" ? "disabled" : ""}></td>` +
+    tr.innerHTML = `<td><input type="checkbox" ${c.sel.has(i) ? "checked" : ""} ${csvUsable(f) ? "" : "disabled"}></td>` +
       `<td><b>${esc(f.nombre || "—")}</b></td><td>${esc(man ? man.titulo : f.familia || "—")}</td>` +
-      `<td><span class="pill">${esc({ ok: "Lista", aviso: "Con avisos", error: "Error", generado: "Generada", fallo: "Falló" }[estado] || estado)}</span></td>` +
-      `<td class="msgs">${esc(hecho && hecho.msg ? hecho.msg : msgs.concat(f.avisos || []).slice(0, 3).join(" · "))}</td>` +
-      `<td><button class="key sm" ${f.valores ? "" : "disabled"}>Editar</button></td>`;
+      `<td><span class="pill">${esc({ ok: "Lista", aviso: "Con avisos", error: "Error", generado: "Generada", fallo: "Falló", pendiente: "Solo gabinete" }[estado] || estado)}</span></td>` +
+      `<td class="msgs">${esc(estado === "pendiente" ? "Por ahora Studio solo genera gabinetes" : hecho && hecho.msg ? hecho.msg : msgs.concat(f.avisos || []).slice(0, 3).join(" · "))}</td>` +
+      `<td><button class="key sm" ${f.valores && estado !== "pendiente" ? "" : "disabled"}>Editar</button></td>`;
     $("input", tr).onchange = (e) => { e.target.checked ? c.sel.add(i) : c.sel.delete(i); pintarCsv(); };
     $("button", tr).onclick = () => abrirModulo({ id: "csv-" + i, name: f.nombre, category: man && man.titulo, familia: f.familia,
-      _source: "csv", _virtual: true, valores: f.valores, specs: {}, features: {} }, "avanzado");
+      _source: "csv", _virtual: true, valores: f.valores, specs: {}, features: {} }, true);
     tb.appendChild(tr);
   });
   t.appendChild(tb);
@@ -811,7 +842,8 @@ function aviso(msg) {
 }
 
 $$(".nav-btn").forEach((b) => (b.onclick = () => irA(b.dataset.sec)));
-$$(".tab").forEach((t) => (t.onclick = () => { S.tab = t.dataset.tab; pintarModulo(); }));
+$("#md-avanzado").onclick = () => abrirAvanzado(true);
+$("#av-close").onclick = () => abrirAvanzado(false);
 $("#md-back").onclick = () => irA(S.mod && S.mod._source === "csv" ? "csv" : S.lista);
 $("#q").addEventListener("input", (e) => { S.q = e.target.value; pintarLista(); });
 $("#pk-close").onclick = () => ($("#picker").hidden = true);
@@ -820,7 +852,11 @@ $("#picker").addEventListener("click", (e) => { if (e.target.id === "picker") $(
 $("#csv-importar").onclick = () => { $("#csv-importar").disabled = true; bridge("importar_csv"); };
 $("#csv-plantilla").onclick = () => { $("#csv-plantilla").disabled = true; bridge("plantilla"); };
 $("#csv-generar").onclick = csvGenerar;
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#picker").hidden = true; });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!$("#picker").hidden) $("#picker").hidden = true;
+  else if (S.avAbierto) abrirAvanzado(false);
+});
 
 irA("proyecto");
 bridge("listo");
