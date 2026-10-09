@@ -51,7 +51,7 @@ const S = {
   listo: false,
   modulos: [], categorias: [],
   opciones: { medidas: {}, frentes: [], tiradores: [], materiales: [], familias: {} },
-  manifiestos: {}, rcc: null,
+  manifiestos: {}, rcc: window.RCC_CORE || null, // ui/receta.js
   sec: "proyecto", lista: "catalogo", q: "", cat: null,
   mod: null, avAbierto: false, av: {},
   csv: null,
@@ -78,7 +78,6 @@ window.RKS = {
     S.actual = d.actual || { folio: null };
     S.estados = d.estados || [];
     S.transiciones = d.transiciones || {};
-    if (d.rcc_core && !S.rcc) S.rcc = cargarRcc(d.rcc_core);
     S.listo = true;
     $("#ver").textContent = "v" + S.version;
     pintarDeps();
@@ -120,7 +119,7 @@ window.RKS = {
     $("#csv-importar").disabled = false;
     if (!r || r.cancelado) return;
     if (!r.ok) return aviso("Error: " + (r.error || "no se pudo leer el archivo"));
-    if (!S.rcc) return aviso("Error: falta Royal Catalog Creator 1.2+");
+    if (!S.rcc) return aviso("Error: no cargó ui/receta.js");
     const imp = S.rcc.construirImportacion(r);
     S.csv = { imp, sel: new Set(imp.filas.map((f, i) => (csvUsable(f) ? i : -1)).filter((i) => i >= 0)), hechos: {} };
     pintarCsv();
@@ -166,24 +165,6 @@ window.RKS = {
     aviso("Error: " + (r && r.error));
   },
 };
-
-/* Código del formulario de Royal Catalog Creator evaluado aparte, con un
-   documento de mentira (su init() espera DOMContentLoaded y nunca corre). Da
-   window.RCC_CORE: validación, aplanado e importación idénticos al creador. */
-function cargarRcc(src) {
-  const w = {};
-  const doc = {
-    readyState: "loading", addEventListener() {}, querySelector() { return null; },
-    querySelectorAll() { return []; }, createElement() { return {}; },
-  };
-  try {
-    new Function("window", "document", "console", src)(w, doc, console);
-    return w.RCC_CORE || null;
-  } catch (e) {
-    console.error("RCC_CORE", e);
-    return null;
-  }
-}
 
 // ==== Navegación =============================================================
 function irA(sec) {
@@ -726,7 +707,7 @@ function pintarAvanzado(m) {
   const form = $("#av-form");
   $("#av-title").textContent = m.name;
   if (!st) {
-    form.innerHTML = `<p class="empty">${S.rcc ? "Esta familia no tiene manifiesto en Royal Catalog Creator" : "Falta Royal Catalog Creator 1.2+"}</p>`;
+    form.innerHTML = `<p class="empty">${S.rcc ? "Esta familia todavía no tiene manifiesto en Studio" : "No cargó ui/receta.js"}</p>`;
     $("#av-generar").disabled = true;
     return;
   }

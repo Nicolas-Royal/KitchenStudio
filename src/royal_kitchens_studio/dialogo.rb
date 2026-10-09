@@ -108,7 +108,7 @@ module RoyalKitchens
         data = { "dependencias" => deps, "proyecto" => Proyecto.leer, "version" => VERSION,
                  "usuario" => Usuario.actual, "actual" => Sincronia.actual,
                  "estados" => Registro::ESTADOS, "transiciones" => Registro.transiciones,
-                 "opciones" => Catalogo.para_ui,
+                 "opciones" => Catalogo.para_ui, "manifiestos" => Familias.manifiestos,
                  "carpetas" => { "proyectos" => Registro.raiz } }
         return data unless Puente.catalogo?
 
@@ -126,8 +126,6 @@ module RoyalKitchens
           cc = RoyalKitchen::CatalogCreator
           data["carpetas"]["creador"]       = cc.project_root
           data["carpetas"]["creador_valido"] = cc.project_root_valido?
-          data["manifiestos"] = cc.manifiestos_activos.to_h
-          data["rcc_core"]    = Puente.rcc_core_js
         end
         data
       end

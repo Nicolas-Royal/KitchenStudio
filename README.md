@@ -31,7 +31,7 @@ tarjetas y página muestran el alzado generado.
   - Creaciones: el diseño se aplica de verdad (se regenera desde su receta).
     Módulos del catálogo: se aplican las medidas; el diseño es vista previa
     (para fabricarlo con ese diseño, «Avanzado»).
-- **Avanzado…** (ventana emergente): todas las variables del manifiesto de Royal Catalog Creator
+- **Avanzado…** (ventana emergente): todas las variables del manifiesto de la familia
   para la familia del módulo, con sus mismas reglas (visibilidad, valores
   fijados, presupuesto de cajones, errores). **Generar** inserta en la escena
   y/o guarda en Creaciones.

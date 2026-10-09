@@ -42,15 +42,6 @@ module RoyalKitchens
       rescue ArgumentError
         false
       end
-
-      # Código del formulario de KitchenCreator (validación, aplanado,
-      # importación). La interfaz lo evalúa aparte y usa window.RCC_CORE: una
-      # sola implementación de las reglas, no un tercer espejo.
-      def rcc_core_js
-        return nil unless creador?
-        path = File.join(RoyalKitchen::CatalogCreator::HTML_DIR, "js", "app.js")
-        File.exist?(path) ? File.read(path, encoding: "utf-8") : nil
-      end
     end
   end
 end

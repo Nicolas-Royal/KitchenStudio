@@ -1,17 +1,16 @@
 /* Pruebas de la UI sin navegador:  node tests/ui.test.js
-   Necesita el repo hermano KitchenCreator (manifiestos + RCC_CORE). */
+   Todo sale de este repo: ui/*.js, familias/*.json y catalogo/. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 
-const RAIZ = path.join(__dirname, "..", "..");
-const KC = path.join(RAIZ, "KitchenCreator", "plugin", "royal_catalog_creator");
+const FAM = path.join(__dirname, "..", "src", "royal_kitchens_studio", "familias");
 const UI = path.join(__dirname, "..", "src", "royal_kitchens_studio", "ui");
 
 const doc = { readyState: "loading", addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; }, createElement() { return {}; } };
 const w = {};
-new Function("window", "document", "console", fs.readFileSync(path.join(KC, "html", "js", "app.js"), "utf8"))(w, doc, console);
+new Function("window", fs.readFileSync(path.join(UI, "receta.js"), "utf8"))(w);
 const rcc = w.RCC_CORE;
 new Function("window", fs.readFileSync(path.join(UI, "vista.js"), "utf8"))(w);
 new Function("window", "document", "RKVista", fs.readFileSync(path.join(UI, "avanzado.js"), "utf8"))(w, doc, w.RKVista);
@@ -21,9 +20,9 @@ let n = 0;
 function prueba(nombre, fn) { fn(); n++; console.log("ok - " + nombre); }
 
 const man = {};
-["gabinete", "alacena", "esquinero"].forEach((f) => { man[f] = JSON.parse(fs.readFileSync(path.join(KC, "manifest", f + ".json"), "utf8")); });
+["gabinete", "alacena", "esquinero"].forEach((f) => { man[f] = JSON.parse(fs.readFileSync(path.join(FAM, f + ".json"), "utf8")); });
 
-prueba("RCC_CORE expone lo que usa Studio", () => {
+prueba("receta.js expone lo que usa Studio", () => {
   ["defaultValores", "erroresConfig", "flatten", "nombresDivisores", "fieldVisible", "fieldEnabled", "groupEnabled",
    "valorForzado", "aplicarForzados", "effectiveValue", "construirImportacion", "autoNombre", "presupuestoCajones"]
     .forEach((k) => assert.strictEqual(typeof rcc[k], "function", k));

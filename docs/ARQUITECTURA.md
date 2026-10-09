@@ -2,23 +2,26 @@
 
 ## Principio
 
-Studio es la **interfaz**; KitchenCatalog y KitchenCreator son los **motores**.
-Ninguna regla de negocio se reescribe aquí:
+Studio es el **único plugin**: proyectos, catálogo de opciones, reglas de
+fabricación y recetas de muebles viven y se editan aquí. KitchenCatalog y
+KitchenCreator fueron los motores de las versiones 0.1–0.3; lo que todavía
+se usa de ellos se va trayendo (tabla de abajo) y después se quitan.
 
-| Necesidad | Se toma de |
-|---|---|
-| Módulos del catálogo, creaciones, miniaturas | `KitchenCatalog::Catalog`, `Thumbnails`, `Config` |
-| Fotos y opciones de frente/manija/material, mapeo a variables | `KitchenCatalog::Configurador.para_ui` (`catalog/referencias/opciones.json`) |
-| Insertar (tal cual, o creación con diseño) | `KitchenCatalog::Inserter.place` |
-| Material en el modelo (`.skm` → foto → tono aproximado) | `KitchenCatalog::Inserter.asegurar_material` |
-| Manifiestos de familia | `RoyalKitchen::CatalogCreator.manifiestos_activos` |
-| Formulario: visibilidad, forzados, validación, aplanado, importación | `window.RCC_CORE` = el `app.js` de KitchenCreator evaluado aparte |
-| Generar en la escena | `CatalogCreator.instanciar_receta` |
-| Guardar en Creaciones | `CatalogCreator.generar` con `publicar: true, purgar: false` |
-| Leer CSV/Excel, plantilla | `CatalogCreator.importar_archivo`, `exportar_plantilla` |
+## Migración (fase 2)
 
-`puente.rb` comprueba versiones mínimas (catálogo 0.3.0, creador 1.2.0) y
-entrega el código de `RCC_CORE`.
+| Necesidad | Hoy | Paso |
+|---|---|---|
+| Fotos y opciones de frente/manija/material, mapeo a variables, reglas | **Studio**: `catalogo.rb` + `catalogo/` | — |
+| Manifiestos de familia | **Studio**: `familias.rb` + `familias/*.json` | 2a ✓ |
+| Formulario: visibilidad, forzados, validación, aplanado, importación | **Studio**: `ui/receta.js` (`window.RCC_CORE`) | 2a ✓ |
+| Generar en la escena / guardar como creación | `CatalogCreator.instanciar_receta`, `generar` | 2b |
+| Componente base (`GABINETE.skp` …) | `KitchenCreator/Main Components` | 2b |
+| Leer CSV/Excel, plantilla | `CatalogCreator.importar_archivo`, `exportar_plantilla` | 2b |
+| Módulos del catálogo, creaciones, miniaturas | `KitchenCatalog::Catalog`, `Thumbnails`, `Config` | 2c |
+| Insertar módulo / material en el modelo | `KitchenCatalog::Inserter.place`, `asegurar_material` | 2c |
+
+`puente.rb` comprueba si los dos plugins viejos están (catálogo 0.3.0,
+creador 1.2.0) mientras queden pasos sin migrar; se borra al terminar 2c.
 
 ## Archivos
 
@@ -29,7 +32,9 @@ src/royal_kitchens_studio/
   usuario.rb    usuario de esta PC (nombre, sede, rol)
   registro.rb   registro de proyectos en el almacén
   sincronia.rb  copia de trabajo local <-> almacén
-  puente.rb     dependencias + RCC_CORE
+  puente.rb     plugins viejos todavía usados (se borra al terminar la migración)
+  catalogo.rb   opciones (frente, manija, material) + reglas de fabricación
+  familias.rb   manifiestos de familia (familias/*.json)
   proyecto.rb   configuración del proyecto (pura + lectura/escritura en el .skp)
   dialogo.rb    HtmlDialog y callbacks (respuestas: window.RKS.<fn>)
   ui/index.html secciones: proyectos, proyecto, lista (catálogo/creaciones), módulo, csv, ajustes
@@ -37,6 +42,8 @@ src/royal_kitchens_studio/
   ui/app.js     controlador
   ui/vista.js   RKVista: alzado SVG («Así se verá»); puro, se prueba en node
   ui/visor.js   RKVisor: marco con zoom/desplazamiento sobre el viewBox del SVG
+  ui/receta.js  RCC_CORE: reglas de las recetas (validar, aplanar, nombre, importar); puro
+  ui/reglas.js  RKReglas: manija por uso, Berlín/Lisa, MDF; puro
   ui/avanzado.js RKAvanzado: formulario de manifiesto + receta ↔ formulario
   ui/style.css  tokens y teclas de KitchenCatalog + layout de Studio
 ```
@@ -117,9 +124,9 @@ y llegan a la UI en `estado.transiciones`.
 
 ## Flujos
 
-- **Insertar con diseño (Diseño)** → `insertar {id, eleccion}` →
-  `Inserter.place`. Creación: `Configurador.cambios_receta` +
-  `instanciar_receta` (receta + cambios). Catálogo: solo medidas totales.
+- **Insertar con diseño (Diseño)** → `insertar {id, eleccion}`. Creación:
+  `Catalogo.cambios_receta` (reglas incluidas) + `instanciar_receta` (receta +
+  cambios). Catálogo: `Inserter.place`, solo medidas totales.
 - **Generar (Avanzado / fila CSV)** → `RCC_CORE.flatten` + `nombresDivisores`
   → `generar {familia, nombre, valores, divisores, material, insertar, publicar}`.
   El material se escribe como `c16_material_puerta` + `c22matpuertade =
