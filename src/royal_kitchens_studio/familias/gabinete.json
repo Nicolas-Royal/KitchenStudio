@@ -2,8 +2,7 @@
   "familia": "gabinete",
   "titulo": "Gabinete",
   "descripcion": "Gabinete inferior por zonas de fachada (GABINETE-BASE-ZONAS). Todas las variables se escriben en el gabinete padre; las piezas las leen con parent!.",
-  "componente_base": "Main Components/GABINETE.skp",
-  "salida_dir": "Output/Gabinetes",
+  "componente_base": "componentes/GABINETE.skp",
   "nombre_patron": "GAB-{LenX}-{b01_gola_o_tirador}{g01_perfil_tipo}[-Z1{d11_z1_contenido}{d15_z1_cant_puertas}{d12_z1_cant_cajones}][-Z2{d31_z2_contenido}{d35_z2_cant_puertas}{d32_z2_cant_cajones}]{h01_entrepano}{b02_tipo_cajon}",
   "catalogo": {
     "categoria": "Gabinetes",

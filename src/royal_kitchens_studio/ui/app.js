@@ -493,7 +493,7 @@ function familiaDe(m) {
   return m.receta_familia || m.familia || FAMILIA_DE_CATEGORIA[m.category] || null;
 }
 function tieneReceta(m) {
-  return m._source === "creaciones" && !!(S.deps.creador && S.deps.creador.ok);
+  return m._source === "creaciones" && !!m.receta;
 }
 function cfgFamilia(m) {
   return (S.opciones.familias || {})[familiaDe(m)] || null;
@@ -546,7 +546,7 @@ function cambioDiseno(m) {
 
 function nuevoModulo(fam) {
   const man = S.manifiestos[fam];
-  if (!man) return aviso("Error: falta el manifiesto de " + fam + " (Royal Catalog Creator)");
+  if (!man) return aviso("Error: falta el manifiesto de " + fam);
   const cat = Object.keys(FAMILIA_DE_CATEGORIA).find((k) => FAMILIA_DE_CATEGORIA[k] === fam);
   abrirModulo({ id: "nuevo-" + fam, name: "Nuevo " + man.titulo.toLowerCase(), category: cat, familia: fam,
     _source: "nuevo", _virtual: true, specs: {}, features: {} }, true);
@@ -1200,15 +1200,13 @@ function pintarAjustes() {
     ["proyectos", "Carpeta de proyectos", "Registro compartido. Hoy local; para trabajar entre sedes, apunta aquí a la carpeta del servidor u OneDrive."],
     ["catalogo", "Carpeta del catálogo", "Módulos del catálogo, fotos y opciones (referencias/)."],
     ["creaciones", "Creaciones personalizadas", "Donde se guardan las piezas únicas (.skp + receta)."],
-    ["creador", "Proyecto de Royal Catalog Creator", "Debe contener «Main Components» con los componentes base."],
   ];
   $("#aj-carpetas").innerHTML = "";
   filas.forEach(([k, t, d]) => {
     const row = document.createElement("div");
     row.className = "aj-row";
-    const malo = k === "creador" && S.carpetas.creador_valido === false;
     row.innerHTML = `<div class="grow"><strong>${esc(t)}</strong><span class="hint">${esc(d)}</span>` +
-      `<code class="${malo ? "bad" : ""}">${esc(S.carpetas[k] || "—")}</code></div>` +
+      `<code>${esc(S.carpetas[k] || "—")}</code></div>` +
       `<button class="key sm">Abrir</button><button class="key sm">Cambiar…</button>`;
     const [abrir, cambiar] = $$("button", row);
     abrir.onclick = () => bridge("abrir_carpeta", k);

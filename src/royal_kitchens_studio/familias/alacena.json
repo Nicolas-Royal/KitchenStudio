@@ -2,8 +2,7 @@
   "familia": "alacena",
   "titulo": "Alacena",
   "descripcion": "Módulo base de alacena (gabinete superior).",
-  "componente_base": "Main Components/ALACENA.skp",
-  "salida_dir": "Output/Alacenas",
+  "componente_base": "componentes/ALACENA.skp",
   "nombre_patron": "ALA-{LenX}-{divisor>f01cantdiv}div",
   "catalogo": { "categoria": "Alacenas", "ubicacion": "Alacena: va colgada en muro, sobre la cubierta." },
   "reglas_divisores": {

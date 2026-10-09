@@ -1,10 +1,9 @@
 "use strict";
 
-/* «Configuración avanzada»: todas las variables del manifiesto de
-   KitchenCreator para la familia del módulo. Visibilidad, habilitación,
-   valores forzados, errores y aplanado salen de window.RCC_CORE (el mismo
-   código del formulario de Royal Catalog Creator), así que las reglas son
-   exactamente las suyas. */
+/* «Configuración avanzada»: todas las variables del manifiesto de la
+   familia del módulo (familias/*.json). Visibilidad, habilitación, valores
+   forzados, errores y aplanado salen de window.RCC_CORE (ui/receta.js), las
+   mismas reglas que la importación de CSV. */
 window.RKAvanzado = (function () {
   function el(tag, cls, txt) {
     const n = document.createElement(tag);

@@ -1,35 +1,24 @@
 module RoyalKitchens
   module Studio
-    # Comprobación de los dos plugins que Studio usa como motores. Studio no
-    # copia su lógica: si falta uno, lo dice en la interfaz en vez de fallar.
+    # Lo único que Studio todavía toma de otro plugin: KitchenCatalog (lista de
+    # módulos y creaciones, insertar un módulo del catálogo, crear el material).
+    # Se borra al terminar la migración (fase 2c, docs/ARQUITECTURA.md).
     module Puente
       module_function
 
-      MINIMOS = { "catalogo" => "0.3.0", "creador" => "1.2.0" }.freeze
+      MINIMO = "0.3.0".freeze
 
       def catalogo?
         defined?(KitchenCatalog::Catalog) && defined?(KitchenCatalog::Configurador) &&
           KitchenCatalog::Catalog.respond_to?(:scan_creaciones) ? true : false
       end
 
-      def creador?
-        defined?(RoyalKitchen::CatalogCreator) &&
-          RoyalKitchen::CatalogCreator.respond_to?(:instanciar_receta) ? true : false
-      end
-
       def version_catalogo
         defined?(KitchenCatalog::VERSION) ? KitchenCatalog::VERSION : nil
       end
 
-      def version_creador
-        defined?(RoyalKitchen::CatalogCreator::VERSION) ? RoyalKitchen::CatalogCreator::VERSION : nil
-      end
-
       def estado
-        {
-          "catalogo" => dep("Catálogo de Módulos", version_catalogo, MINIMOS["catalogo"], catalogo?),
-          "creador"  => dep("Royal Catalog Creator", version_creador, MINIMOS["creador"], creador?)
-        }
+        { "catalogo" => dep("Catálogo de Módulos", version_catalogo, MINIMO, catalogo?) }
       end
 
       def dep(nombre, version, minimo, cargado)

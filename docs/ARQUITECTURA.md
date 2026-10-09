@@ -14,14 +14,14 @@ se usa de ellos se va trayendo (tabla de abajo) y después se quitan.
 | Fotos y opciones de frente/manija/material, mapeo a variables, reglas | **Studio**: `catalogo.rb` + `catalogo/` | — |
 | Manifiestos de familia | **Studio**: `familias.rb` + `familias/*.json` | 2a ✓ |
 | Formulario: visibilidad, forzados, validación, aplanado, importación | **Studio**: `ui/receta.js` (`window.RCC_CORE`) | 2a ✓ |
-| Generar en la escena / guardar como creación | `CatalogCreator.instanciar_receta`, `generar` | 2b |
-| Componente base (`GABINETE.skp` …) | `KitchenCreator/Main Components` | 2b |
-| Leer CSV/Excel, plantilla | `CatalogCreator.importar_archivo`, `exportar_plantilla` | 2b |
+| Generar en la escena / guardar como creación | **Studio**: `generador.rb` + `motor/` | 2b ✓ |
+| Componente base | **Studio**: `componentes/GABINETE.skp` (alacena y esquinero: al activar esas familias) | 2b ✓ |
+| Leer CSV/Excel, plantilla | **Studio**: `Generador.importar_archivo`, `exportar_plantilla` | 2b ✓ |
 | Módulos del catálogo, creaciones, miniaturas | `KitchenCatalog::Catalog`, `Thumbnails`, `Config` | 2c |
 | Insertar módulo / material en el modelo | `KitchenCatalog::Inserter.place`, `asegurar_material` | 2c |
 
-`puente.rb` comprueba si los dos plugins viejos están (catálogo 0.3.0,
-creador 1.2.0) mientras queden pasos sin migrar; se borra al terminar 2c.
+`puente.rb` comprueba KitchenCatalog (0.3.0+) mientras quede el paso 2c;
+se borra al terminarlo. KitchenCreator ya no se usa.
 
 ## Archivos
 
@@ -32,9 +32,13 @@ src/royal_kitchens_studio/
   usuario.rb    usuario de esta PC (nombre, sede, rol)
   registro.rb   registro de proyectos en el almacén
   sincronia.rb  copia de trabajo local <-> almacén
-  puente.rb     plugins viejos todavía usados (se borra al terminar la migración)
+  puente.rb     KitchenCatalog, lo único que falta migrar (se borra al terminar 2c)
   catalogo.rb   opciones (frente, manija, material) + reglas de fabricación
   familias.rb   manifiestos de familia (familias/*.json)
+  generador.rb  generar desde una receta: validación de respaldo, una sola pasada
+                para insertar y/o guardar en Creaciones, limpieza de definiciones
+  motor/        inyección de atributos (engine), Mitered, CSV/xlsx y plantilla
+  componentes/  componentes base de cada familia (.skp)
   proyecto.rb   configuración del proyecto (pura + lectura/escritura en el .skp)
   dialogo.rb    HtmlDialog y callbacks (respuestas: window.RKS.<fn>)
   ui/index.html secciones: proyectos, proyecto, lista (catálogo/creaciones), módulo, csv, ajustes
@@ -125,10 +129,11 @@ y llegan a la UI en `estado.transiciones`.
 ## Flujos
 
 - **Insertar con diseño (Diseño)** → `insertar {id, eleccion}`. Creación:
-  `Catalogo.cambios_receta` (reglas incluidas) + `instanciar_receta` (receta +
+  `Catalogo.cambios_receta` (reglas incluidas) + `Generador.instanciar_receta` (receta +
   cambios). Catálogo: `Inserter.place`, solo medidas totales.
 - **Generar (Avanzado / fila CSV)** → `RCC_CORE.flatten` + `nombresDivisores`
-  → `generar {familia, nombre, valores, divisores, material, insertar, publicar}`.
+  → `generar {familia, nombre, valores, divisores, material, insertar, publicar}`
+  → `Generador.generar`.
   El material se escribe como `c16_material_puerta` + `c22matpuertade =
   "=c16_material_puerta"` en la fila, así viaja en la receta publicada.
 - **Receta → formulario** (`RKAvanzado.valoresDesdeFila`): quita unidades y
@@ -139,7 +144,8 @@ y llegan a la UI en `estado.transiciones`.
 
 ## Trabajo largo
 
-Generar tarda ~10–15 s por pieza (30 s si además se publica). `dialogo.rb`
+Generar tarda ~15 s por pieza (insertar y guardar en Creaciones van en la
+misma pasada). `dialogo.rb`
 suelta el callback (`UI.start_timer`) para que la interfaz pinte «Trabajando…»
 antes; SketchUp puede mostrar su aviso «la operación está tardando».
 

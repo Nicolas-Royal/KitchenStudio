@@ -2,8 +2,7 @@
   "familia": "esquinero",
   "titulo": "Esquinero",
   "descripcion": "Módulo base de esquinero.",
-  "componente_base": "Main Components/ESQUINERO.skp",
-  "salida_dir": "Output/Esquineros",
+  "componente_base": "componentes/ESQUINERO.skp",
   "nombre_patron": "ESQ-{LenX}-{divisor>f01cantdiv}div",
   "catalogo": { "categoria": "Esquineros", "ubicacion": "Esquinero: resuelve la esquina entre dos tramos de muebles." },
   "reglas_union": {
