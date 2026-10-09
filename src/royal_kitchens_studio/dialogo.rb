@@ -50,6 +50,16 @@ module RoyalKitchens
         cb(dlg, "abrir_carpeta")     { |cual| abrir_carpeta(cual) }
         cb(dlg, "cambiar_carpeta")   { |cual| cambiar_carpeta(cual); enviar_estado(dlg) }
         cb(dlg, "abrir_plugin")      { |cual| abrir_plugin(cual) }
+        # Registro de proyectos
+        cb(dlg, "proyectos_listar")  { |_| responder(dlg, "onProyectos", Registro.listar) }
+        cb(dlg, "proyecto_detalle")  { |folio| responder(dlg, "onProyectoDetalle", detalle(folio)) }
+        cb(dlg, "proyecto_crear")    { |json| en_segundo_plano(dlg, "onProyectoAbierto") { crear_proyecto(JSON.parse(json)) } }
+        cb(dlg, "proyecto_abrir")    { |json| en_segundo_plano(dlg, "onProyectoAbierto") { abrir_proyecto(JSON.parse(json)) } }
+        cb(dlg, "proyecto_datos")    { |json| responder(dlg, "onProyectoDetalle", guardar_datos(JSON.parse(json))) }
+        cb(dlg, "proyecto_estado")   { |json| responder(dlg, "onProyectoDetalle", cambiar_estado(JSON.parse(json))) }
+        cb(dlg, "proyecto_subir")    { |nota| subir_con_nota(nota) }
+        cb(dlg, "proyecto_resolver") { |json| en_segundo_plano(dlg, "onProyectoAbierto") { resolver(JSON.parse(json)) } }
+        cb(dlg, "usuario_guardar")   { |json| Usuario.guardar(JSON.parse(json)); enviar_estado(dlg) }
         dlg
       end
 
@@ -95,7 +105,11 @@ module RoyalKitchens
 
       def estado
         deps = Puente.estado
-        data = { "dependencias" => deps, "proyecto" => Proyecto.leer, "version" => VERSION }
+        data = { "dependencias" => deps, "proyecto" => Proyecto.leer, "version" => VERSION,
+                 "usuario" => Usuario.actual, "actual" => Sincronia.actual,
+                 "estados" => Registro::ESTADOS, "transiciones" => Registro.transiciones,
+                 "opciones" => Catalogo.para_ui,
+                 "carpetas" => { "proyectos" => Registro.raiz } }
         return data unless Puente.catalogo?
 
         root = KitchenCatalog::Config.catalog_root!
@@ -106,8 +120,7 @@ module RoyalKitchens
         data.merge!(
           "modulos"    => catalogo["modules"] || [],
           "categorias" => (catalogo["facets"] || {})["categories"] || [],
-          "opciones"   => KitchenCatalog::Configurador.para_ui(root, KitchenCatalog::Config::BUNDLED_SEED),
-          "carpetas"   => { "catalogo" => root, "creaciones" => cr }
+          "carpetas"   => data["carpetas"].merge("catalogo" => root, "creaciones" => cr)
         )
         if Puente.creador?
           cc = RoyalKitchen::CatalogCreator
@@ -121,13 +134,37 @@ module RoyalKitchens
 
       # ---- Insertar (módulo tal cual o con diseño) ----------------------------
       #
-      # { id, eleccion } -> KitchenCatalog::Inserter.place. Con eleccion, una
-      # creación se regenera desde su receta; un módulo del catálogo solo
-      # ajusta medidas (su diseño ya viene armado).
+      # { id, eleccion }. Con eleccion, una creación se regenera desde su receta
+      # con los cambios que calcula Studio (Catalogo.cambios_receta: manija de
+      # puertas y de cajones, reglas); un módulo del catálogo solo ajusta
+      # medidas (KitchenCatalog::Inserter.place, su diseño ya viene armado).
       def insertar(req)
         raise "Falta el Catálogo de Módulos 0.3 o superior." unless Puente.catalogo?
-        KitchenCatalog::Inserter.place(req["id"].to_s, {}, req["eleccion"])
-        { "ok" => true, "id" => req["id"] }
+        id = req["id"].to_s
+        el = req["eleccion"]
+        if el.is_a?(Hash) && !el.empty? && Puente.creador?
+          r = insertar_receta(id, el)
+          return r if r
+        end
+        KitchenCatalog::Inserter.place(id, {}, el)
+        { "ok" => true, "id" => id }
+      end
+
+      # nil si +id+ no es una creación con receta (se inserta como siempre).
+      def insertar_receta(id, eleccion)
+        meta = KitchenCatalog::Inserter.load_meta(KitchenCatalog::Config.catalog_root!, id)
+        return nil unless meta["_source"] == "creaciones" && meta["receta"].is_a?(Hash)
+        model = Sketchup.active_model
+        op    = Catalogo.cargar
+        cfg   = (op["familias"] || {})[meta["receta_familia"]] || {}
+        cambios = Catalogo.cambios_receta(cfg, eleccion, op, meta["receta"]["valores"] || {})
+        asegurar_material(eleccion["material"]) if cambios.key?(cfg.dig("material", "attr"))
+        res = RoyalKitchen::CatalogCreator.instanciar_receta(
+          meta["receta_familia"], meta["receta"], cambios,
+          nombre: (meta["specs"] || {})["sku"], transformation: KitchenCatalog::Inserter.siguiente_x(model)
+        )
+        raise res["error"].to_s unless res["ok"]
+        { "ok" => true, "id" => id }
       end
 
       # ---- Generar desde «Avanzado» o desde una fila del CSV -------------------
@@ -201,8 +238,105 @@ module RoyalKitchens
         enviar_estado(dlg)
       end
 
+      # ---- Registro de proyectos ------------------------------------------
+
+      def detalle(folio)
+        reg = Registro.leer(folio.to_s) or raise "No se encontró el proyecto «#{folio}»."
+        reg.merge("candado" => Registro.candado(reg["folio"]),
+                  "cambios_tras_congelar" => Registro.cambios_despues_de_congelar?(reg),
+                  "local" => Sincronia.estado_local(reg["folio"]).slice("version_base", "pendiente", "conflicto"))
+      end
+
+      def crear_proyecto(req)
+        r = Sincronia.crear(req["datos"] || {}, req["usar_modelo_actual"] == true)
+        refrescar
+        r
+      end
+
+      def abrir_proyecto(req)
+        Sincronia.abrir(req["folio"].to_s, req)
+      end
+
+      def resolver(req)
+        Sincronia.resolver(req["folio"].to_s, req["usar"].to_s).merge("folio" => req["folio"])
+      ensure
+        refrescar
+      end
+
+      def necesita_almacen!
+        raise "Sin conexión con la carpeta de proyectos." unless Registro.disponible?
+      end
+
+      def guardar_datos(req)
+        necesita_almacen!
+        reg = Registro.leer(req["folio"].to_s) or raise "No se encontró el proyecto."
+        Registro::CAMPOS.each { |k| reg[k] = req[k].to_s.strip if req.key?(k) }
+        Registro.escribir(reg)
+        detalle(reg["folio"])
+      end
+
+      def cambiar_estado(req)
+        necesita_almacen!
+        reg = Registro.leer(req["folio"].to_s) or raise "No se encontró el proyecto."
+        a = req["a"].to_s
+        u = Usuario.actual
+        unless Registro.transicion_permitida?(reg["estado"], a, u["rol"])
+          raise "Con el rol actual no se puede pasar de «#{nombre_estado(reg['estado'])}» a «#{nombre_estado(a)}»."
+        end
+        if a == Registro::CONGELA
+          # Lo que se congela es la versión del almacén: no debe quedar nada
+          # local sin subir.
+          model = Sketchup.active_model
+          if Sincronia.folio_de(model) == reg["folio"] && Sincronia.modo(model) == "edicion" && model.modified?
+            raise "Guarda el modelo antes de enviarlo a planeación."
+          end
+          raise "Hay cambios sin subir: espera a que se sincronicen." if Sincronia.estado_local(reg["folio"])["pendiente"]
+          raise "El proyecto aún no tiene ninguna versión guardada." if reg["version_actual"] < 1
+        end
+        Registro.cambiar_estado(reg, a, Usuario.firma(u), Time.now, req["nota"])
+        Registro.escribir(reg)
+        refrescar
+        detalle(reg["folio"])
+      end
+
+      def nombre_estado(id)
+        (Registro::ESTADOS.find { |e| e[0] == id } || [id, id])[1]
+      end
+
+      # «Guardar versión con nota»: un guardado normal con nota adjunta.
+      def subir_con_nota(nota)
+        model = Sketchup.active_model
+        raise "Este modelo no es la copia de trabajo de un proyecto." unless Sincronia.modo(model) == "edicion"
+        @nota_siguiente = nota.to_s.strip
+        model.save
+      end
+
+      def tomar_nota
+        n = @nota_siguiente
+        @nota_siguiente = nil
+        n
+      end
+
+      # Después de cada guardado (diferido para no copiar archivos dentro del
+      # observador de SketchUp).
+      def al_guardar(model)
+        nota = tomar_nota
+        UI.start_timer(0.1, false) do
+          r = begin
+            Sincronia.al_guardar(model, nota)
+          rescue => e
+            { "ok" => false, "error" => e.message }
+          end
+          if visible?
+            responder(@dlg, "onSubida", r) if r
+            enviar_estado(@dlg)
+          end
+        end
+      end
+
       def carpeta(cual)
         case cual
+        when "proyectos"  then Registro.raiz
         when "catalogo"   then KitchenCatalog::Config.catalog_root!
         when "creaciones" then KitchenCatalog::Config.creaciones_dir
         when "creador"    then RoyalKitchen::CatalogCreator.project_root
@@ -213,11 +347,19 @@ module RoyalKitchens
         dir = carpeta(cual.to_s)
         return unless dir
         FileUtils.mkdir_p(dir) if cual.to_s == "creaciones"
+        return if cual.to_s == "proyectos" && !Registro.disponible?
         UI.openURL("file:///#{dir.tr('\\', '/')}")
       end
 
       def cambiar_carpeta(cual)
         case cual.to_s
+        when "proyectos"
+          dir = UI.select_directory(title: "Carpeta de proyectos (local, servidor u OneDrive)",
+                                    directory: (Registro.raiz if File.directory?(Registro.raiz)))
+          if dir
+            Sincronia.soltar_candado
+            Registro.raiz = dir
+          end
         when "catalogo" then KitchenCatalog::Config.prompt_for_root
         when "creador"  then RoyalKitchen::CatalogCreator.configurar_project_root
         when "creaciones"
@@ -233,10 +375,35 @@ module RoyalKitchens
         end
       end
 
-      # Otro modelo = otro proyecto: se relee su configuración.
+      # Cada guardado de la copia de trabajo sube una versión al almacén.
+      class ObservadorModelo < Sketchup::ModelObserver
+        def onPostSaveModel(model)
+          Dialogo.al_guardar(model)
+        end
+      end
+      OBSERVADOR_MODELO = ObservadorModelo.new
+
+      def vigilar(model)
+        return unless model
+        model.remove_observer(OBSERVADOR_MODELO)
+        model.add_observer(OBSERVADOR_MODELO)
+      end
+
+      # Otro modelo = otro proyecto: se relee su configuración y se mueve el
+      # candado al proyecto que quedó abierto.
       class ObservadorApp < Sketchup::AppObserver
-        def onNewModel(_model);  Dialogo.refrescar; end
-        def onOpenModel(_model); Dialogo.refrescar; end
+        def onNewModel(model);      cambio(model); end
+        def onOpenModel(model);     cambio(model); end
+        def onActivateModel(model); cambio(model); end
+        def onQuit;                 Sincronia.soltar_candado; end
+
+        def cambio(model)
+          Dialogo.vigilar(model)
+          Sincronia.modelo_cambio(model)
+          Dialogo.refrescar
+        rescue => e
+          warn "[Royal Kitchens Studio] #{e.message}"
+        end
       end
     end
   end

@@ -164,9 +164,12 @@ window.RKVista = (function () {
       case "concha":
         return `<path d="M${cx - 46} ${cy - 8} H${cx + 46} A46 30 0 0 1 ${cx - 46} ${cy - 8}Z" fill="${c}" ${borde}/>` + brillo(cx - 40, cy - 6, 80, 2.5);
       case "lateral": {
-        const L = Math.min(110, w * 0.5);
-        const lx = cajon ? cx - L / 2 : (lado === "izq" ? x + w - L - 12 : x + 12);
-        return rect(lx, y - 4, L, 16, `rx="2" fill="${c}" ${borde}`);
+        // Cajón: en el canto de arriba, al centro. Puerta: siempre Centro-Centro,
+        // en el canto del lado que abre; en doble, escalonadas para no chocar.
+        const L = Math.min(110, (cajon ? w : h) * 0.5);
+        if (cajon) return rect(cx - L / 2, y - 4, L, 16, `rx="2" fill="${c}" ${borde}`);
+        const ly = lado === "izq" ? y + h / 2 - L : y + h / 2;
+        return rect(lado === "izq" ? x + w - 4 : x - 12, ly, 16, L, `rx="2" fill="${c}" ${borde}`);
       }
       case "perfil":
         return rect(x, y - 2, w, 14, `fill="${c}" ${borde}`) + brillo(x, y - 1, w, 2);
@@ -180,11 +183,11 @@ window.RKVista = (function () {
     return rect(x, y, w, h, `fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"`) +
       rect(x + 1.5, y + 1.5, w - 3, h - 3, 'fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"') +
       estiloFrente(d.frente, x, y, w, h) +
-      (sinManija ? "" : manija(d.manija, x, y, w, h, tipo, lado));
+      (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado));
   }
 
-  /* layout: de desdeValores/desdeEtiquetas. d: { frente, manija: {forma,color}|null,
-     material: {color, foto, veta}|null, gola }. */
+  /* layout: de desdeValores/desdeEtiquetas. d: { frente, manijaPuerta, manijaCajon:
+     {forma,color}|null, material: {color, foto, veta}|null, gola }. */
   function svg(layout, d) {
     d = Object.assign({ gola: layout.gola }, d, { _pat: "rk-mat-" + (++serie) });
     const W = layout.ancho, H = layout.alto, Z = layout.zoclo;
@@ -192,10 +195,12 @@ window.RKVista = (function () {
     let out = "";
     // Cuerpo (costados y techo asoman alrededor de los frentes).
     out += rect(0, 0, W, H, 'fill="#ece8e1" stroke="rgba(0,0,0,.35)" stroke-width="1.5"');
-    // Zoclo o patas.
+    // Zoclo o patas. El zoclo lleva el material de los frentes, pero metido:
+    // más angosto, oscurecido y con la sombra del cuerpo encima.
     if (Z > 0) {
       out += layout.zocloVisible
-        ? rect(30, H, W - 60, Z, 'fill="#3a3f41"')
+        ? rect(30, H, W - 60, Z, `fill="url(#${d._pat})"`) +
+          rect(30, H, W - 60, Z, `fill="url(#${d._pat}-hueco)" stroke="rgba(0,0,0,.3)" stroke-width="1"`)
         : rect(40, H, 40, Z, 'fill="#555"') + rect(W - 80, H, 40, Z, 'fill="#555"');
     }
     let y = 0;
@@ -226,7 +231,10 @@ window.RKVista = (function () {
     });
     const vb = `${-M} ${-M} ${W + 2 * M} ${H + Z + 2 * M}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vista previa del frente">` +
-      `<defs>${patronMaterial(d._pat, d.material)}</defs>` +
+      `<defs>${patronMaterial(d._pat, d.material)}` +
+      `<linearGradient id="${d._pat}-hueco" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity=".3"/>` +
+      `<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>` +
       `<ellipse cx="${W / 2}" cy="${H + Z + 6}" rx="${W * 0.6}" ry="10" fill="rgba(0,0,0,.12)"/>` +
       out +
       `<text x="${W / 2}" y="${H + Z + 30}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" fill="#4a5568">${Math.round(W)} × ${Math.round(H)} mm</text>` +

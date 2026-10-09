@@ -2,6 +2,10 @@ require "sketchup.rb"
 
 require_relative "puente"
 require_relative "proyecto"
+require_relative "catalogo"
+require_relative "usuario"
+require_relative "registro"
+require_relative "sincronia"
 require_relative "dialogo"
 
 module RoyalKitchens
@@ -26,6 +30,18 @@ module RoyalKitchens
       # La configuración del proyecto vive en cada .skp: al abrir o crear otro
       # modelo, el diálogo vuelve a leerla.
       Sketchup.add_observer(Dialogo::ObservadorApp.new)
+      Dialogo.vigilar(Sketchup.active_model)
+      Sincronia.modelo_cambio(Sketchup.active_model)
+
+      # Cada minuto: sube lo que quedó pendiente (sin conexión) y renueva el
+      # candado del proyecto abierto.
+      @conectado = Registro.disponible?
+      UI.start_timer(60, true) do
+        conectado = Registro.disponible?
+        subidos = Sincronia.tick
+        Dialogo.refrescar if subidos.any? || conectado != @conectado
+        @conectado = conectado
+      end
     end
   end
 end

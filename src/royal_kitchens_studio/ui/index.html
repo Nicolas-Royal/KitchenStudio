@@ -19,9 +19,13 @@
         </div>
       </div>
       <nav class="rail-nav" aria-label="Secciones">
+        <button data-sec="proyectos" class="nav-btn">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span>Proyectos</span>
+        </button>
         <button data-sec="proyecto" class="nav-btn">
           <svg class="ico" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg>
-          <span>Proyecto</span>
+          <span>Diseño global</span>
         </button>
         <button data-sec="catalogo" class="nav-btn">
           <svg class="ico" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
@@ -40,10 +44,44 @@
           <span>Ajustes</span>
         </button>
       </nav>
-      <div class="rail-foot" id="deps"></div>
+      <div class="rail-foot">
+        <div id="rail-proyecto"></div>
+        <div id="deps"></div>
+      </div>
     </aside>
 
     <main class="stage">
+      <!-- ============ Proyectos: registro ============ -->
+      <section class="sec" id="sec-proyectos" hidden>
+        <header class="sec-head">
+          <div>
+            <div class="stamp" id="pj-stamp">Registro</div>
+            <h1>Proyectos</h1>
+          </div>
+          <label class="slot">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="pj-q" type="search" placeholder="Folio, cliente, diseñadora…" autocomplete="off" aria-label="Buscar proyectos">
+          </label>
+          <div class="sec-actions">
+            <button class="key" id="pj-recargar">Actualizar</button>
+            <button class="use" id="pj-nuevo">+ Nuevo proyecto</button>
+          </div>
+        </header>
+        <div class="plate" id="pj-usuario" hidden>
+          <h3 class="stamp">¿Quién trabaja en esta PC?</h3>
+          <p class="hint">Tu nombre aparece en el registro como «actualizado por». Se pide una sola vez; se cambia en Ajustes.</p>
+          <div class="pj-form" data-form="usuario"></div>
+          <footer class="actions"><button class="use" data-guardar-usuario>Guardar</button></footer>
+        </div>
+        <div id="pj-actual"></div>
+        <div class="pj-filtros">
+          <div class="seg" id="pj-alcance"></div>
+          <div class="chips" id="pj-estados"></div>
+        </div>
+        <p class="cf-error" id="pj-offline" hidden>Sin conexión con la carpeta de proyectos: es la última lista vista. Puedes seguir trabajando en tus proyectos con copia local; los cambios se suben al volver la conexión.</p>
+        <div class="table-wrap pj-wrap"><table class="tabla pj-tabla" id="pj-tabla"></table></div>
+      </section>
+
       <!-- ============ Proyecto: configuración global ============ -->
       <section class="sec" id="sec-proyecto" hidden>
         <header class="sec-head">
@@ -173,6 +211,11 @@
             <h1>Carpetas y motores</h1>
           </div>
         </header>
+        <div class="plate">
+          <h3 class="stamp">Usuario de esta PC</h3>
+          <div class="pj-form" data-form="usuario"></div>
+          <footer class="actions"><button class="use" data-guardar-usuario>Guardar</button></footer>
+        </div>
         <div class="split">
           <div class="plate">
             <h3 class="stamp">Carpetas</h3>
@@ -243,12 +286,88 @@
     </div>
   </div>
 
+  <!-- Ficha de un proyecto -->
+  <div id="pj-ficha" class="overlay" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+      <header class="sheet-head">
+        <div class="grow">
+          <div class="stamp" id="pf-stamp">Proyecto</div>
+          <h2 id="pf-title"></h2>
+        </div>
+        <span class="pill" id="pf-estado"></span>
+        <button class="icon-btn" data-cerrar title="Cerrar" aria-label="Cerrar">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </header>
+      <div class="sheet-body pf-body">
+        <div>
+          <p class="cf-error" id="pf-aviso" hidden></p>
+          <h3 class="stamp">Datos</h3>
+          <div class="pj-form" id="pf-datos"></div>
+          <div class="pf-guardar"><button class="key sm" id="pf-guardar-datos">Guardar datos</button></div>
+          <h3 class="stamp">Estado</h3>
+          <div class="seg" id="pf-transiciones"></div>
+          <input class="pj-input" id="pf-nota-estado" type="text" placeholder="Nota (opcional; al devolver a diseño, explica qué cambiar)">
+          <h3 class="stamp">Movimientos</h3>
+          <div class="mini-list" id="pf-eventos"></div>
+        </div>
+        <div>
+          <h3 class="stamp">Versiones</h3>
+          <div class="table-wrap"><table class="tabla" id="pf-versiones"></table></div>
+        </div>
+      </div>
+      <footer class="actions sheet-foot">
+        <span class="hint grow" id="pf-pie"></span>
+        <button class="key" id="pf-consulta">Abrir solo lectura</button>
+        <button class="use" id="pf-abrir">Abrir para editar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Nuevo proyecto -->
+  <div id="pj-crear" class="overlay" hidden>
+    <div class="sheet sheet-sm" role="dialog" aria-modal="true" aria-labelledby="pc-title">
+      <header class="sheet-head">
+        <div class="grow">
+          <div class="stamp">Registro</div>
+          <h2 id="pc-title">Nuevo proyecto</h2>
+        </div>
+        <button class="icon-btn" data-cerrar title="Cerrar" aria-label="Cerrar">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </header>
+      <div class="sheet-body">
+        <div class="pj-form" id="pc-form"></div>
+        <h3 class="stamp">Modelo</h3>
+        <div class="seg" id="pc-modelo"></div>
+        <p class="cf-error" id="pc-error" hidden></p>
+      </div>
+      <footer class="actions sheet-foot">
+        <button class="use" id="pc-crear">Crear proyecto</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Pregunta genérica (candado, nota de versión, conflicto) -->
+  <div id="pregunta" class="overlay" hidden>
+    <div class="sheet sheet-msg" role="alertdialog" aria-modal="true" aria-labelledby="pq-title">
+      <header class="sheet-head"><h2 id="pq-title" class="grow"></h2></header>
+      <div class="sheet-body">
+        <p id="pq-texto"></p>
+        <input class="pj-input" id="pq-input" type="text" hidden>
+      </div>
+      <footer class="actions sheet-foot" id="pq-botones"></footer>
+    </div>
+  </div>
+
   <div id="busy" class="busy" hidden><div class="busy-card"><i class="led"></i><span id="busy-text">Trabajando…</span></div></div>
   <div id="toast" hidden role="status"></div>
 
   <script src="vista.js"></script>
   <script src="visor.js"></script>
   <script src="avanzado.js"></script>
+  <script src="reglas.js"></script>
+  <script src="proyectos.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -10,7 +10,8 @@ end
 P = RoyalKitchens::Studio::Proyecto
 
 d = P.normalizar(nil)
-assert d["global"]["frente"] == "1" && d["global"]["manija"] == "9", "sin datos: diseño por defecto"
+assert d["global"]["frente"] == "1" && d["global"]["manija_puerta"] == "9" && d["global"]["manija_cajon"] == "9",
+       "sin datos: diseño por defecto"
 assert d["global"]["medidas"] == { "igualar" => false, "alto" => 770, "fondo" => 578 }, "medidas por defecto"
 assert d["modulos"] == {}, "sin personalizaciones"
 
@@ -21,6 +22,11 @@ assert d["global"]["medidas"]["igualar"] == true && d["global"]["medidas"]["alto
 assert !d["global"].key?("basura"), "descarta claves desconocidas"
 assert d["modulos"].keys == ["gab-1"], "descarta personalizaciones mal formadas"
 assert d["global"]["tarja"] == false, "tarja siempre booleana"
+
+d = P.normalizar("global" => { "manija" => "11" }, "modulos" => { "g" => { "manija" => "7", "manija_cajon" => "15" } })
+assert d["global"].values_at("manija_puerta", "manija_cajon") == %w[11 11] && !d["global"].key?("manija"),
+       "manija única de antes -> puertas y cajones"
+assert d["modulos"]["g"].values_at("manija_puerta", "manija_cajon") == %w[7 15], "migra módulos sin pisar lo nuevo"
 
 assert P.parse("{roto")["global"]["frente"] == "1", "JSON roto -> por defecto"
 assert P.parse("")["modulos"] == {}, "vacío -> por defecto"

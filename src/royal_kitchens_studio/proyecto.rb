@@ -19,7 +19,9 @@ module RoyalKitchens
         "version" => VERSION_DATOS,
         "global"  => {
           "frente"   => "1",   # Lisa
-          "manija"   => "9",   # Andrea
+          # La manija se elige aparte para puertas y para cajones.
+          "manija_puerta" => "9",   # Andrea
+          "manija_cajon"  => "9",
           "material" => "",    # "" = el de la receta / el del módulo
           "tarja"    => false,
           # Medidas comunes: si «igualar» está activo, los gabinetes toman este
@@ -36,13 +38,24 @@ module RoyalKitchens
       # para que la interfaz siempre reciba la misma forma.
       def normalizar(data)
         data = {} unless data.is_a?(Hash)
-        g = data["global"].is_a?(Hash) ? data["global"] : {}
+        g = data["global"].is_a?(Hash) ? manijas(data["global"]) : {}
         base = DEFAULT["global"]
         medidas = base["medidas"].merge(g["medidas"].is_a?(Hash) ? g["medidas"] : {})
         global = base.merge(g.slice(*base.keys)).merge("medidas" => medidas)
         global["tarja"] = global["tarja"] == true
         modulos = (data["modulos"].is_a?(Hash) ? data["modulos"] : {}).select { |k, v| k.is_a?(String) && v.is_a?(Hash) }
+        modulos = modulos.transform_values { |v| manijas(v) }
         { "version" => VERSION_DATOS, "global" => global, "modulos" => modulos }
+      end
+
+      # Antes de 0.3.1 había una sola "manija" para puertas y cajones.
+      def manijas(d)
+        return d unless d.key?("manija")
+        d = d.dup
+        m = d.delete("manija")
+        d["manija_puerta"] = m unless d.key?("manija_puerta")
+        d["manija_cajon"]  = m unless d.key?("manija_cajon")
+        d
       end
 
       def parse(json)
