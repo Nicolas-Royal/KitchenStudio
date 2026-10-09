@@ -1,0 +1,872 @@
+{
+  "_doc": "Catálogo de opciones de Royal Kitchens Studio (fuente propia, ya no depende de KitchenCatalog). Fotos relativas a esta carpeta: frentes/ = vista frontal del gabinete base con cada l01_linea_frente; manijas/ = cada tirador a 45°. Las tomó tools/fotos_catalogo.rb desde el gabinete base. color = tono aproximado de material; tiradores[].vista = forma/color para el alzado SVG. familias = mapeo opción -> variables del DC. Manijas: se eligen aparte para puertas (manija_puerta: d16/d36) y cajones (manija_cajon: e01). Reglas por tirador: usos = dónde se puede usar (sin usos = puerta y cajón); solo_frentes = solo con esos l01_linea_frente; posicion.<uso> = posición forzada (Lateral negra en puertas: 5 = Centro-Centro, en los cantos del medio sin chocar).",
+  "medidas": {
+    "ancho": {
+      "label": "Ancho",
+      "presets": [
+        300,
+        350,
+        400,
+        450,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000,
+        1200
+      ]
+    },
+    "alto": {
+      "label": "Alto del cuerpo",
+      "presets": [
+        700,
+        720,
+        770,
+        800,
+        870
+      ]
+    },
+    "fondo": {
+      "label": "Fondo del cuerpo",
+      "presets": [
+        350,
+        450,
+        560,
+        578,
+        600
+      ]
+    }
+  },
+  "frentes": [
+    {
+      "id": "1",
+      "nombre": "Lisa",
+      "foto": "frentes/01_Lisa.jpg",
+      "solo_madera": false
+    },
+    {
+      "id": "2",
+      "nombre": "Italiana",
+      "foto": "frentes/02_Italiana.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "3",
+      "nombre": "Mitered",
+      "foto": "frentes/03_Mitered.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "4",
+      "nombre": "Mitered Flat Panel",
+      "foto": "frentes/04_Mitered_Flat_Panel.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "5",
+      "nombre": "Rectangular Flat Panel",
+      "foto": "frentes/05_Rectangular_Flat_Panel.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "6",
+      "nombre": "Rectangular Raised Panel",
+      "foto": "frentes/06_Rectangular_Raised_Panel.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "7",
+      "nombre": "Clásico Europeo",
+      "foto": "frentes/07_Clasico_Europeo.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "8",
+      "nombre": "Clásico Europeo Flat Panel",
+      "foto": "frentes/08_Clasico_Europeo_Flat_Panel.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "9",
+      "nombre": "Lisa con Estiradera Integrada",
+      "foto": "frentes/09_Lisa_con_Estiradera_Integrada.jpg",
+      "solo_madera": true
+    },
+    {
+      "id": "10",
+      "nombre": "Inglesa",
+      "foto": "frentes/10_Inglesa.jpg",
+      "solo_madera": true
+    }
+  ],
+  "tiradores": [
+    {
+      "id": "1",
+      "nombre": "Sin tirador",
+      "foto": null
+    },
+    {
+      "id": "7",
+      "nombre": "Lateral negra",
+      "foto": "manijas/07_Lateral_negra.png",
+      "vista": {
+        "forma": "lateral",
+        "color": "#1c1c1e"
+      },
+      "posicion": {
+        "puerta": "5"
+      }
+    },
+    {
+      "id": "8",
+      "nombre": "New Chica",
+      "foto": "manijas/08_New_Chica.png",
+      "vista": {
+        "forma": "barra",
+        "color": "#b9bcc0"
+      }
+    },
+    {
+      "id": "9",
+      "nombre": "Andrea",
+      "foto": "manijas/09_Andrea.png",
+      "vista": {
+        "forma": "barra",
+        "color": "#a9aaa6"
+      }
+    },
+    {
+      "id": "10",
+      "nombre": "Escolano",
+      "foto": "manijas/10_Escolano.png",
+      "vista": {
+        "forma": "barra",
+        "color": "#b9bcc0"
+      }
+    },
+    {
+      "id": "11",
+      "nombre": "Barra negra",
+      "foto": "manijas/11_Barra_negra.png",
+      "vista": {
+        "forma": "barra",
+        "color": "#1c1c1e"
+      }
+    },
+    {
+      "id": "12",
+      "nombre": "Botón cilíndrico chico",
+      "foto": "manijas/12_Boton_cilindrico_chico.png",
+      "vista": {
+        "forma": "boton",
+        "color": "#b7b5ae"
+      }
+    },
+    {
+      "id": "13",
+      "nombre": "Paola",
+      "foto": "manijas/13_Paola.png",
+      "vista": {
+        "forma": "barra",
+        "color": "#c9b27a"
+      }
+    },
+    {
+      "id": "14",
+      "nombre": "Mulholland",
+      "foto": "manijas/14_Mulholland.png",
+      "vista": {
+        "forma": "barra",
+        "color": "#b89a5a"
+      }
+    },
+    {
+      "id": "15",
+      "nombre": "Concha dorada",
+      "foto": "manijas/15_Concha_dorada.png",
+      "vista": {
+        "forma": "concha",
+        "color": "#d4b04c"
+      },
+      "usos": [
+        "cajon"
+      ]
+    },
+    {
+      "id": "16",
+      "nombre": "Botón Oberol",
+      "foto": "manijas/16_Boton_Oberol.png",
+      "vista": {
+        "forma": "boton",
+        "color": "#a99567"
+      }
+    },
+    {
+      "id": "17",
+      "nombre": "Swarovski chica",
+      "foto": "manijas/17_Swarovski_chica.png",
+      "vista": {
+        "forma": "cristal",
+        "color": "#dfeaf2"
+      }
+    },
+    {
+      "id": "18",
+      "nombre": "Swarovski grande",
+      "foto": "manijas/18_Swarovski_grande.png",
+      "vista": {
+        "forma": "cristal",
+        "color": "#dfeaf2"
+      }
+    },
+    {
+      "id": "19",
+      "nombre": "Botón cilíndrico dorado",
+      "foto": "manijas/19_Boton_cilindrico_dorado.png",
+      "vista": {
+        "forma": "boton",
+        "color": "#cdb36a"
+      }
+    },
+    {
+      "id": "20",
+      "nombre": "Botón cilíndrico plateado",
+      "foto": "manijas/20_Boton_cilindrico_plateado.png",
+      "vista": {
+        "forma": "boton",
+        "color": "#b7b9bb"
+      }
+    },
+    {
+      "id": "21",
+      "nombre": "Berlín",
+      "foto": "manijas/21_Berlin.png",
+      "vista": {
+        "forma": "perfil",
+        "color": "#b2b4b7"
+      },
+      "solo_frentes": [
+        "1"
+      ]
+    }
+  ],
+  "materiales": [
+    {
+      "id": "MDF_NEGRO_AB",
+      "nombre": "Negro Alto Brillo",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#141414",
+      "veta": false
+    },
+    {
+      "id": "MDF_LAVA_GRAY_AB",
+      "nombre": "Lava Gray Alto Brillo",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#4b4c4e",
+      "veta": false
+    },
+    {
+      "id": "MDF_GRAY_AB",
+      "nombre": "Gray Alto Brillo",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#8c8e90",
+      "veta": false
+    },
+    {
+      "id": "MDF_MINERAL_COFFEE_AB",
+      "nombre": "Mineral Coffee A.B",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#5b4636",
+      "veta": false
+    },
+    {
+      "id": "MDF_TORTORA_AB",
+      "nombre": "Tortora Alto Brillo",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#8b7d6b",
+      "veta": false
+    },
+    {
+      "id": "MDF_SAHARA_AB",
+      "nombre": "Sahara Alto Brillo",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#d6c4a2",
+      "veta": false
+    },
+    {
+      "id": "MDF_CASHMERE_AB",
+      "nombre": "Cashmere Alto Brillo",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#cdbfac",
+      "veta": true
+    },
+    {
+      "id": "MDF_SUNNY_WHITE_AB",
+      "nombre": "Sunny White A.B",
+      "familia": "MDF",
+      "grupo": "MDF · Alto brillo",
+      "foto": null,
+      "color": "#f4f1ea",
+      "veta": false
+    },
+    {
+      "id": "MDF_PETROLEO_MATE",
+      "nombre": "Petroleo Mate",
+      "familia": "MDF",
+      "grupo": "MDF · Mate",
+      "foto": null,
+      "color": "#1f3b45",
+      "veta": false
+    },
+    {
+      "id": "MDF_LAVA_GRAY_MATE",
+      "nombre": "Lava Gray Mate",
+      "familia": "MDF",
+      "grupo": "MDF · Mate",
+      "foto": null,
+      "color": "#505153",
+      "veta": false
+    },
+    {
+      "id": "MDF_CASHMERE_MATE",
+      "nombre": "Cashmere Mate",
+      "familia": "MDF",
+      "grupo": "MDF · Mate",
+      "foto": null,
+      "color": "#c9bcaa",
+      "veta": true
+    },
+    {
+      "id": "MDF_SUNNY_WHITE_MATE",
+      "nombre": "Sunny White Mate",
+      "familia": "MDF",
+      "grupo": "MDF · Mate",
+      "foto": null,
+      "color": "#efebe2",
+      "veta": false
+    },
+    {
+      "id": "MDF_SNOW_WHITE",
+      "nombre": "Snow White",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#f7f7f4",
+      "veta": false
+    },
+    {
+      "id": "MDF_SAHARA_CREAM",
+      "nombre": "Sahara Cream",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#e8dbc1",
+      "veta": false
+    },
+    {
+      "id": "MDF_SAFARI_GRAY",
+      "nombre": "Safari Gray",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#9a968c",
+      "veta": false
+    },
+    {
+      "id": "MDF_ICE_GRAY",
+      "nombre": "Ice Gray",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#c9cdd0",
+      "veta": false
+    },
+    {
+      "id": "MDF_TIMELESS_GRAY",
+      "nombre": "Timeless Gray",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#6d6f70",
+      "veta": false
+    },
+    {
+      "id": "MDF_PEARL_BLACK",
+      "nombre": "Pearl Black",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#1c1c1e",
+      "veta": false
+    },
+    {
+      "id": "MDF_RUSTIC_RED",
+      "nombre": "Rustic Red",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#7a2e25",
+      "veta": false
+    },
+    {
+      "id": "MDF_LONDON_BLUE",
+      "nombre": "London Blue",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#26384f",
+      "veta": false
+    },
+    {
+      "id": "MDF_FOREST_GREEN",
+      "nombre": "Forest Green",
+      "familia": "MDF",
+      "grupo": "MDF · Sólido",
+      "foto": null,
+      "color": "#2f4a3a",
+      "veta": false
+    },
+    {
+      "id": "MDF_OAK_SANREMO",
+      "nombre": "Oak Sanremo",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#c9a77c",
+      "veta": true
+    },
+    {
+      "id": "MDF_STONE_ASH",
+      "nombre": "Stone Ash",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#b5ab9c",
+      "veta": true
+    },
+    {
+      "id": "MDF_OAK_ENDGRAIN_ROUGH",
+      "nombre": "Oak Endgrain Rough",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#a8835a",
+      "veta": true
+    },
+    {
+      "id": "MDF_OAK_SANREMO_TERRA",
+      "nombre": "Oak Sanremo Terra",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#9c7350",
+      "veta": true
+    },
+    {
+      "id": "MDF_OAK_ENGRIN_COGNAC",
+      "nombre": "Oak Engrin Cognac",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#8a5a35",
+      "veta": true
+    },
+    {
+      "id": "MDF_CHERRY_PIEMONT",
+      "nombre": "Cherry Piemont",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#9a5a3c",
+      "veta": true
+    },
+    {
+      "id": "MDF_OAK_SANREMO_TABACCO",
+      "nombre": "Oak Sanremo Tabacco",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#6e4a2f",
+      "veta": true
+    },
+    {
+      "id": "MDF_OREGON_MATRIX",
+      "nombre": "Oregon Matrix",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#b08a62",
+      "veta": true
+    },
+    {
+      "id": "MDF_STRATOS_MATRIX",
+      "nombre": "Stratos Matrix",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#8d8478",
+      "veta": true
+    },
+    {
+      "id": "MDF_BAGNOLA_SABLE",
+      "nombre": "Bagnola Sable",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#a08566",
+      "veta": true
+    },
+    {
+      "id": "MDF_BAGNOLA_SABLE_LARICE",
+      "nombre": "Bagnola Sable Larice",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#b39572",
+      "veta": true
+    },
+    {
+      "id": "MDF_SIERRA_YOSEMITE",
+      "nombre": "Sierra Yosemite",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#a07a55",
+      "veta": true
+    },
+    {
+      "id": "MDF_MARALUNGA_SABLE",
+      "nombre": "Maralunga Sable",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#c2a27e",
+      "veta": true
+    },
+    {
+      "id": "MDF_TEAK_MATRIX",
+      "nombre": "Teak Matrix",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#8f6a43",
+      "veta": true
+    },
+    {
+      "id": "MDF_ROBLE_PERUANO",
+      "nombre": "Roble Peruano",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#a07048",
+      "veta": true
+    },
+    {
+      "id": "MDF_MOCCA",
+      "nombre": "Mocca",
+      "familia": "MDF",
+      "grupo": "MDF · Maderado",
+      "foto": null,
+      "color": "#5e4434",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_PAJA",
+      "nombre": "Encino Paja",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#d8bf8f",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_COLOR_NUEVO",
+      "nombre": "Encino Color Nuevo",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#c9a26e",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_NATURAL",
+      "nombre": "Encino Natural",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#c8a277",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_NOGAL_OSCURO",
+      "nombre": "Encino Nogal Oscuro",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#4e3626",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_COCOA",
+      "nombre": "Encino Cocoa",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#5a3d2b",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_AVELLANA",
+      "nombre": "Encino Avellana",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#9b7451",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_NOGAL_CLARO",
+      "nombre": "Encino Nogal Claro",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#8a6040",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_NOGAL_ALABAMA",
+      "nombre": "Encino Nogal Alabama",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#7a5032",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_TENESSEE",
+      "nombre": "Encino Tenessee",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#8e5a33",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_WENGUE",
+      "nombre": "Encino Wengue",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#3b2a20",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_GRIS_LONDON",
+      "nombre": "Encino Gris London",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#7d7a75",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_BLANCO",
+      "nombre": "Encino Blanco",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#e8e1d6",
+      "veta": true
+    },
+    {
+      "id": "ENCINO_NEGRO",
+      "nombre": "Encino Negro",
+      "familia": "Madera",
+      "grupo": "Madera · Encino",
+      "foto": null,
+      "color": "#1e1b19",
+      "veta": true
+    },
+    {
+      "id": "WALLNUT_NATURAL",
+      "nombre": "Wallnut Natural",
+      "familia": "Madera",
+      "grupo": "Madera · Wallnut",
+      "foto": null,
+      "color": "#7b5a40",
+      "veta": true
+    },
+    {
+      "id": "WALLNUT_DELI",
+      "nombre": "Wallnut Deli",
+      "familia": "Madera",
+      "grupo": "Madera · Wallnut",
+      "foto": null,
+      "color": "#6a4a33",
+      "veta": true
+    },
+    {
+      "id": "WALLNUT_DELI_01",
+      "nombre": "Wallnut Deli .01",
+      "familia": "Madera",
+      "grupo": "Madera · Wallnut",
+      "foto": null,
+      "color": "#5c3f2b",
+      "veta": true
+    },
+    {
+      "id": "WALLNUT_DELI_02",
+      "nombre": "Wallnut Deli 0.2",
+      "familia": "Madera",
+      "grupo": "Madera · Wallnut",
+      "foto": null,
+      "color": "#4f3626",
+      "veta": true
+    },
+    {
+      "id": "WALLNUT_ARRABATO",
+      "nombre": "Wallnut Arrabato",
+      "familia": "Madera",
+      "grupo": "Madera · Wallnut",
+      "foto": null,
+      "color": "#5f3a26",
+      "veta": true
+    },
+    {
+      "id": "WALLNUT_WENGUE",
+      "nombre": "Wallnut Wengue",
+      "familia": "Madera",
+      "grupo": "Madera · Wallnut",
+      "foto": null,
+      "color": "#33241b",
+      "veta": true
+    },
+    {
+      "id": "HAYA_NATURAL",
+      "nombre": "Haya Natural",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#d6b48c",
+      "veta": true
+    },
+    {
+      "id": "HAYA_MIEL",
+      "nombre": "Haya Miel",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#c8913f",
+      "veta": true
+    },
+    {
+      "id": "HAYA_CHERRY",
+      "nombre": "Haya Cherry",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#9b4d2f",
+      "veta": true
+    },
+    {
+      "id": "HAYA_DELI",
+      "nombre": "Haya Deli",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#8a5a3a",
+      "veta": true
+    },
+    {
+      "id": "HAYA_ARRABATO",
+      "nombre": "Haya Arrabato",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#7a4a2e",
+      "veta": true
+    },
+    {
+      "id": "HAYA_BLANCO",
+      "nombre": "Haya Blanco",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#ece4d8",
+      "veta": true
+    },
+    {
+      "id": "HAYA_WENGUE",
+      "nombre": "Haya Wengue",
+      "familia": "Madera",
+      "grupo": "Madera · Haya",
+      "foto": null,
+      "color": "#3a2a20",
+      "veta": true
+    }
+  ],
+  "familias": {
+    "gabinete": {
+      "medidas": {
+        "ancho": "LenX",
+        "alto": "LenZ",
+        "fondo": "LenY"
+      },
+      "tarja": {
+        "attr": "i06_trasera",
+        "si": "1",
+        "no": "0"
+      },
+      "frente": {
+        "attr": "l01_linea_frente"
+      },
+      "manija_puerta": {
+        "attrs": [
+          "d16_z1_tirador_tipo",
+          "d36_z2_tirador_tipo"
+        ],
+        "posicion": [
+          "d17_z1_tirador_posicion",
+          "d37_z2_tirador_posicion"
+        ],
+        "requiere": {
+          "attr": "b01_gola_o_tirador",
+          "valor": "1"
+        }
+      },
+      "manija_cajon": {
+        "attrs": [
+          "e01_tirador_tipo"
+        ],
+        "posicion": [
+          "e02_tirador_posicion"
+        ],
+        "requiere": {
+          "attr": "b01_gola_o_tirador",
+          "valor": "1"
+        }
+      },
+      "material": {
+        "attr": "c16_material_puerta",
+        "extra": {
+          "c22matpuertade": "=c16_material_puerta"
+        }
+      }
+    }
+  }
+}
