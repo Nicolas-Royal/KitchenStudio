@@ -60,6 +60,7 @@ const S = {
   actual: { folio: null }, estados: [], transiciones: {},
   pj: { lista: [], disponible: true, q: "", alcance: null, estado: null, detalle: null },
   iniciado: false,
+  sesion: false, loginRol: null,
 };
 
 // ==== Datos desde Ruby =======================================================
@@ -73,23 +74,25 @@ window.RKS = {
     S.opciones = Object.assign(S.opciones, d.opciones || {});
     S.manifiestos = d.manifiestos || {};
     S.usuario = d.usuario || S.usuario;
+    S.sesion = !!d.sesion;
     const folioAntes = S.actual.folio;
     S.actual = d.actual || { folio: null };
     S.estados = d.estados || [];
     S.transiciones = d.transiciones || {};
     S.listo = true;
-    $("#ver").textContent = "v" + S.version;
-    pintarRailProyecto();
+    $("#ver").textContent = $("#login-ver").textContent = "v" + S.version;
     contadores();
-    // Al abrir Studio (o cambiar de modelo): sin proyecto ligado se empieza
-    // en la lista de proyectos; con proyecto, en su diseño.
+    // 1. Sin sesión: solo el login.
+    if (!S.sesion) { S.iniciado = false; return mostrarLogin(); }
+    $("#login").hidden = true;
+    $("#app").hidden = false;
+    // 2/3. Al entrar o al cambiar de modelo: con proyecto abierto se va
+    // adentro del proyecto; sin proyecto, a la lista.
     if (!S.iniciado || folioAntes !== S.actual.folio) {
       const primera = !S.iniciado;
       S.iniciado = true;
-      if (primera || S.sec === "proyectos" || S.sec === "proyecto") {
-        if (S.actual.folio && S.actual.modo === "edicion") return irA("proyecto");
-        if (primera) return irA("proyectos");
-      }
+      if (S.actual.folio) return irA("proyecto");
+      if (primera || dentro()) return irA("proyectos");
     }
     if (S.sec === "proyectos") bridge("proyectos_listar");
     if (S.mod && !S.mod._virtual) {
@@ -157,6 +160,10 @@ window.RKS = {
     else if (r.pendiente) aviso("Guardado en esta PC · se subirá al volver la conexión");
     else if (r.version) aviso(`Versión ${r.version} subida al proyecto`);
   },
+  onLogin(r) {
+    $("#login-entrar").disabled = false;
+    errorLogin(r && r.error);
+  },
   onError(r) {
     ocupado(false);
     if (S.csv) S.csv.cola = null;
@@ -165,7 +172,14 @@ window.RKS = {
 };
 
 // ==== Navegación =============================================================
+// Tres pantallas: login → inicio (proyectos, ajustes) → dentro de un proyecto
+// (diseño, muebles, CSV, página de un mueble). Lo de adentro pide un proyecto
+// abierto en SketchUp.
+const SECS_PROYECTO = ["proyecto", "lista", "modulo", "csv"];
+const dentro = () => SECS_PROYECTO.includes(S.sec);
+
 function irA(sec) {
+  if (SECS_PROYECTO.includes(sec === "catalogo" ? "lista" : sec) && !S.actual.folio) sec = "proyectos";
   if (sec === "catalogo") { S.sec = "lista"; S.cat = null; }
   else S.sec = sec;
   if (sec !== "modulo") S.mod = null;
@@ -176,7 +190,8 @@ function irA(sec) {
 function pintarSeccion() {
   if (!S.listo) return;
   const navSel = S.sec === "lista" || S.sec === "modulo" ? (S.mod && S.mod._source === "csv" ? "csv" : S.lista) : S.sec;
-  $$(".nav-btn").forEach((b) => b.classList.toggle("active", b.dataset.sec === navSel));
+  $$("#tb-tabs .tab").forEach((b) => b.classList.toggle("active", b.dataset.sec === navSel));
+  pintarBarra();
   ["proyectos", "proyecto", "lista", "modulo", "csv", "ajustes"].forEach((s) => { $("#sec-" + s).hidden = S.sec !== s; });
   if (S.sec !== "modulo") S.avAbierto = false;
   $("#avanzado").hidden = !S.avAbierto;
@@ -429,7 +444,7 @@ function pintarLista() {
   const acc = $("#ls-actions");
   acc.innerHTML = FAMILIAS_ACTIVAS.map((f) => `<button class="key" data-nuevo="${f}">+ ${esc((S.manifiestos[f] || {}).titulo || f)}</button>`).join("") +
     `<button class="use" id="ls-csv">Crear desde CSV</button>`;
-  $("[data-nuevo]", acc).forEach((b) => (b.onclick = () => nuevoModulo(b.dataset.nuevo)));
+  $$("[data-nuevo]", acc).forEach((b) => (b.onclick = () => nuevoModulo(b.dataset.nuevo)));
   $("#ls-csv", acc).onclick = () => irA("csv");
   const enPanel = S.modulos.filter(enLista);
   const cats = [...new Set(enPanel.map((m) => m.category))].filter(Boolean);
@@ -835,8 +850,6 @@ const nombreEstado = (id) => P.nombreEstado(S.estados, id);
 const pillEstado = (id) => `<span class="pill e-${esc(id)}">${esc(nombreEstado(id))}</span>`;
 
 function pintarProyectos() {
-  $("#pj-usuario").hidden = !!S.usuario.nombre;
-  pintarFormUsuario();
   pintarActual();
   $("#pj-stamp").textContent = esPlaneacion() ? "Registro · Planeación" : "Registro · Diseño";
   // Planeación revisa todo; diseño empieza con lo suyo.
@@ -924,23 +937,67 @@ function pintarActual() {
   if (a.sincronia === "conflicto") {
     boton("key sm", "Quedarme con la del proyecto", () => resolverConflicto("servidor"));
     boton("use sm", "Usar la mía", () => resolverConflicto("mia"));
-  } else if (a.modo === "edicion") {
-    boton("key sm", "Guardar versión con nota…", guardarConNota);
   }
   boton("key sm", "Ficha", () => abrirFicha(a.folio));
+  if (a.sincronia !== "conflicto") boton("use sm", "Entrar al proyecto →", () => irA("proyecto"));
 }
 
-function pintarRailProyecto() {
-  const box = $("#rail-proyecto");
-  const a = S.actual;
-  if (!a.folio) { box.innerHTML = ""; return; }
-  const s = P.sincronia(a);
-  box.innerHTML = `<div class="rail-pj"><span class="stamp">Proyecto</span><strong>${esc(a.folio)}</strong>` +
-    `<span class="pill ${s.clase}">${esc(s.texto)}</span>` +
-    (a.modo === "edicion" && a.sincronia !== "conflicto" ? `<button class="key sm">Guardar versión…</button>` : "") + "</div>";
-  const b = $("button", box);
-  if (b) b.onclick = guardarConNota;
+/* Barra superior: en el inicio, el título; dentro de un proyecto, volver a la
+   lista + folio, cliente, estado y sincronía. Siempre: quién entró. */
+function pintarBarra() {
+  const a = S.actual, en = dentro() && a.folio;
+  $("#tb-tabs").hidden = !en;
+  const ctx = $("#tb-ctx");
+  if (en) {
+    const reg = a.registro || {}, s = P.sincronia(a);
+    ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button>` +
+      `<div class="tb-pj"><strong>${esc(a.folio)}</strong><span class="hint">${esc(reg.cliente || "Sin cliente")}</span></div>` +
+      (reg.estado ? pillEstado(reg.estado) : "") + (s ? `<span class="pill ${s.clase}">${esc(s.texto)}</span>` : "");
+    $("#tb-volver").onclick = () => irA("proyectos");
+  } else if (S.sec === "ajustes") {
+    ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button><span class="tb-titulo">Ajustes</span>`;
+    $("#tb-volver").onclick = () => irA("proyectos");
+  } else {
+    ctx.innerHTML = ""; // inicio: la sección ya dice «Proyectos»
+  }
+  $("#tb-guardar").hidden = !(en && a.modo === "edicion" && a.sincronia !== "conflicto");
+  const u = S.usuario;
+  $("#tb-quien").innerHTML = `<strong>${esc(u.nombre || u.usuario)}</strong>` +
+    `<span>${esPlaneacion() ? "Planeación" : "Diseño"}${u.sede ? " · " + esc(u.sede) : ""}</span>`;
 }
+
+// ---- Login (prototipo: cualquier correo y contraseña) --------------------------
+function mostrarLogin() {
+  cerrarHojas();
+  ["#avanzado", "#picker"].forEach((s) => { $(s).hidden = true; });
+  $("#app").hidden = true;
+  $("#login").hidden = false;
+  if (!S.loginRol) S.loginRol = S.usuario.rol || "diseno";
+  pintarSeg($("#login-rol"), [["diseno", "Diseño"], ["planeacion", "Planeación"]], S.loginRol, (v) => {
+    S.loginRol = v; mostrarLogin();
+  });
+  const c = $("#login-correo");
+  if (!c.value && S.usuario.correo) c.value = S.usuario.correo;
+  (c.value ? $("#login-password") : c).focus();
+}
+
+function errorLogin(msg) {
+  $("#login-error").hidden = !msg;
+  $("#login-error").textContent = msg || "";
+}
+
+$("#login-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const correo = $("#login-correo").value.trim(), password = $("#login-password").value;
+  const err = !correo ? "Escribe tu correo." : !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo) ? "Ese correo no parece válido."
+    : !password ? "Escribe tu contraseña." : "";
+  errorLogin(err);
+  if (err) return;
+  $("#login-entrar").disabled = true;
+  $("#login-password").value = "";
+  S.pj.alcance = null;
+  bridge("sesion_iniciar", JSON.stringify({ correo, password, rol: S.loginRol }));
+});
 
 function guardarConNota() {
   preguntar("Guardar versión", "Describe el cambio para que Planeación sepa qué se movió (opcional).", [
@@ -960,6 +1017,7 @@ function resolverConflicto(usar) {
 }
 
 function abrirProyecto(folio, soloLectura, extra) {
+  if (folio === S.actual.folio && !extra && (S.actual.modo === "edicion") === !soloLectura) { cerrarHojas(); return irA("proyecto"); }
   if (soloLectura) ocupado(true, "Descargando copia de consulta…");
   else ocupado(true, "Abriendo proyecto…");
   bridge("proyecto_abrir", JSON.stringify(Object.assign({ folio, solo_lectura: !!soloLectura }, extra || {})));
@@ -1202,7 +1260,17 @@ function aviso(msg) {
   avisoTimer = setTimeout(() => (t.hidden = true), 3500);
 }
 
-$$(".nav-btn").forEach((b) => (b.onclick = () => irA(b.dataset.sec)));
+$$("#tb-tabs .tab").forEach((b) => (b.onclick = () => irA(b.dataset.sec)));
+$("#tb-ajustes").onclick = () => irA("ajustes");
+$("#tb-guardar").onclick = guardarConNota;
+$("#tb-salir").onclick = () => {
+  const abierto = S.actual.folio && S.actual.modo === "edicion";
+  preguntar("Cerrar sesión", abierto
+    ? `El proyecto ${S.actual.folio} sigue abierto en SketchUp: guarda (Ctrl+S) para subir tus cambios.` : "¿Salir de Studio?", [
+    ["key", "Cancelar", null],
+    ["use", "Salir", () => { S.loginRol = null; bridge("sesion_cerrar"); }],
+  ]);
+};
 $("#md-avanzado").onclick = () => abrirAvanzado(true);
 $("#av-close").onclick = () => abrirAvanzado(false);
 $("#md-back").onclick = () => irA(S.mod && S.mod._source === "csv" ? "csv" : S.lista);

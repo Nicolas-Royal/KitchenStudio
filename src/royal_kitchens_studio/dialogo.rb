@@ -59,6 +59,9 @@ module RoyalKitchens
         cb(dlg, "proyecto_subir")    { |nota| subir_con_nota(nota) }
         cb(dlg, "proyecto_resolver") { |json| en_segundo_plano(dlg, "onProyectoAbierto") { resolver(JSON.parse(json)) } }
         cb(dlg, "usuario_guardar")   { |json| Usuario.guardar(JSON.parse(json)); enviar_estado(dlg) }
+        # Sesión (prototipo: cualquier correo y contraseña)
+        cb(dlg, "sesion_iniciar")    { |json| iniciar_sesion(dlg, JSON.parse(json)) }
+        cb(dlg, "sesion_cerrar")     { |_| Usuario.cerrar_sesion; enviar_estado(dlg) }
         dlg
       end
 
@@ -105,11 +108,17 @@ module RoyalKitchens
       def estado
         modulos = Biblioteca.modulos(Generador.creaciones_dir)
         { "proyecto" => Proyecto.leer, "version" => VERSION,
-          "usuario" => Usuario.actual, "actual" => Sincronia.actual,
+          "usuario" => Usuario.actual, "sesion" => Usuario.sesion?, "actual" => Sincronia.actual,
           "estados" => Registro::ESTADOS, "transiciones" => Registro.transiciones,
           "opciones" => Catalogo.para_ui, "manifiestos" => Familias.manifiestos,
           "modulos" => modulos, "categorias" => Biblioteca.categorias(modulos),
           "carpetas" => { "proyectos" => Registro.raiz, "creaciones" => Generador.creaciones_dir } }
+      end
+
+      def iniciar_sesion(dlg, req)
+        r = Usuario.iniciar(req["correo"], req["password"], req["rol"])
+        return responder(dlg, "onLogin", r) unless r["ok"]
+        enviar_estado(dlg)
       end
 
       # ---- Insertar un mueble del catálogo ------------------------------------

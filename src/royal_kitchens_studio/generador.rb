@@ -19,7 +19,6 @@ module RoyalKitchens
     module Generador
       module_function
 
-      SECCION = "RoyalKitchensStudio".freeze
       TOL_IN  = 1.0 / 25.4 # 1 mm, en pulgadas
       ESPACIO_MM = 300     # aire entre un mueble insertado y el siguiente
 
@@ -32,7 +31,7 @@ module RoyalKitchens
       # Creaciones personalizadas: .skp + receta .json de cada mueble guardado.
       # Si Studio no tiene una, se hereda la que usaba KitchenCatalog.
       def creaciones_dir
-        r = Sketchup.read_default(SECCION, "creaciones_dir", "").to_s
+        r = Preferencias.leer("creaciones_dir", "").to_s
         return r unless r.empty?
         viejo = Sketchup.read_default("KitchenCatalog", "creaciones_dir", "").to_s
         return viejo unless viejo.empty?
@@ -40,7 +39,7 @@ module RoyalKitchens
       end
 
       def creaciones_dir=(dir)
-        Sketchup.write_default(SECCION, "creaciones_dir", dir.to_s)
+        Preferencias.escribir("creaciones_dir", dir.to_s)
       end
 
       # A la derecha de todo lo que ya hay en el modelo.

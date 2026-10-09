@@ -12,7 +12,6 @@ module RoyalKitchens
 
       DICT     = "RK_Proyecto".freeze
       CLAVE    = "config".freeze
-      SECCION  = "RoyalKitchensStudio".freeze
       VERSION_DATOS = 1
 
       DEFAULT = {
@@ -69,7 +68,7 @@ module RoyalKitchens
       def leer(model = Sketchup.active_model)
         guardado = model && model.get_attribute(DICT, CLAVE)
         return parse(guardado) if guardado
-        parse(Sketchup.read_default(SECCION, "ultimo_proyecto", ""))
+        parse(Preferencias.leer("ultimo_proyecto", ""))
       end
 
       # Sin start_operation: es metadato del proyecto, no geometría, y no
@@ -80,7 +79,7 @@ module RoyalKitchens
         model.set_attribute(DICT, CLAVE, json) if model
         # La última usada solo lleva el diseño global: las personalizaciones
         # son de los módulos de ESE proyecto.
-        Sketchup.write_default(SECCION, "ultimo_proyecto", JSON.generate(limpio.merge("modulos" => {})))
+        Preferencias.escribir_json("ultimo_proyecto", limpio.merge("modulos" => {}))
         limpio
       end
     end

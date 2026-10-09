@@ -14,7 +14,6 @@ module RoyalKitchens
     module Registro
       module_function
 
-      SECCION       = "RoyalKitchensStudio".freeze
       VERSION_DATOS = 1
       MANTENER      = 10           # versiones normales que se conservan
       CANDADO_VENCE = 30 * 60      # s sin latido = el candado ya no cuenta
@@ -212,12 +211,12 @@ module RoyalKitchens
       end
 
       def raiz
-        r = Sketchup.read_default(SECCION, "carpeta_proyectos", "").to_s
+        r = Preferencias.leer("carpeta_proyectos", "").to_s
         r.empty? ? raiz_por_defecto : r
       end
 
       def raiz=(dir)
-        Sketchup.write_default(SECCION, "carpeta_proyectos", dir.to_s)
+        Preferencias.escribir("carpeta_proyectos", dir.to_s)
       end
 
       # La carpeta por defecto se crea sola; una configurada (servidor) no:

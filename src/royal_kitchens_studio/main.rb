@@ -1,5 +1,6 @@
 require "sketchup.rb"
 
+require_relative "preferencias"
 require_relative "biblioteca"
 require_relative "proyecto"
 require_relative "catalogo"

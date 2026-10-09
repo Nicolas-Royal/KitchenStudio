@@ -24,13 +24,28 @@ dejó de usar por decisión: el catálogo de Studio son las recetas que se
 guardan desde «Avanzado» o un CSV (carpeta de Ajustes, por defecto
 `Documentos/Royal Kitchens/Creaciones personalizadas`).
 
+## Pantallas (0.6.0)
+
+Una cosa a la vez:
+
+1. **Login** (`#login`): correo, contraseña y rol. Prototipo: acepta todo.
+2. **Inicio** (barra superior sin pestañas): **Proyectos** (lista, filtros,
+   nuevo, ficha) y **Ajustes** (perfil y carpetas). Si hay un proyecto abierto
+   en SketchUp, arriba de la lista sale «Entrar al proyecto →».
+3. **Dentro de un proyecto** (barra con «← Proyectos», folio, cliente, estado,
+   sincronía y «Guardar versión…»): pestañas **Diseño** (global), **Muebles**
+   (catálogo y página de cada mueble) y **Desde CSV**. Sin proyecto abierto no
+   se entra (`irA` manda a la lista); al abrir o crear uno se entra solo.
+
 ## Archivos
 
 ```
 src/royal_kitchens_studio.rb          registrar (SketchupExtension)
 src/royal_kitchens_studio/
   main.rb       menú, barra, AppObserver (otro modelo = otro proyecto), temporizador de sincronía
-  usuario.rb    usuario de esta PC (nombre, sede, rol)
+  usuario.rb    sesión (login de prototipo) y perfil: correo, nombre, sede, rol
+  preferencias.rb preferencias de la PC (texto en base64: write_default de SU 2022
+                pierde las comillas)
   registro.rb   registro de proyectos en el almacén
   sincronia.rb  copia de trabajo local <-> almacén
   biblioteca.rb catálogo de muebles: recetas guardadas (.json + .skp), «Usar» tal cual
@@ -90,7 +105,7 @@ Fuera de los motores: solo Studio. Tres módulos, la lógica pura separada de lo
 
 | Archivo | Qué hace |
 |---|---|
-| `usuario.rb` | Quién usa la PC: usuario de Windows + nombre, sede y rol (`diseno`/`planeacion`), en `Sketchup.read_default`. |
+| `usuario.rb` | Sesión y perfil: correo (de ahí sale `usuario`, la clave de «mis proyectos» y candados), nombre, sede y rol (`diseno`/`planeacion`). Prototipo: el login acepta cualquier correo y contraseña; la contraseña no se guarda. Plan: Microsoft 365. |
 | `registro.rb` | Almacén de proyectos: folio, estados y transiciones por rol, versiones, poda (10 + congeladas + conflictos), candado, lista. |
 | `sincronia.rb` | Copia de trabajo local ↔ almacén: crear, abrir (edición o consulta), subir al guardar, reintento sin conexión, conflictos, candado. |
 

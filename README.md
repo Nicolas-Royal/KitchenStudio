@@ -5,13 +5,20 @@ sola ventana** y sin depender de otros plugins: proyectos compartidos,
 diseño global, catálogo de muebles por receta y generación desde el
 componente base.
 
+Se usa en tres pasos, una pantalla a la vez:
+
+1. **Iniciar sesión** con el correo (prototipo: acepta cualquier correo y
+   contraseña; después será la cuenta de Microsoft 365).
+2. **Proyectos**: la lista; se crea uno nuevo o se abre uno.
+3. **Dentro del proyecto**: Diseño, Muebles y Desde CSV. «← Proyectos» regresa.
+
 | Sección | Qué hace |
 |---|---|
 | **Proyectos** | Registro compartido: crear con folio, quién actualizó y cuándo, estados (diseño → planeación → fabricación), versiones, trabajo sin conexión. |
-| **Diseño global** | Frente, manija de puertas, manija de cajones y material (con foto), tarja y medidas comunes. Vista previa en vivo. Se guarda en el `.skp`. |
-| **Catálogo** | Los muebles guardados (recetas). «Usar» los inserta tal cual; su página permite cambiar medidas y diseño. «+ Gabinete» crea uno desde cero. |
-| **Crear desde CSV** | Importa `.csv`/`.xlsx` (plantilla de Studio), valida, permite editar cada fila y genera en lote al catálogo. |
-| **Ajustes** | Usuario de la PC y carpetas (proyectos, catálogo de muebles). |
+| **Diseño** (dentro del proyecto) | Frente, manija de puertas, manija de cajones y material (con foto), tarja y medidas comunes. Vista previa en vivo. Se guarda en el `.skp`. |
+| **Muebles** | Los muebles guardados (recetas). «Usar» los inserta tal cual; su página permite cambiar medidas y diseño. «+ Gabinete» crea uno desde cero. |
+| **Desde CSV** | Importa `.csv`/`.xlsx` (plantilla de Studio), valida, permite editar cada fila y genera en lote al catálogo. |
+| **Ajustes** | Tu perfil (nombre, sede, rol) y carpetas (proyectos, catálogo de muebles). |
 
 > Por ahora Studio trabaja **solo con gabinetes** (`FAMILIAS_ACTIVAS` en
 > `ui/app.js`); alacena y esquinero se habilitarán después.
