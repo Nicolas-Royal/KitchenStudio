@@ -31,10 +31,6 @@
           <svg class="ico" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
           <span>Catálogo</span><i class="count" id="n-catalogo">0</i>
         </button>
-        <button data-sec="creaciones" class="nav-btn">
-          <svg class="ico" viewBox="0 0 24 24"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>
-          <span>Creaciones</span><i class="count" id="n-creaciones">0</i>
-        </button>
         <button data-sec="csv" class="nav-btn">
           <svg class="ico" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>
           <span>Crear desde CSV</span>
@@ -46,7 +42,6 @@
       </nav>
       <div class="rail-foot">
         <div id="rail-proyecto"></div>
-        <div id="deps"></div>
       </div>
     </aside>
 
@@ -111,7 +106,7 @@
         </div>
       </section>
 
-      <!-- ============ Catálogo / Creaciones (misma rejilla) ============ -->
+      <!-- ============ Catálogo de muebles (recetas) ============ -->
       <section class="sec" id="sec-lista" hidden>
         <header class="sec-head">
           <div>
@@ -182,7 +177,7 @@
           <div class="grow">
             <div class="stamp">Piezas únicas</div>
             <h1>Crear desde CSV o Excel</h1>
-            <p class="lead">Cada fila es un módulo. Se valida con las mismas reglas que «Avanzado»; lo generado se guarda en <b>Creaciones</b>.</p>
+            <p class="lead">Cada fila es un módulo. Se valida con las mismas reglas que «Avanzado»; lo generado se guarda en el <b>catálogo</b>.</p>
           </div>
           <div class="sec-actions">
             <button class="key" id="csv-plantilla">Descargar plantilla</button>
@@ -208,7 +203,7 @@
         <header class="sec-head">
           <div>
             <div class="stamp">Ajustes</div>
-            <h1>Carpetas y motores</h1>
+            <h1>Usuario y carpetas</h1>
           </div>
         </header>
         <div class="plate">
@@ -216,15 +211,9 @@
           <div class="pj-form" data-form="usuario"></div>
           <footer class="actions"><button class="use" data-guardar-usuario>Guardar</button></footer>
         </div>
-        <div class="split">
-          <div class="plate">
-            <h3 class="stamp">Carpetas</h3>
-            <div id="aj-carpetas"></div>
-          </div>
-          <div class="plate">
-            <h3 class="stamp">Plugins que usa Studio</h3>
-            <div id="aj-deps"></div>
-          </div>
+        <div class="plate">
+          <h3 class="stamp">Carpetas</h3>
+          <div id="aj-carpetas"></div>
         </div>
       </section>
     </main>
@@ -260,7 +249,7 @@
       <footer class="actions sheet-foot">
         <div class="cf-error grow" id="av-errores" hidden></div>
         <label class="switch"><input type="checkbox" id="av-escena" checked><span class="switch-track"><span class="switch-thumb"></span></span><span>Insertar en la escena</span></label>
-        <label class="switch"><input type="checkbox" id="av-publicar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Guardar en Creaciones</span></label>
+        <label class="switch"><input type="checkbox" id="av-publicar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Guardar en el catálogo</span></label>
         <button class="use" id="av-generar">Generar</button>
       </footer>
     </div>

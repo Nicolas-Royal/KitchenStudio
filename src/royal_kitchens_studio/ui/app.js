@@ -37,14 +37,14 @@ function setImg(img, url, fallback) {
   img.onerror = () => { img.onerror = null; img.src = fallback || THUMB_FALLBACK; };
 }
 
-// Categoría del catálogo -> familia de KitchenCreator (para «Avanzado»).
+// Categoría del catálogo -> familia del manifiesto (para «Avanzado»).
 const FAMILIA_DE_CATEGORIA = { Gabinetes: "gabinete", Alacenas: "alacena", Esquineros: "esquinero" };
 // Por ahora Studio solo trabaja con gabinetes; alacena y esquinero vienen después.
 const FAMILIAS_ACTIVAS = ["gabinete"];
 const SPEC_LABELS = { sku: "SKU", ancho_mm: "Ancho", alto_mm: "Alto", fondo_mm: "Fondo" };
 
 const S = {
-  deps: {}, carpetas: {}, version: "",
+  carpetas: {}, version: "",
   // Igual a Proyecto::DEFAULT en Ruby; se reemplaza con lo que llegue de onEstado.
   proyecto: { global: { frente: "1", manija_puerta: "9", manija_cajon: "9", material: "", tarja: false,
     medidas: { igualar: false, alto: 770, fondo: 578 } }, modulos: {} },
@@ -65,7 +65,6 @@ const S = {
 // ==== Datos desde Ruby =======================================================
 window.RKS = {
   onEstado(d) {
-    S.deps = d.dependencias || {};
     S.carpetas = d.carpetas || {};
     S.version = d.version || "";
     S.proyecto = d.proyecto || S.proyecto;
@@ -80,7 +79,6 @@ window.RKS = {
     S.transiciones = d.transiciones || {};
     S.listo = true;
     $("#ver").textContent = "v" + S.version;
-    pintarDeps();
     pintarRailProyecto();
     contadores();
     // Al abrir Studio (o cambiar de modelo): sin proyecto ligado se empieza
@@ -110,7 +108,7 @@ window.RKS = {
     ocupado(false);
     if (!r || !r.ok) return aviso("Error: " + ((r && r.error) || "no se pudo generar"));
     const partes = [];
-    if (r.publicado) partes.push("guardado en Creaciones");
+    if (r.publicado) partes.push("guardado en el catálogo");
     if (!r.publicado || $("#av-escena").checked) partes.push("insertado");
     aviso(`${r.nombre}: ${partes.join(" y ")}`);
     if (r.publicado) bridge("recargar");
@@ -168,7 +166,7 @@ window.RKS = {
 
 // ==== Navegación =============================================================
 function irA(sec) {
-  if (sec === "catalogo" || sec === "creaciones") { S.lista = sec; S.sec = "lista"; S.cat = null; }
+  if (sec === "catalogo") { S.sec = "lista"; S.cat = null; }
   else S.sec = sec;
   if (sec !== "modulo") S.mod = null;
   if (sec === "proyectos") bridge("proyectos_listar");
@@ -192,14 +190,7 @@ function pintarSeccion() {
 
 function contadores() {
   const activos = S.modulos.filter(activo);
-  $("#n-catalogo").textContent = activos.filter((m) => m._source !== "creaciones").length;
-  $("#n-creaciones").textContent = activos.filter((m) => m._source === "creaciones").length;
-}
-
-function pintarDeps() {
-  const html = Object.values(S.deps).map((d) =>
-    `<div class="dep ${d.ok ? "ok" : "bad"}" title="${esc(d.ok ? "Listo" : `Requiere ${d.minimo}+`)}"><i class="led"></i><span>${esc(d.nombre)}</span><b>${esc(d.version || "—")}</b></div>`).join("");
-  $("#deps").innerHTML = html;
+  $("#n-catalogo").textContent = activos.length;
 }
 
 // ==== Proyecto: configuración global ========================================
@@ -423,27 +414,23 @@ function filaMedida(k, valor, onCambio, deshabilitado, etiqueta) {
   return row;
 }
 
-// ==== Catálogo / Creaciones ====================================================
+// ==== Catálogo de muebles ======================================================
 function activo(m) {
   return FAMILIAS_ACTIVAS.includes(familiaDe(m));
 }
+// El catálogo son las recetas guardadas (Biblioteca en Ruby).
 function enLista(m) {
-  if (!activo(m)) return false;
-  return S.lista === "creaciones" ? m._source === "creaciones" : m._source !== "creaciones";
+  return activo(m);
 }
 
 function pintarLista() {
-  const cre = S.lista === "creaciones";
-  $("#ls-stamp").textContent = cre ? "Piezas únicas" : "Catálogo";
-  $("#ls-title").textContent = cre ? "Creaciones personalizadas" : "Catálogo de módulos";
+  $("#ls-stamp").textContent = "Recetas";
+  $("#ls-title").textContent = "Catálogo de muebles";
   const acc = $("#ls-actions");
-  acc.innerHTML = "";
-  if (cre) {
-    acc.innerHTML = FAMILIAS_ACTIVAS.map((f) => `<button class="key" data-nuevo="${f}">+ ${esc((S.manifiestos[f] || {}).titulo || f)}</button>`).join("") +
-      `<button class="use" id="ls-csv">Crear desde CSV</button>`;
-    $$("[data-nuevo]", acc).forEach((b) => (b.onclick = () => nuevoModulo(b.dataset.nuevo)));
-    $("#ls-csv", acc).onclick = () => irA("csv");
-  }
+  acc.innerHTML = FAMILIAS_ACTIVAS.map((f) => `<button class="key" data-nuevo="${f}">+ ${esc((S.manifiestos[f] || {}).titulo || f)}</button>`).join("") +
+    `<button class="use" id="ls-csv">Crear desde CSV</button>`;
+  $("[data-nuevo]", acc).forEach((b) => (b.onclick = () => nuevoModulo(b.dataset.nuevo)));
+  $("#ls-csv", acc).onclick = () => irA("csv");
   const enPanel = S.modulos.filter(enLista);
   const cats = [...new Set(enPanel.map((m) => m.category))].filter(Boolean);
   const chips = $("#chips");
@@ -462,7 +449,7 @@ function pintarLista() {
   const grid = $("#grid");
   grid.innerHTML = "";
   if (!lista.length) {
-    grid.innerHTML = `<p class="empty">${cre && !q ? "Aún no hay creaciones · genera desde CSV o con + Gabinete" : "Sin resultados"}</p>`;
+    grid.innerHTML = `<p class="empty">${!q ? "Aún no hay muebles · crea uno con + Gabinete o desde CSV y guárdalo en el catálogo" : "Sin resultados"}</p>`;
     return;
   }
   lista.forEach((m) => grid.appendChild(tarjeta(m)));
@@ -557,7 +544,7 @@ function pintarModulo() {
   if (!m) return irA(S.lista);
   const d = disenoDe(m);
   const real = tieneReceta(m);
-  $("#md-stamp").textContent = { creaciones: "Creación personalizada", csv: "Fila del CSV", nuevo: "Módulo nuevo" }[m._source] || "Catálogo";
+  $("#md-stamp").textContent = { csv: "Fila del CSV", nuevo: "Mueble nuevo" }[m._source] || "Catálogo";
   $("#md-name").textContent = m.name;
   $("#md-tags").innerHTML = Object.values(m.features || {}).flat().map((t) => `<span class="tag">${esc(t)}</span>`).join("");
   // Módulo nuevo o fila del CSV: no hay diseño que heredar, todo se define en «Avanzado».
@@ -656,12 +643,10 @@ function estadoAvanzado(m) {
     nota = "Valores de la fila del CSV.";
   } else if (m.receta) {
     valores = RKAvanzado.valoresDesdeFila(man, m.receta.valores || {}, S.rcc);
-    nota = "Valores de la receta de esta creación, con el diseño elegido en «Diseño».";
+    nota = "Valores de la receta de este mueble, con el diseño elegido en «Diseño».";
   } else {
     valores = S.rcc.defaultValores(man);
-    if (!m._virtual && fam === "gabinete") equivalenteGabinete(man, valores, m);
-    nota = m._virtual ? "Valores por defecto del manifiesto." :
-      "Este módulo del catálogo viene del componente anterior: aquí se arma uno equivalente con el componente actual (su ancho, y gola, tarja, puertas o cajones según sus etiquetas). Revisa y genera.";
+    nota = "Valores por defecto del manifiesto.";
   }
   const d = disenoDe(m);
   const reg = { familia: fam, titulo: man.titulo, valores, nombre_salida: "" };
@@ -687,19 +672,6 @@ function estadoAvanzado(m) {
   reg.nombre_salida = m._source === "csv" ? m.name : (sku ? sku + "-P" : S.rcc.autoNombre(man, valores));
   S.av[m.id] = { man, reg, nota, material: m._source === "csv" ? "" : d.material || "", nombreManual: m._source === "csv" || !!sku };
   return S.av[m.id];
-}
-
-/* Módulo viejo del catálogo -> punto de partida en el gabinete por zonas,
-   leyendo sus etiquetas (gola, tarja, cajones, puertas, lado). */
-function equivalenteGabinete(man, v, m) {
-  const t = Object.values(m.features || {}).flat().join(" ").toLowerCase();
-  const p = (attr, val) => RKAvanzado.poner(man, v, attr, val, S.rcc);
-  if (/gola/.test(t)) p("b01_gola_o_tirador", "2");
-  if (/tarja/.test(t)) p("i06_trasera", "1");
-  const caj = t.match(/(\d+)\s*cajon/);
-  if (caj) { p("d01_cantidad_zonas", "1"); p("d11_z1_contenido", "2"); p("d12_z1_cant_cajones", caj[1]); }
-  else if (/2 puertas/.test(t)) { p("d01_cantidad_zonas", "1"); p("d11_z1_contenido", "1"); p("d15_z1_cant_puertas", "3"); }
-  else if (/1 puerta/.test(t)) { p("d01_cantidad_zonas", "1"); p("d11_z1_contenido", "1"); p("d15_z1_cant_puertas", /derecha/.test(t) ? "2" : "1"); }
 }
 
 function pintarAvanzado(m) {
@@ -746,7 +718,7 @@ function payloadGenerar(st, ref, insertar, publicar) {
 function generarAvanzado(m, st) {
   const insertarEsc = $("#av-escena").checked;
   const publicar = $("#av-publicar").checked;
-  if (!insertarEsc && !publicar) return aviso("Error: elige insertar en la escena, guardar en Creaciones, o ambos");
+  if (!insertarEsc && !publicar) return aviso("Error: elige insertar en la escena, guardar en el catálogo, o ambos");
   const p = payloadGenerar(st, m.id, insertarEsc, publicar);
   if (p.error) return aviso("Error: " + p.error);
   ocupado(true, `Generando ${p.nombre}… (puede tardar unos segundos)`);
@@ -836,7 +808,7 @@ function csvSiguiente(res) {
     pr.hidden = true;
     ocupado(false);
     const n = Object.values(c.hechos).filter((h) => h.estado === "generado").length;
-    aviso(`CSV: ${n} módulos generados en Creaciones`);
+    aviso(`CSV: ${n} muebles guardados en el catálogo`);
     bridge("recargar");
     pintarCsv();
     return;
@@ -1198,8 +1170,7 @@ function pintarAjustes() {
   pintarFormUsuario();
   const filas = [
     ["proyectos", "Carpeta de proyectos", "Registro compartido. Hoy local; para trabajar entre sedes, apunta aquí a la carpeta del servidor u OneDrive."],
-    ["catalogo", "Carpeta del catálogo", "Módulos del catálogo, fotos y opciones (referencias/)."],
-    ["creaciones", "Creaciones personalizadas", "Donde se guardan las piezas únicas (.skp + receta)."],
+    ["creaciones", "Catálogo de muebles", "Recetas guardadas (.json + .skp). Para compartirlo entre sedes, apunta aquí a una carpeta del servidor u OneDrive."],
   ];
   $("#aj-carpetas").innerHTML = "";
   filas.forEach(([k, t, d]) => {
@@ -1212,16 +1183,6 @@ function pintarAjustes() {
     abrir.onclick = () => bridge("abrir_carpeta", k);
     cambiar.onclick = () => bridge("cambiar_carpeta", k);
     $("#aj-carpetas").appendChild(row);
-  });
-  $("#aj-deps").innerHTML = "";
-  Object.entries(S.deps).forEach(([k, d]) => {
-    const row = document.createElement("div");
-    row.className = "aj-row";
-    row.innerHTML = `<div class="dep ${d.ok ? "ok" : "bad"}"><i class="led"></i></div><div class="grow"><strong>${esc(d.nombre)}</strong>` +
-      `<span class="hint">${d.cargado ? `Versión ${esc(d.version)} · requiere ${esc(d.minimo)}+` : "No está instalado o no cargó"}</span></div>` +
-      `<button class="key sm" ${d.cargado ? "" : "disabled"}>Abrir su ventana</button>`;
-    $("button", row).onclick = () => bridge("abrir_plugin", k);
-    $("#aj-deps").appendChild(row);
   });
 }
 

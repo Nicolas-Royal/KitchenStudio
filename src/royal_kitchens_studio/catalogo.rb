@@ -108,6 +108,29 @@ module RoyalKitchens
         cambios
       end
 
+      # ---- SketchUp ----------------------------------------------------------
+
+      TEXTURA_MM    = 600
+      COLOR_FAMILIA = { "MDF" => [205, 205, 200], "Madera" => [176, 132, 92] }.freeze
+
+      # El componente aplica el material por NOMBRE (c22matpuertade =
+      # c16_material_puerta), así que tiene que existir antes del redibujado.
+      # Orden: ya está en el modelo > foto del catálogo como textura > tono
+      # aproximado de opciones.json (el mismo de la vista previa).
+      def asegurar_material(model, id)
+        id = id.to_s
+        return if id.empty? || model.materials[id]
+        o   = buscar(cargar, "materiales", id) || {}
+        mat = model.materials.add(id)
+        foto = foto_abs(o["foto"])
+        if foto
+          mat.texture = foto
+          mat.texture.size = TEXTURA_MM.mm
+        else
+          mat.color = o["color"] ? Sketchup::Color.new(o["color"]) : Sketchup::Color.new(*(COLOR_FAMILIA[o["familia"]] || [200, 200, 200]))
+        end
+      end
+
       def numero(v)
         Float(v.to_s.tr(",", "."))
       rescue ArgumentError

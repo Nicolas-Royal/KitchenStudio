@@ -1,56 +1,56 @@
 # Royal Kitchens Studio
 
-Plugin de SketchUp que junta en **una sola ventana** el Catálogo de Módulos
-(KitchenCatalog) y Royal Catalog Creator (KitchenCreator). Studio no copia su
-lógica: los usa como motores.
+Plugin de SketchUp de Royal Kitchens para diseñar cocinas. Todo en **una
+sola ventana** y sin depender de otros plugins: proyectos compartidos,
+diseño global, catálogo de muebles por receta y generación desde el
+componente base.
 
-| Sección | Qué hace | Motor |
-|---|---|---|
-| **Proyecto** | Diseño global de la cocina: tipo de frente, manija y material (con foto), tarja por defecto y medidas comunes de gabinetes. Vista previa en vivo. Se guarda en el `.skp`. | — |
-| **Catálogo** | Los módulos de siempre. Cada uno abre su página con **Diseño** y **Avanzado**. | KitchenCatalog |
-| **Creaciones** | Piezas únicas (generadas desde CSV, formulario o «Avanzado»). Botón «+ Gabinete» para crear desde cero. | KitchenCatalog + KitchenCreator |
-| **Crear desde CSV** | Importa `.csv`/`.xlsx` (plantilla de Royal Catalog Creator), valida con sus reglas, permite editar cada fila y genera en lote a Creaciones. | KitchenCreator |
-| **Ajustes** | Carpetas (catálogo, creaciones, proyecto del creador) y estado de los plugins. | — |
+| Sección | Qué hace |
+|---|---|
+| **Proyectos** | Registro compartido: crear con folio, quién actualizó y cuándo, estados (diseño → planeación → fabricación), versiones, trabajo sin conexión. |
+| **Diseño global** | Frente, manija de puertas, manija de cajones y material (con foto), tarja y medidas comunes. Vista previa en vivo. Se guarda en el `.skp`. |
+| **Catálogo** | Los muebles guardados (recetas). «Usar» los inserta tal cual; su página permite cambiar medidas y diseño. «+ Gabinete» crea uno desde cero. |
+| **Crear desde CSV** | Importa `.csv`/`.xlsx` (plantilla de Studio), valida, permite editar cada fila y genera en lote al catálogo. |
+| **Ajustes** | Usuario de la PC y carpetas (proyectos, catálogo de muebles). |
 
 > Por ahora Studio trabaja **solo con gabinetes** (`FAMILIAS_ACTIVAS` en
 > `ui/app.js`); alacena y esquinero se habilitarán después.
 
-## Página de un módulo
+## Reglas de fabricación
+
+- MDF laminado solo en puerta Lisa.
+- Concha dorada solo en cajones.
+- Berlín solo con frente Lisa.
+- Lateral negra en puertas siempre en Centro-Centro (cantos del medio).
+
+Viven en `src/royal_kitchens_studio/catalogo/opciones.json` y se aplican en
+los selectores, al insertar y en «Avanzado».
+
+## Página de un mueble
 
 Vista previa al centro (rueda = zoom, arrastrar = moverse, doble clic =
-ajustar) y el diseño en una barra a la derecha. No se usan fotos de módulo:
-tarjetas y página muestran el alzado generado.
+ajustar) y el diseño en una barra a la derecha.
 
-- **Diseño** (barra derecha)
-  - «Configuración del proyecto»: el módulo sigue el diseño global.
-  - «Personalizar este módulo»: medidas con presets, tarja, frente, manija y
-    material propios. Solo ese módulo cambia; se guarda en el proyecto.
-  - Vista previa «Así se verá» (alzado SVG con estilo de frente, manija y
-    material).
-  - **Insertar con este diseño** / **Insertar tal cual**.
-  - Creaciones: el diseño se aplica de verdad (se regenera desde su receta).
-    Módulos del catálogo: se aplican las medidas; el diseño es vista previa
-    (para fabricarlo con ese diseño, «Avanzado»).
-- **Avanzado…** (ventana emergente): todas las variables del manifiesto de la familia
-  para la familia del módulo, con sus mismas reglas (visibilidad, valores
-  fijados, presupuesto de cajones, errores). **Generar** inserta en la escena
-  y/o guarda en Creaciones.
+- **Diseño**: sigue el diseño global o se personaliza (medidas, tarja, frente,
+  manijas, material). **Insertar con este diseño** regenera desde la receta
+  (~15 s); **Insertar tal cual** usa el `.skp` guardado (~1 s).
+- **Avanzado…**: todas las variables del manifiesto de la familia, con sus
+  reglas (visibilidad, valores fijados, presupuesto de cajones, errores).
+  **Generar** inserta en la escena y/o guarda en el catálogo.
 
 ## Requisitos
 
-- SketchUp 2021+.
-- Catálogo de Módulos **0.3.0+** y Royal Catalog Creator **1.2.0+** instalados.
-  Si falta uno, Studio lo marca en rojo (pie del riel y Ajustes).
+- SketchUp 2021+ (probado en 2022).
 
 ## Instalar
 
 1. `powershell -ExecutionPolicy Bypass -File tools\build.ps1` → `dist/royal_kitchens_studio.rbz`.
-2. *Extensiones → Administrador de extensiones → Instalar extensión* (también
-   los `.rbz` de KitchenCatalog y KitchenCreator).
+2. *Extensiones → Administrador de extensiones → Instalar extensión*.
 3. *Extensiones → Royal Kitchens Studio* o su botón.
 
 ## Desarrollo
 
-- `node tests/ui.test.js` — vista previa, receta ↔ formulario (necesita el repo hermano `KitchenCreator`).
-- `ruby tests/test_proyecto.rb` — configuración del proyecto (lógica pura).
+- `node tests/ui.test.js` y `node tests/reglas.test.js` — interfaz y reglas de recetas.
+- `tests/test_*.rb` — Ruby (con `load` desde la consola de SketchUp si no hay
+  Ruby en el PATH; `test_generador.rb` solo ahí).
 - Arquitectura: `docs/ARQUITECTURA.md`.

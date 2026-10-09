@@ -3,25 +3,26 @@
 ## Principio
 
 Studio es el **único plugin**: proyectos, catálogo de opciones, reglas de
-fabricación y recetas de muebles viven y se editan aquí. KitchenCatalog y
-KitchenCreator fueron los motores de las versiones 0.1–0.3; lo que todavía
-se usa de ellos se va trayendo (tabla de abajo) y después se quitan.
+fabricación, manifiestos, motor de generación, componente base y catálogo
+de muebles viven y se editan aquí. No necesita KitchenCatalog ni
+KitchenCreator (fueron los motores de 0.1–0.3).
 
-## Migración (fase 2)
+## Migración (terminada en 0.5.0)
 
-| Necesidad | Hoy | Paso |
+| Necesidad | En Studio | Paso |
 |---|---|---|
-| Fotos y opciones de frente/manija/material, mapeo a variables, reglas | **Studio**: `catalogo.rb` + `catalogo/` | — |
-| Manifiestos de familia | **Studio**: `familias.rb` + `familias/*.json` | 2a ✓ |
-| Formulario: visibilidad, forzados, validación, aplanado, importación | **Studio**: `ui/receta.js` (`window.RCC_CORE`) | 2a ✓ |
-| Generar en la escena / guardar como creación | **Studio**: `generador.rb` + `motor/` | 2b ✓ |
-| Componente base | **Studio**: `componentes/GABINETE.skp` (alacena y esquinero: al activar esas familias) | 2b ✓ |
-| Leer CSV/Excel, plantilla | **Studio**: `Generador.importar_archivo`, `exportar_plantilla` | 2b ✓ |
-| Módulos del catálogo, creaciones, miniaturas | `KitchenCatalog::Catalog`, `Thumbnails`, `Config` | 2c |
-| Insertar módulo / material en el modelo | `KitchenCatalog::Inserter.place`, `asegurar_material` | 2c |
+| Opciones de frente/manija/material, fotos, reglas | `catalogo.rb` + `catalogo/` | 0.3.1 |
+| Manifiestos de familia | `familias.rb` + `familias/*.json` | 2a |
+| Formulario: visibilidad, validación, aplanado, importación | `ui/receta.js` (`window.RCC_CORE`) | 2a |
+| Generar en la escena / guardar en el catálogo | `generador.rb` + `motor/` | 2b |
+| Componente base | `componentes/GABINETE.skp` (alacena y esquinero: al activar esas familias) | 2b |
+| CSV/Excel y plantilla | `Generador.importar_archivo`, `exportar_plantilla` | 2b |
+| Catálogo de muebles, insertar, material en el modelo | `biblioteca.rb`, `Catalogo.asegurar_material` | 2c |
 
-`puente.rb` comprueba KitchenCatalog (0.3.0+) mientras quede el paso 2c;
-se borra al terminarlo. KitchenCreator ya no se usa.
+El catálogo viejo de KitchenCatalog (27 .skp del componente anterior) se
+dejó de usar por decisión: el catálogo de Studio son las recetas que se
+guardan desde «Avanzado» o un CSV (carpeta de Ajustes, por defecto
+`Documentos/Royal Kitchens/Creaciones personalizadas`).
 
 ## Archivos
 
@@ -32,7 +33,7 @@ src/royal_kitchens_studio/
   usuario.rb    usuario de esta PC (nombre, sede, rol)
   registro.rb   registro de proyectos en el almacén
   sincronia.rb  copia de trabajo local <-> almacén
-  puente.rb     KitchenCatalog, lo único que falta migrar (se borra al terminar 2c)
+  biblioteca.rb catálogo de muebles: recetas guardadas (.json + .skp), «Usar» tal cual
   catalogo.rb   opciones (frente, manija, material) + reglas de fabricación
   familias.rb   manifiestos de familia (familias/*.json)
   generador.rb  generar desde una receta: validación de respaldo, una sola pasada
@@ -41,7 +42,7 @@ src/royal_kitchens_studio/
   componentes/  componentes base de cada familia (.skp)
   proyecto.rb   configuración del proyecto (pura + lectura/escritura en el .skp)
   dialogo.rb    HtmlDialog y callbacks (respuestas: window.RKS.<fn>)
-  ui/index.html secciones: proyectos, proyecto, lista (catálogo/creaciones), módulo, csv, ajustes
+  ui/index.html secciones: proyectos, proyecto, catálogo, módulo, csv, ajustes
   ui/proyectos.js RKProyectos: filtrar/ordenar la lista, fechas, candado, sincronía; puro
   ui/app.js     controlador
   ui/vista.js   RKVista: alzado SVG («Así se verá»); puro, se prueba en node
@@ -49,7 +50,7 @@ src/royal_kitchens_studio/
   ui/receta.js  RCC_CORE: reglas de las recetas (validar, aplanar, nombre, importar); puro
   ui/reglas.js  RKReglas: manija por uso, Berlín/Lisa, MDF; puro
   ui/avanzado.js RKAvanzado: formulario de manifiesto + receta ↔ formulario
-  ui/style.css  tokens y teclas de KitchenCatalog + layout de Studio
+  ui/style.css  tokens, teclas y layout
 ```
 
 ## Datos del proyecto
@@ -128,9 +129,10 @@ y llegan a la UI en `estado.transiciones`.
 
 ## Flujos
 
-- **Insertar con diseño (Diseño)** → `insertar {id, eleccion}`. Creación:
-  `Catalogo.cambios_receta` (reglas incluidas) + `Generador.instanciar_receta` (receta +
-  cambios). Catálogo: `Inserter.place`, solo medidas totales.
+- **Insertar (catálogo)** → `insertar {id, eleccion}`. Sin elección («Usar»):
+  `Biblioteca.insertar_tal_cual` (el .skp guardado, ~1 s). Con elección:
+  `Catalogo.cambios_receta` (reglas incluidas) + `Generador.instanciar_receta`
+  (receta + cambios, ~15 s).
 - **Generar (Avanzado / fila CSV)** → `RCC_CORE.flatten` + `nombresDivisores`
   → `generar {familia, nombre, valores, divisores, material, insertar, publicar}`
   → `Generador.generar`.
@@ -157,5 +159,4 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
 - Tarja, frente, manija y material se aplican de verdad solo en **gabinete**
   (única familia con mapeo en `opciones.json`). Alacena y esquinero: medidas y
   «Avanzado».
-- Módulos de `instancias/` (componente anterior): el diseño es vista previa.
 - Materiales sin foto: se ven y se crean con un tono aproximado.

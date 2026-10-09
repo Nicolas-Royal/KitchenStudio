@@ -3,8 +3,8 @@ require "fileutils"
 
 module RoyalKitchens
   module Studio
-    # Ventana única de Studio. Generar es propio (Generador); lo que falta del
-    # catálogo de módulos todavía se pide a KitchenCatalog (ver Puente).
+    # Ventana única de Studio: proyectos, diseño, catálogo de muebles
+    # (Biblioteca), generar (Generador) y CSV.
     #
     # Respuestas a la UI: window.RKS.<fn>(obj).
     module Dialogo
@@ -49,7 +49,6 @@ module RoyalKitchens
         cb(dlg, "borrar_creacion")   { |id| borrar_creacion(dlg, id) }
         cb(dlg, "abrir_carpeta")     { |cual| abrir_carpeta(cual) }
         cb(dlg, "cambiar_carpeta")   { |cual| cambiar_carpeta(cual); enviar_estado(dlg) }
-        cb(dlg, "abrir_plugin")      { |cual| abrir_plugin(cual) }
         # Registro de proyectos
         cb(dlg, "proyectos_listar")  { |_| responder(dlg, "onProyectos", Registro.listar) }
         cb(dlg, "proyecto_detalle")  { |folio| responder(dlg, "onProyectoDetalle", detalle(folio)) }
@@ -104,57 +103,35 @@ module RoyalKitchens
       end
 
       def estado
-        deps = Puente.estado
-        data = { "dependencias" => deps, "proyecto" => Proyecto.leer, "version" => VERSION,
-                 "usuario" => Usuario.actual, "actual" => Sincronia.actual,
-                 "estados" => Registro::ESTADOS, "transiciones" => Registro.transiciones,
-                 "opciones" => Catalogo.para_ui, "manifiestos" => Familias.manifiestos,
-                 "carpetas" => { "proyectos" => Registro.raiz, "creaciones" => Generador.creaciones_dir } }
-        return data unless Puente.catalogo?
-
-        root = KitchenCatalog::Config.catalog_root!
-        cr   = Generador.creaciones_dir
-        KitchenCatalog::Thumbnails.ensure_instancias(root) if root
-        catalogo = root ? KitchenCatalog::Dialog.load_manifest(root, false) : { "modules" => [] }
-        catalogo = KitchenCatalog::Catalog.merge_instancias(catalogo, root, cr) if root
-        data.merge!(
-          "modulos"    => catalogo["modules"] || [],
-          "categorias" => (catalogo["facets"] || {})["categories"] || [],
-          "carpetas"   => data["carpetas"].merge("catalogo" => root)
-        )
-        data
+        modulos = Biblioteca.modulos(Generador.creaciones_dir)
+        { "proyecto" => Proyecto.leer, "version" => VERSION,
+          "usuario" => Usuario.actual, "actual" => Sincronia.actual,
+          "estados" => Registro::ESTADOS, "transiciones" => Registro.transiciones,
+          "opciones" => Catalogo.para_ui, "manifiestos" => Familias.manifiestos,
+          "modulos" => modulos, "categorias" => Biblioteca.categorias(modulos),
+          "carpetas" => { "proyectos" => Registro.raiz, "creaciones" => Generador.creaciones_dir } }
       end
 
-      # ---- Insertar (módulo tal cual o con diseño) ----------------------------
+      # ---- Insertar un mueble del catálogo ------------------------------------
       #
-      # { id, eleccion }. Con eleccion, una creación se regenera desde su receta
-      # con los cambios que calcula Studio (Catalogo.cambios_receta: manija de
-      # puertas y de cajones, reglas); un módulo del catálogo solo ajusta
-      # medidas (KitchenCatalog::Inserter.place, su diseño ya viene armado).
+      # { id, eleccion }. Sin elección («Usar»): el .skp guardado tal cual. Con
+      # elección: se regenera desde la receta con los cambios que calcula
+      # Catalogo.cambios_receta (medidas, frente, manija por uso, material y sus
+      # reglas).
       def insertar(req)
-        raise "Falta el Catálogo de Módulos 0.3 o superior." unless Puente.catalogo?
-        id = req["id"].to_s
+        m  = Biblioteca.buscar(Generador.creaciones_dir, req["id"])
         el = req["eleccion"]
-        if el.is_a?(Hash) && !el.empty?
-          r = insertar_receta(id, el)
-          return r if r
+        res = if el.is_a?(Hash) && !el.empty?
+          op  = Catalogo.cargar
+          cfg = (op["familias"] || {})[m["receta_familia"]] || {}
+          cambios = Catalogo.cambios_receta(cfg, el, op, m["receta"]["valores"] || {})
+          asegurar_material(el["material"]) if cambios.key?(cfg.dig("material", "attr"))
+          Generador.instanciar_receta(m["receta_familia"], m["receta"], cambios, nombre: m["specs"]["sku"])
+        else
+          Biblioteca.insertar_tal_cual(m)
         end
-        KitchenCatalog::Inserter.place(id, {}, el)
-        { "ok" => true, "id" => id }
-      end
-
-      # nil si +id+ no es una creación con receta (se inserta como siempre).
-      def insertar_receta(id, eleccion)
-        meta = KitchenCatalog::Catalog.scan_creaciones(Generador.creaciones_dir).find { |m| m["id"] == id }
-        return nil unless meta && meta["receta"].is_a?(Hash)
-        op    = Catalogo.cargar
-        cfg   = (op["familias"] || {})[meta["receta_familia"]] || {}
-        cambios = Catalogo.cambios_receta(cfg, eleccion, op, meta["receta"]["valores"] || {})
-        asegurar_material(eleccion["material"]) if cambios.key?(cfg.dig("material", "attr"))
-        res = Generador.instanciar_receta(meta["receta_familia"], meta["receta"], cambios,
-                                          nombre: (meta["specs"] || {})["sku"])
         raise res["error"].to_s unless res["ok"]
-        { "ok" => true, "id" => id, "avisos" => res["avisos"] }
+        { "ok" => true, "id" => m["id"], "avisos" => res["avisos"] }
       end
 
       # ---- Generar desde «Avanzado» o desde una fila del CSV -------------------
@@ -181,17 +158,13 @@ module RoyalKitchens
       end
 
       def asegurar_material(id)
-        return unless Puente.catalogo?
-        root = KitchenCatalog::Config.catalog_root!
-        op   = KitchenCatalog::Configurador.cargar(root, KitchenCatalog::Config::BUNDLED_SEED)
-        KitchenCatalog::Inserter.asegurar_material(Sketchup.active_model, root, id, op)
+        Catalogo.asegurar_material(Sketchup.active_model, id)
       end
 
-      # ---- Creaciones, carpetas, plugins -------------------------------------
+      # ---- Creaciones y carpetas -------------------------------------
 
       def borrar_creacion(dlg, id)
-        mod = KitchenCatalog::Catalog.scan_creaciones(Generador.creaciones_dir).find { |m| m["id"] == id.to_s }
-        raise "Creación no encontrada." unless mod
+        mod = Biblioteca.buscar(Generador.creaciones_dir, id)
         ok = UI.messagebox("¿Eliminar la creación «#{mod['name']}»?\nSe borran su receta, su .skp y su foto.", MB_YESNO)
         return unless ok == IDYES
         base = mod["_file"].sub(/\.json\z/i, "")
@@ -298,7 +271,6 @@ module RoyalKitchens
       def carpeta(cual)
         case cual
         when "proyectos"  then Registro.raiz
-        when "catalogo"   then KitchenCatalog::Config.catalog_root!
         when "creaciones" then Generador.creaciones_dir
         end
       end
@@ -320,16 +292,9 @@ module RoyalKitchens
             Sincronia.soltar_candado
             Registro.raiz = dir
           end
-        when "catalogo" then KitchenCatalog::Config.prompt_for_root
         when "creaciones"
           dir = UI.select_directory(title: "Carpeta de creaciones personalizadas", directory: carpeta("creaciones"))
           Generador.creaciones_dir = dir if dir
-        end
-      end
-
-      def abrir_plugin(cual)
-        case cual.to_s
-        when "catalogo" then KitchenCatalog::Dialog.show if Puente.catalogo?
         end
       end
 

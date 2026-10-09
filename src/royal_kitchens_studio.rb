@@ -1,15 +1,15 @@
 require "sketchup.rb"
 require "extensions.rb"
 
-# Royal Kitchens Studio: una sola ventana para diseñar con el Catálogo de
-# Módulos (KitchenCatalog) y Royal Catalog Creator (KitchenCreator). No
-# reemplaza a ninguno: los usa como motores (catálogo, fotos e inserción de
-# uno; manifiestos, validación y generación del otro).
+# Royal Kitchens Studio: el plugin de Royal Kitchens para diseñar cocinas en
+# SketchUp. Proyectos compartidos, diseño global (frente, manija, material),
+# catálogo de muebles por receta y generación desde el componente base. No
+# necesita otros plugins.
 module RoyalKitchens
   module Studio
     PLUGIN_ID   = "royal_kitchens_studio".freeze
     PLUGIN_NAME = "Royal Kitchens Studio".freeze
-    VERSION     = "0.4.0".freeze
+    VERSION     = "0.5.0".freeze
 
     unless defined?(@registrado)
       @registrado = true
@@ -17,8 +17,7 @@ module RoyalKitchens
       ext.version     = VERSION
       ext.creator     = "Royal Kitchens"
       ext.copyright   = "© 2026 Royal Kitchens"
-      ext.description = "Proyecto, catálogo, creaciones y generación de módulos de cocina en una sola " \
-                        "interfaz. Requiere Catálogo de Módulos 0.3+ y Royal Catalog Creator 1.2+."
+      ext.description = "Proyectos, diseño, catálogo y generación de muebles de cocina en una sola ventana."
       Sketchup.register_extension(ext, true)
     end
   end
