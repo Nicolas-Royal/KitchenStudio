@@ -82,14 +82,40 @@ module RoyalKitchens
         dlg.execute_script("window.RKS && window.RKS.#{fn}(#{JSON.generate(obj)});")
       end
 
+      # Corre +bloque+ una sola vez dentro de +segundos+.
+      #
+      # OJO: en SketchUp un UI.start_timer que no se repite SÍ se vuelve a
+      # disparar mientras su bloque tiene abierta una ventana modal (el
+      # «¿Guardar cambios?» de open_file/file_new, un messagebox…): cada disparo
+      # abría otro archivo y otro aviso, cientos, y SketchUp se trababa. Por eso
+      # el temporizador se detiene al entrar y lleva una bandera.
+      # Abriendo/creando/generando: el temporizador de sincronía espera.
+      def trabajando?
+        @trabajando ? true : false
+      end
+
+      def despues(segundos, &bloque)
+        hecho = false
+        id = nil
+        id = UI.start_timer(segundos, false) do
+          UI.stop_timer(id) if id
+          next if hecho
+          hecho = true
+          bloque.call
+        end
+      end
+
       # Generar tarda varios segundos. Se suelta el callback para que la
       # interfaz alcance a pintar el «trabajando…» y el trabajo corre después.
       def en_segundo_plano(dlg, fn, &trabajo)
-        UI.start_timer(0.05, false) do
+        despues(0.05) do
+          @trabajando = true
           res = begin
             trabajo.call
           rescue => e
             { "ok" => false, "error" => e.message }
+          ensure
+            @trabajando = false
           end
           responder(dlg, fn, res) if dlg.visible?
         end
@@ -264,7 +290,7 @@ module RoyalKitchens
       # observador de SketchUp).
       def al_guardar(model)
         nota = tomar_nota
-        UI.start_timer(0.1, false) do
+        despues(0.1) do
           r = begin
             Sincronia.al_guardar(model, nota)
           rescue => e

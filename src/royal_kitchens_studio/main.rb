@@ -40,6 +40,7 @@ module RoyalKitchens
       # candado del proyecto abierto.
       @conectado = Registro.disponible?
       UI.start_timer(60, true) do
+        next if Dialogo.trabajando? # p. ej. con un «¿Guardar cambios?» abierto
         conectado = Registro.disponible?
         subidos = Sincronia.tick
         Dialogo.refrescar if subidos.any? || conectado != @conectado

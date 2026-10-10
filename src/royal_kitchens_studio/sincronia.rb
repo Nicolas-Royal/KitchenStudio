@@ -93,7 +93,10 @@ module RoyalKitchens
         soltar_candado
         # El modelo abierto se guarda como copia de trabajo del proyecto nuevo;
         # su archivo original (si lo tenía) no se toca.
-        Sketchup.file_new unless usar_modelo_actual
+        unless usar_modelo_actual
+          guardar_antes_de_cambiar
+          Sketchup.file_new
+        end
         model = Sketchup.active_model
         model.set_attribute(Proyecto::DICT, ATRIBUTO, folio)
         Proyecto.guardar(Proyecto.leer(model), model)
@@ -144,11 +147,22 @@ module RoyalKitchens
 
         soltar_candado
         tomar_candado(folio) if disp
+        unless misma_ruta?(Sketchup.active_model.path, local)
+          guardar_antes_de_cambiar
+        end
         unless misma_ruta?(Sketchup.active_model.path, local) || Sketchup.open_file(local)
           soltar_candado
           return { "ok" => false, "cancelado" => true }
         end
         { "ok" => true, "folio" => folio }
+      end
+
+      # Antes de abrir otro modelo: si el abierto es la copia de trabajo de un
+      # proyecto y tiene cambios, se guarda (y por lo tanto se sube) en vez de
+      # que SketchUp pregunte «¿Guardar cambios?». Un modelo ajeno sí pregunta.
+      def guardar_antes_de_cambiar
+        model = Sketchup.active_model
+        model.save if model && model.modified? && modo(model) == "edicion"
       end
 
       # Antes de reemplazar la copia de trabajo hay que cerrarla si es el
@@ -176,6 +190,7 @@ module RoyalKitchens
         destino = File.join(consulta_dir, format("%s_v%04d.skp", Registro.carpeta_de(folio), v))
         cerrar_si_abierto(destino)
         FileUtils.cp(origen, destino)
+        guardar_antes_de_cambiar
         soltar_candado
         return { "ok" => false, "cancelado" => true } unless Sketchup.open_file(destino)
         { "ok" => true, "folio" => folio, "consulta" => true, "version" => v }
