@@ -159,11 +159,15 @@ module RoyalKitchens
           # Se clasifica ANTES de borrar: después de erase_entities las
           # referencias a lo borrado (y a lo que arrastre) quedan inválidas.
           ocultos, contenedores = [], []
+          # Solo piezas (instancias y grupos). Las aristas ocultas NO son
+          # variantes: son las uniones que los frentes con marco (Mitered,
+          # Clásico Europeo, Raised Panel) esconden para leerse como una sola
+          # pieza, y borrar una arista se lleva las caras que delimita.
           defn.entities.to_a.each do |e|
-            next unless e.respond_to?(:hidden?)
+            next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
             if oculto?(e)
               ocultos << e
-            elsif e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+            else
               contenedores << e
             end
           end
