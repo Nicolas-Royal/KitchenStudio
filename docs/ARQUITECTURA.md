@@ -37,6 +37,18 @@ Una cosa a la vez:
    (catálogo y página de cada mueble) y **Desde CSV**. Sin proyecto abierto no
    se entra (`irA` manda a la lista); al abrir o crear uno se entra solo.
 
+## Estilo: qué se escribe y qué se lee (0.6.2)
+
+- **Hundido** (`--shadow-recessed`) = se escribe o se opera: campos, buscadores,
+  interruptores. También las ventanas de imagen (vista previa, fotos).
+- **Apenas levantado** (`--shadow-raised`) = solo se lee: datos y medidas,
+  tablas, barra del proyecto abierto, listas, rutas de Ajustes, grupos de
+  «Avanzado» y cualquier campo deshabilitado.
+- Un campo que no se puede editar no se muestra como caja deshabilitada sino
+  como dato con candado (`.dato-val.bloq`, `formCampos` sin `editable`).
+
+Se eligió entre seis opciones (artifact «Campos y datos en Studio», opción F).
+
 ## Archivos
 
 ```

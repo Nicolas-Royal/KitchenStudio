@@ -1039,8 +1039,24 @@ const CAMPOS_PROYECTO = [
   ["fecha_compromiso", "Fecha compromiso", "date"], ["notas", "Notas / áreas (cocina, closet, baño…)", "textarea"],
 ];
 
+const CANDADO = '<svg class="candado" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+
+/* Sin +editable+ los campos se muestran como datos (placa levantada con
+   candado), no como cajas para escribir deshabilitadas. */
 function formCampos(box, campos, valores, editable) {
   box.innerHTML = "";
+  if (!editable) {
+    campos.forEach(([k, label, tipo, opciones]) => {
+      const v = valores[k] == null ? "" : String(valores[k]);
+      const op = tipo === "select" && opciones.find(([o]) => o === v);
+      const texto = op ? op[1] : (tipo === "date" && v ? P.compromiso(v, new Date()).texto : v);
+      const d = document.createElement("div");
+      d.className = "field" + (tipo === "textarea" ? " full" : "");
+      d.innerHTML = `<span class="field-label">${esc(label)}</span><span class="dato-val bloq" title="Solo lectura">${CANDADO}${esc(texto || "—")}</span>`;
+      box.appendChild(d);
+    });
+    return;
+  }
   campos.forEach(([k, label, tipo, opciones]) => {
     const l = document.createElement("label");
     l.className = "field" + (tipo === "textarea" ? " full" : "");
