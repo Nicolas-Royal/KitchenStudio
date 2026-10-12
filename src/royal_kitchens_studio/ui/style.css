@@ -115,7 +115,9 @@ button {
   border: 0;
   cursor: pointer;
 }
-:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
+/* El contorno de foco solo aparece navegando con teclado (.teclado lo pone app.js); un clic no deja marca. */
+:focus { outline: none; }
+.teclado :focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
 
 /* Secundaria: chips, selector de vista, iconos */
 .chip, .view-toggle button, .icon-btn {
@@ -185,8 +187,10 @@ button {
   transition: box-shadow var(--dur-fast) ease-out;
 }
 #q:focus-visible, #pj-q:focus-visible, .options select:focus-visible {
-  outline: 2px solid var(--accent-dark); outline-offset: 0;
   box-shadow: var(--shadow-recessed), 0 0 0 5px var(--tint);
+}
+.teclado #q:focus-visible, .teclado #pj-q:focus-visible, .teclado .options select:focus-visible {
+  outline: 2px solid var(--accent-dark); outline-offset: 0;
 }
 #q::placeholder, #pj-q::placeholder { color: var(--text-muted); opacity: 0.5; }
 
@@ -393,7 +397,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .switch-thumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: var(--radius-full); background: var(--chassis); box-shadow: var(--shadow-key); transition: transform var(--dur-base) var(--ease-mech); }
 .switch input:checked + .switch-track { background: var(--accent); }
 .switch input:checked + .switch-track .switch-thumb { transform: translateX(18px); }
-.switch input:focus-visible + .switch-track { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+.teclado .switch input:focus-visible + .switch-track { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
 
 /* Selectores con foto */
 .pickers { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }

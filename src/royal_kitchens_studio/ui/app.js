@@ -1312,4 +1312,53 @@ document.addEventListener("keydown", (e) => {
   else if (S.avAbierto) abrirAvanzado(false);
 });
 
+// ==== Clic: sin contorno, con un tic ========================================
+// El contorno de foco es solo para quien navega con Tab; el ratón lo apaga.
+const CLICABLE = "button, select, label, summary, .card, .pk-item, .pj-tabla tbody tr";
+let audio = null;
+// Envolvente común: sube a `vol` en `ataque` s y cae a silencio en `dur` s.
+function envolvente(t, vol, ataque, dur) {
+  const g = audio.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + ataque);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  g.connect(audio.destination);
+  return g;
+}
+// Soplo de ruido por un pasabanda: la parte «táctil» del clic.
+function ruido(t, freq, q, dur, vol, ataque) {
+  const n = Math.ceil(audio.sampleRate * dur), buf = audio.createBuffer(1, n, audio.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const src = audio.createBufferSource(), fil = audio.createBiquadFilter();
+  src.buffer = buf;
+  fil.type = "bandpass"; fil.frequency.value = freq; fil.Q.value = q;
+  src.connect(fil); fil.connect(envolvente(t, vol, ataque, dur));
+  src.start(t);
+}
+// Tic «madera + susurro», sintetizado (sin archivos de sonido): dos
+// resonancias de madera, un roce de aire y un cuerpo grave muy breve.
+function tic() {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+    const t = audio.currentTime;
+    ruido(t, 5200, 0.8, 0.012, 0.016, 0.0015);
+    ruido(t, 1250, 5, 0.026, 0.075, 0.001);
+    ruido(t, 2300, 6, 0.016, 0.035, 0.001);
+    const osc = audio.createOscillator();
+    osc.frequency.setValueAtTime(290, t);
+    osc.frequency.exponentialRampToValueAtTime(200, t + 0.028);
+    osc.connect(envolvente(t, 0.022, 0.002, 0.028));
+    osc.start(t); osc.stop(t + 0.04);
+  } catch (e) { /* sin audio no pasa nada */ }
+}
+document.addEventListener("pointerdown", (e) => {
+  document.documentElement.classList.remove("teclado");
+  const el = e.target.closest && e.target.closest(CLICABLE);
+  if (el && !el.disabled) tic();
+}, true);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") document.documentElement.classList.add("teclado");
+}, true);
+
 bridge("listo");
