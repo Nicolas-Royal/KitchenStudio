@@ -56,6 +56,10 @@
     "h01_entrepano": { "0": "-E", "1": "" },
     "b02_tipo_cajon": { "1": "", "2": "-AN", "3": "-TL" }
   },
+  "reglas_frentes": { "nombre": "{pieza} {linea}", "attr_linea": "l01_linea_frente", "piezas": { "Puerta": "Puerta", "Tapa_cajon": "Tapa de cajón" } },
+  "reglas_herrajes": [
+    { "pieza": "Acc.Corredera", "nombre": "Corredera {tipo} {cm}cm", "attr_tipo": "b02_tipo_cajon", "multiplo_cm": 5 }
+  ],
   "reglas_cajones": {
     "alto_min_mm": 100,
     "fachada": { "attr_alto": "LenZ", "restar": ["a02_alto_zoclo", "k02_margen_inferior"] },

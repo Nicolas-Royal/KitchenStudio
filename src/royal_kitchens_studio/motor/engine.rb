@@ -324,7 +324,7 @@ module RoyalKitchens
 
         entidad.definition.entities.to_a.each do |hijo|
           next unless hijo.is_a?(Sketchup::ComponentInstance) || hijo.is_a?(Sketchup::Group)
-          hijo.make_unique if hijo.definition.instances.size > 1
+          independizar(hijo)
           buscar_para_modificar(hijo, buscado, resultados)
         end
 
@@ -394,6 +394,214 @@ module RoyalKitchens
         g
       end
 
+      # ---------------------------------------------------------------------
+      # Deja cada frente compuesto como UNA pieza para OpenCutList.
+      #
+      # Los frentes con marco (Italiana, Mitered, Clásico Europeo, Raised
+      # Panel…) están armados con largueros, travesaños, esquinas y tablero,
+      # cada uno un componente con caras; OpenCutList lista una pieza por cada
+      # componente con caras y el frente salía despiezado.
+      #
+      # OpenCutList trata como simple grupo a todo componente cuya definición
+      # tiene «cortar abertura» (cutlist_generate_worker.rb,
+      # _fetch_useful_instance_infos; verificado en OCL 7.1.0): sus caras, sus
+      # medidas y su material cuentan para el componente que lo contiene. Aquí
+      # se marca así cada pieza interna del frente, y el frente sale como una
+      # sola pieza con su ancho, alto y grosor totales. No se toca geometría ni
+      # atributos: el componente dinámico sigue redibujándose igual, y como las
+      # piezas no están pegadas a ninguna cara, la marca no corta nada.
+      #
+      # Estructura (GABINETE.skp, 2026-10-12):
+      #
+      #   PanelZX (lleva u05estilo) > "CE Puerta" [PU.ClasicoEuropeo] > piezas
+      #
+      # El frente es cada hijo visible del PanelZX con dos o más componentes con
+      # caras; el frente liso (una sola tabla) no se toca.
+      #
+      # Devuelve la cantidad de frentes unificados.
+      # ---------------------------------------------------------------------
+      ATTR_ESTILO_FRENTE = 'u05estilo'.freeze
+
+      #
+      # spec (opcional) pone nombre a la pieza de cada frente, liso incluido:
+      #   { nombre: "{pieza} Italiana", piezas: { "Tapa_cajon" => "Tapa de cajón" } }
+      # «{pieza}» es el e1nombre del PanelZX («Puerta», «Tapa_cajon»). Va en el
+      # nombre de la definición, que es el que lista OpenCutList.
+      def unificar_frentes(inst, spec = nil)
+        n = 0
+        nombrados = {}
+        pila = [inst]
+        until pila.empty?
+          ent = pila.shift
+          es_frente = ent.get_attribute(DICT, ATTR_ESTILO_FRENTE) ||
+                      ent.definition.get_attribute(DICT, ATTR_ESTILO_FRENTE)
+          ent.definition.entities.to_a.each do |hijo|
+            next unless hijo.is_a?(Sketchup::ComponentInstance) || hijo.is_a?(Sketchup::Group)
+            next if oculto?(hijo)
+            # Mismo cuidado que eliminar_ocultos: nada compartido con el base.
+            independizar(hijo)
+            unless es_frente && hijo.is_a?(Sketchup::ComponentInstance)
+              pila << hijo
+              next
+            end
+
+            hojas = piezas_con_caras(hijo.definition)
+            next if hojas < 1
+            pieza = hijo
+            if hojas >= 2
+              piezas_como_grupo(hijo.definition)
+              n += 1
+            else
+              pieza = unica_pieza(hijo)
+            end
+            nombrar_frente(pieza, ent, spec, nombrados) if spec && pieza
+          end
+        end
+        n
+      end
+
+      # La única pieza con caras de un frente liso (la tabla), independizando
+      # el camino hasta ella porque se le va a cambiar el nombre.
+      def unica_pieza(ent)
+        ent.definition.entities.to_a.each do |e|
+          next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+          next if oculto?(e)
+          independizar(e)
+          return e if e.is_a?(Sketchup::ComponentInstance) && e.definition.entities.grep(Sketchup::Face).any?
+          hallada = unica_pieza(e)
+          return hallada if hallada
+        end
+        nil
+      end
+
+      # Huella de una pieza: medidas, caras, materiales y la posición de cada
+      # parte, en toda la rama. Dos definiciones con la misma huella se dibujan
+      # igual (una puerta izquierda y su derecha solo si de verdad son iguales).
+      def firma_pieza(defn)
+        bb    = defn.bounds
+        caras = defn.entities.grep(Sketchup::Face)
+        hijos = defn.entities.select { |e| e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group) }
+                    .reject { |e| oculto?(e) }
+        [
+          [bb.min, bb.max].map { |p| p.to_a.map { |v| v.to_mm.round(1) } },
+          caras.size,
+          caras.inject(0.0) { |s, f| s + f.area }.round(2),
+          caras.map { |f| f.material ? f.material.name : '' }.uniq.sort,
+          hijos.map { |e| [e.transformation.to_a.map { |v| v.round(3) }, e.material ? e.material.name : '', firma_pieza(e.definition)].inspect }.sort
+        ]
+      end
+
+      def nombrar_frente(pieza, panel, spec, nombrados)
+        clave = (panel.get_attribute(DICT, 'e1nombre') || panel.definition.get_attribute(DICT, 'e1nombre')).to_s
+        tipo  = (spec[:piezas] || {})[clave] || clave.tr('_', ' ')
+        nombre = spec[:nombre].to_s.sub('{pieza}', tipo).squeeze(' ').strip
+        return if nombre.empty?
+        # Los frentes idénticos de este mueble comparten definición para salir
+        # en un renglón con su cantidad (mismo motivo que unificar_herrajes).
+        # Solo entre los de esta generación: los de otro mueble pueden llevar
+        # otro material pintado dentro de la definición.
+        firma  = firma_pieza(pieza.definition)
+        gemela = (nombrados[nombre] ||= []).find { |d, f| d.valid? && f == firma }
+        if gemela
+          pieza.definition = gemela[0]
+        else
+          pieza.definition.name = nombre
+          pieza.definition.set_attribute(DICT_STUDIO, 'compartida', true)
+          nombrados[nombre] << [pieza.definition, firma]
+        end
+        # Para quien tenga OpenCutList leyendo el nombre del atributo dinámico.
+        [pieza, pieza.definition].each { |e| e.set_attribute(DICT, 'name', nombre) }
+      end
+
+      # Componentes con caras propias debajo de una definición (lo que
+      # OpenCutList contaría como piezas).
+      def piezas_con_caras(defn)
+        defn.entities.inject(0) do |tot, e|
+          next tot unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+          next tot if oculto?(e)
+          propias = e.is_a?(Sketchup::ComponentInstance) && e.definition.entities.grep(Sketchup::Face).any? ? 1 : 0
+          tot + propias + piezas_con_caras(e.definition)
+        end
+      end
+
+      # Marca toda la rama, contenedores incluidos: uno sin marcar que reciba
+      # caras de sus hijos saldría él mismo como pieza.
+      def piezas_como_grupo(defn)
+        defn.entities.to_a.each do |e|
+          next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+          independizar(e)
+          e.definition.behavior.cuts_opening = true if e.is_a?(Sketchup::ComponentInstance)
+          piezas_como_grupo(e.definition)
+        end
+      end
+
+      # ---------------------------------------------------------------------
+      # Deja cada herraje compuesto (el juego de correderas de un cajón) como
+      # UNA pieza para OpenCutList, con nombre de compra: «Corredera Tandem 50cm».
+      #
+      # Estructura (GABINETE.skp, 2026-10-12):
+      #
+      #   Cajon n > "Acc.CorrederaOculta - CD001" > Corr.OcultaIzq + Corr.OcultaDer
+      #           > PartFija (grupo) + PartMovil… (componente) + BaseOCL
+      #   (la telescópica es igual, bajo "Acc.CorrederaTelescopica - CD001")
+      #
+      #   - El contenedor es el juego (izquierda + derecha); su `leny` es el
+      #     largo de la corredera: 51.0 cm para la que se vende como de 50.
+      #   - OpenCutList nombra la pieza con el nombre de la DEFINICIÓN, y dos
+      #     definiciones no pueden llamarse igual (la segunda sale con «#1»).
+      #     Por eso los juegos idénticos comparten una sola definición: así
+      #     salen en un renglón con su cantidad. Si después el componente
+      #     dinámico redibuja uno, SketchUp lo vuelve a independizar.
+      #
+      # spec: { pieza:, nombre: (con «{cm}»), multiplo_cm: }
+      # Devuelve la cantidad de herrajes unificados.
+      # ---------------------------------------------------------------------
+      def unificar_herrajes(inst, spec)
+        multiplo = spec[:multiplo_cm].to_i
+        multiplo = 1 if multiplo < 1
+        n = 0
+        buscar_para_modificar(inst, spec[:pieza].to_s).each do |pieza|
+          next if pieza == inst || oculto?(pieza) || !pieza.is_a?(Sketchup::ComponentInstance)
+          largo = pieza.get_attribute(DICT, 'leny') || pieza.definition.get_attribute(DICT, 'leny')
+          next unless largo.is_a?(Numeric)
+          # El largo nominal es el real hacia abajo: 51.0 cm -> 50.
+          cm     = ((largo * 2.54 + 0.01) / multiplo).floor * multiplo
+          nombre = spec[:nombre].to_s.sub('{cm}', cm.to_s)
+
+          piezas_como_grupo(pieza.definition)
+          gemela = pieza.model.definitions.find { |d| d != pieza.definition && mismo_herraje?(d, pieza.definition, nombre) }
+          if gemela
+            pieza.definition = gemela
+          else
+            pieza.definition.name = nombre
+            pieza.definition.set_attribute(DICT_STUDIO, 'compartida', true)
+          end
+          # Para quien tenga OpenCutList leyendo el nombre del atributo dinámico.
+          [pieza, pieza.definition].each { |e| e.set_attribute(DICT, 'name', nombre) }
+          n += 1
+        end
+        n
+      end
+
+      # ¿+candidata+ es otra copia del mismo herraje ya nombrado? Mismo nombre
+      # (o su «#n») y mismas medidas al décimo de milímetro.
+      def mismo_herraje?(candidata, defn, nombre)
+        return false unless candidata.valid? && !candidata.group? && !candidata.image?
+        return false unless candidata.name == nombre || candidata.name =~ /\A#{Regexp.escape(nombre)}#\d+\z/
+        a, b = candidata.bounds, defn.bounds
+        [[a.width, b.width], [a.height, b.height], [a.depth, b.depth]].all? { |x, y| (x - y).abs < 0.1.mm }
+      end
+
+      # make_unique para lo que se va a modificar, salvo las piezas que este
+      # motor dejó compartidas a propósito (frentes y herrajes idénticos):
+      # separarlas les devolvería el «#1» al nombre.
+      DICT_STUDIO = 'rk_studio'.freeze
+
+      def independizar(ent)
+        return if ent.definition.get_attribute(DICT_STUDIO, 'compartida')
+        ent.make_unique if ent.definition.instances.size > 1
+      end
+
       # Oculto = la bandera de SketchUp o el atributo dinámico `hidden` en 1.
       # Se revisa el atributo porque el redibujado del DC no siempre alcanza a
       # propagar la bandera a las piezas más anidadas.
@@ -417,6 +625,9 @@ module RoyalKitchens
       #     :limpiar_ocultos     -> borra las variantes ocultas (default true)
       #     :divisores           -> { prefijo:, nombres: } para nombrar las divisiones
       #     :union               -> { grupo:, piezas:, nombre: } para fusionar mitades
+      #     :unificar_frentes    -> cada frente compuesto queda como una pieza (OpenCutList);
+      #                             true, o { nombre:, piezas: } para además nombrarla
+      #     :herrajes            -> [{ pieza:, nombre:, multiplo_cm: }] herrajes como una pieza con nombre
       #     :purgar              -> purge_unused al final si se limpió (default true)
       #
       # Devuelve { ok:, ruta:, instancia:, warnings: [] }.
@@ -479,6 +690,24 @@ module RoyalKitchens
               warnings << "Se eliminaron #{borradas} piezas ocultas." if borradas > 0
             rescue => e
               warnings << "Limpieza de ocultos: #{e.message}"
+            end
+          end
+
+          # Después de la limpieza, para no contar ni marcar variantes ocultas.
+          if opts[:unificar_frentes]
+            begin
+              spec = opts[:unificar_frentes]
+              unificar_frentes(inst, spec.is_a?(Hash) ? spec : nil)
+            rescue => e
+              warnings << "Unificación de frentes: #{e.message}"
+            end
+          end
+
+          Array(opts[:herrajes]).each do |spec|
+            begin
+              unificar_herrajes(inst, spec)
+            rescue => e
+              warnings << "Unificación de herrajes: #{e.message}"
             end
           end
 

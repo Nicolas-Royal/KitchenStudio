@@ -262,6 +262,33 @@ module RoyalKitchens
         { grupo: uni["grupo"].to_s, piezas: uni["piezas"].map(&:to_s), nombre: uni["nombre"].to_s }
       end
 
+      # manifest.reglas_herrajes: [ { pieza, nombre, attr_tipo, multiplo_cm } ].
+      # «{tipo}» se resuelve aquí con la etiqueta de la opción elegida (o la de
+      # su default); «{cm}» lo pone el motor, que es quien mide la pieza.
+      def herrajes_opts(manifest, valores)
+        lista = Array(manifest["reglas_herrajes"]).map do |h|
+          next unless h.is_a?(Hash) && h["pieza"] && h["nombre"]
+          campo = campo_por_attr(manifest, h["attr_tipo"])
+          valor = valores[h["attr_tipo"]] || (campo && campo["default"])
+          tipo  = etiqueta(manifest, h["attr_tipo"], valor).to_s
+          { pieza: h["pieza"].to_s, nombre: h["nombre"].to_s.sub("{tipo}", tipo).squeeze(" "),
+            multiplo_cm: (h["multiplo_cm"] || 1).to_i }
+        end.compact
+        lista.empty? ? nil : lista
+      end
+
+      # manifest.reglas_frentes: { nombre, attr_linea, piezas }. «{linea}» se
+      # resuelve aquí con la etiqueta de la línea de frente; «{pieza}» lo pone
+      # el motor. Sin regla, los frentes se unifican sin renombrar.
+      def frentes_opts(manifest, valores)
+        r = manifest["reglas_frentes"]
+        return true unless r.is_a?(Hash) && r["nombre"]
+        campo = campo_por_attr(manifest, r["attr_linea"])
+        valor = valores[r["attr_linea"]] || (campo && campo["default"])
+        linea = etiqueta(manifest, r["attr_linea"], valor).to_s
+        { nombre: r["nombre"].to_s.sub("{linea}", linea), piezas: r["piezas"] || {} }
+      end
+
       # Genera un mueble desde la fila plana +valores+.
       #   insertar: queda en la escena (a la derecha de lo que hay)
       #   publicar: se guarda en Creaciones (.skp + receta)
@@ -281,6 +308,8 @@ module RoyalKitchens
         opts = {
           insertar_en_escena: insertar,
           limpiar_ocultos:    true,
+          unificar_frentes:   frentes_opts(manifest, valores),
+          herrajes:           herrajes_opts(manifest, valores),
           purgar:             false, # purge_unused borraría definiciones de la diseñadora
           transformation:     transformation || siguiente_x(model),
           output_dir:         publicar ? creaciones_dir : nil,
