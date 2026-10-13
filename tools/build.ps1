@@ -28,6 +28,8 @@ New-Item -ItemType Directory -Path $staging | Out-Null
 try {
     Copy-Item (Join-Path $pluginDir 'royal_kitchens_studio.rb') $staging
     Copy-Item (Join-Path $pluginDir 'royal_kitchens_studio')    $staging -Recurse
+    # componentes/anterior guarda la versión previa de cada componente base: no se empaqueta.
+    Remove-Item (Join-Path $staging 'royal_kitchens_studio\componentes\anterior') -Recurse -Force -ErrorAction SilentlyContinue
 
     if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir | Out-Null }
     if (Test-Path $rbz) { Remove-Item $rbz -Force }
