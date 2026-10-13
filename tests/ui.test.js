@@ -14,7 +14,8 @@ new Function("window", fs.readFileSync(path.join(UI, "receta.js"), "utf8"))(w);
 const rcc = w.RCC_CORE;
 new Function("window", fs.readFileSync(path.join(UI, "vista.js"), "utf8"))(w);
 new Function("window", "document", "RKVista", fs.readFileSync(path.join(UI, "avanzado.js"), "utf8"))(w, doc, w.RKVista);
-const { RKVista, RKAvanzado } = w;
+new Function("window", fs.readFileSync(path.join(UI, "entrepanos.js"), "utf8"))(w);
+const { RKVista, RKAvanzado, RKEntrepanos } = w;
 
 let n = 0;
 function prueba(nombre, fn) { fn(); n++; console.log("ok - " + nombre); }
@@ -165,6 +166,34 @@ prueba("proyectos: etiqueta de sincronía", () => {
   assert.strictEqual(P.sincronia({ folio: null }), null);
   assert.strictEqual(P.sincronia({ folio: "x", modo: "consulta", sincronia: "ok" }).texto, "Solo lectura");
   assert.strictEqual(P.sincronia({ folio: "x", modo: "edicion", sincronia: "conflicto" }).clase, "bad");
+});
+
+prueba("entrepaños: arrastrar una repisa mueve solo sus dos espacios y respeta el mínimo", () => {
+  assert.deepStrictEqual(RKEntrepanos.arrastreAlto([200, 200, 300], 0, 50), [250, 150, 300]);
+  assert.deepStrictEqual(RKEntrepanos.arrastreAlto([200, 200, 300], 1, -500), [200, 10, 490]);
+  assert.deepStrictEqual(RKEntrepanos.arrastreAlto([200, 200, 300], 0, 500), [390, 10, 300]);
+  assert.strictEqual(RKEntrepanos.arrastreRetiro(-20, 560), 0);
+  assert.strictEqual(RKEntrepanos.arrastreRetiro(900, 560), 510);
+});
+
+prueba("entrepaños: lo que escribe el gráfico lo lee la geometría y la fila", () => {
+  const m = man.gabinete, V = m.grupos.find((g) => g.visual).visual;
+  const reg = { familia: "gabinete", valores: rcc.defaultValores(m) };
+  const id = (attr) => rcc.fieldByAttr(m, attr).id;
+  reg.valores[id("h01_entrepano")] = "0";
+  reg.valores[id(V.cantidad)] = "2";
+  const G0 = rcc.geomEntrepanos(m, reg.valores, V);
+  const e = RKEntrepanos.arrastreAlto(G0.espacios, 0, 40);
+  reg.valores[id(V.modo)] = V.modo_personalizado;
+  reg.valores[id(V.espacios[0])] = String(Math.round(e[0]));
+  reg.valores[id(V.espacios[1])] = String(Math.round(e[1]));
+  reg.valores[id(V.retiros[1])] = "0mm";
+  const G = rcc.geomEntrepanos(m, reg.valores, V);
+  assert.ok(G.personal && G.n === 2);
+  assert.strictEqual(G.espacios[0], Math.round(e[0]));
+  assert.ok(Math.abs(G.espacios.reduce((a, b) => a + b, 0) + 2 * G.esp - G.alto) < 0.01);
+  assert.ok(!G.repisas[0].divisor && G.repisas[1].divisor);
+  assert.strictEqual(rcc.flatten(m, reg)[V.espacios[0]], Math.round(e[0]) + "mm");
 });
 
 console.log(`${n}/${n} pruebas OK`);

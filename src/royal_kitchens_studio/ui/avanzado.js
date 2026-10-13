@@ -167,6 +167,7 @@ window.RKAvanzado = (function () {
     rcc.aplicarForzados(manifest, reg.valores);
     const filas = [];   // { f, g, wrap, ctrl }
     const grupos = [];  // { g, sec }
+    const graficos = []; // gráficos interactivos de grupo (entrepaños)
 
     const cambio = () => refrescar();
 
@@ -177,6 +178,14 @@ window.RKAvanzado = (function () {
       head.innerHTML = `<span>${g.titulo}</span><i class="adv-count"></i><svg class="ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`;
       head.onclick = () => sec.classList.toggle("is-collapsed");
       const body = el("div", "adv-fields");
+      // Gráfico del grupo: edita los mismos campos que siguen debajo.
+      if (g.visual && g.visual.tipo === "entrepanos" && window.RKEntrepanos) {
+        const gr = window.RKEntrepanos.crear(g.visual, manifest, reg, rcc, cambio,
+          (id) => (filas.find((x) => x.f.id === id) || {}).wrap);
+        body.appendChild(gr.nodo);
+        graficos.push({ g, gr });
+      }
+      let pares = null;
       g.campos.forEach((f) => {
         const wrap = el("div", "field");
         wrap.dataset.id = f.id;
@@ -191,7 +200,13 @@ window.RKAvanzado = (function () {
         wrap.appendChild(ctrl);
         const hint = el("span", "field-hint");
         wrap.appendChild(hint);
-        body.appendChild(wrap);
+        // `columna` deja «a la par» los campos que van juntos (repisa 1 y su
+        // espacio, luego la 2…): van en una rejilla propia de dos columnas.
+        if (f.columna) {
+          if (!pares) { pares = el("div", "adv-pares"); body.appendChild(pares); }
+          wrap.style.gridColumn = String(f.columna);
+          pares.appendChild(wrap);
+        } else body.appendChild(wrap);
         filas.push({ f, g, wrap, ctrl, hint });
       });
       sec.append(head, body);
@@ -232,6 +247,7 @@ window.RKAvanzado = (function () {
         hint.textContent = txt;
         hint.classList.toggle("bad", !!malos[f.id]);
       });
+      graficos.forEach(({ g, gr }) => { if (rcc.groupEnabled(g, manifest, reg.valores)) gr.pintar(); });
       if (onCambio) onCambio(errores);
     }
 

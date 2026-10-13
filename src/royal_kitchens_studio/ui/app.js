@@ -47,7 +47,7 @@ const S = {
   carpetas: {}, version: "",
   // Igual a Proyecto::DEFAULT en Ruby; se reemplaza con lo que llegue de onEstado.
   proyecto: { global: { frente: "1", manija_puerta: "9", manija_cajon: "9", material: "", tarja: false,
-    medidas: { igualar: false, alto: 770, fondo: 578 } }, modulos: {} },
+    medidas: { igualar: false, ancho: 600, alto: 770, fondo: 600 } }, modulos: {} },
   listo: false,
   modulos: [], categorias: [],
   opciones: { medidas: {}, frentes: [], tiradores: [], materiales: [], familias: {} },
@@ -226,7 +226,7 @@ function pintarProyecto() {
   const md = $("#pr-medidas");
   md.innerHTML = "";
   md.classList.toggle("is-off", !g.medidas.igualar);
-  ["alto", "fondo"].forEach((k) => md.appendChild(filaMedida(k, g.medidas[k], (v) => {
+  ["ancho", "alto", "fondo"].forEach((k) => md.appendChild(filaMedida(k, g.medidas[k], (v) => {
     g.medidas[k] = v; guardarProyecto(); pintarPreviewProyecto();
   }, !g.medidas.igualar)));
   pintarPreviewProyecto();
@@ -236,10 +236,11 @@ function pintarProyecto() {
 function pintarPreviewProyecto() {
   const g = S.proyecto.global;
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
+  const ancho = (g.medidas.igualar && g.medidas.ancho) || 600;
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
-    d31_z2_contenido: "2", d32_z2_cant_cajones: "3", b01_gola_o_tirador: "1", a02_alto_zoclo: "100mm" }, { ancho: 600, alto });
+    d31_z2_contenido: "2", d32_z2_cant_cajones: "3", b01_gola_o_tirador: "1", a02_alto_zoclo: "100mm" }, { ancho, alto });
   visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto");
-  $("#pr-preview-note").textContent = "Ejemplo: gabinete de 600 mm con puerta doble y 3 cajones.";
+  $("#pr-preview-note").textContent = `Ejemplo: gabinete de ${ancho} mm con puerta doble y 3 cajones.`;
 }
 
 function pintarPersonalizados() {
@@ -514,7 +515,8 @@ function personalizado(m) {
 }
 
 /* Diseño efectivo del módulo: el suyo si está personalizado, si no el global
-   (con las medidas propias del módulo, salvo «igualar» en gabinetes). */
+   (con las medidas propias del módulo, salvo «igualar» en gabinetes, que
+   pone el ancho, alto y fondo comunes). */
 function disenoDe(m) {
   const g = S.proyecto.global;
   const o = S.proyecto.modulos[m.id];
@@ -522,7 +524,7 @@ function disenoDe(m) {
   const base = { ancho: s.ancho_mm || 600, alto: s.alto_mm || 770, fondo: s.fondo_mm || 578 };
   if (o && o.personalizado) return Object.assign({ modo: "personal" }, base, o, o.medidas || {});
   const d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja: g.tarja });
-  if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
+  if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.ancho = g.medidas.ancho || d.ancho; d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
   return d;
 }
 
@@ -881,7 +883,7 @@ function pintarTablaProyectos() {
     t.innerHTML = `<tbody><tr><td><p class="empty">${esc(vacio)}</p></td></tr></tbody>`;
     return;
   }
-  t.innerHTML = "<thead><tr><th></th><th>Folio · cliente</th><th>Diseñadora</th><th>Estado</th><th>Última actualización</th><th>Versión</th><th></th></tr></thead>";
+  t.innerHTML = "<thead><tr><th>Vista previa</th><th>Folio · cliente</th><th>Diseñadora</th><th>Estado</th><th>Última actualización</th><th>Versión</th><th></th></tr></thead>";
   const tb = document.createElement("tbody");
   lista.forEach((p) => {
     const tr = document.createElement("tr");

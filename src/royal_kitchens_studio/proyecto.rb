@@ -24,8 +24,8 @@ module RoyalKitchens
           "material" => "",    # "" = el de la receta / el del módulo
           "tarja"    => false,
           # Medidas comunes: si «igualar» está activo, los gabinetes toman este
-          # alto y fondo de cuerpo; el ancho siempre es de cada módulo.
-          "medidas"  => { "igualar" => false, "alto" => 770, "fondo" => 578 }
+          # ancho, alto y fondo de cuerpo.
+          "medidas"  => { "igualar" => false, "ancho" => 600, "alto" => 770, "fondo" => 600 }
         },
         # id del módulo => { "personalizado" => true, "frente" =>…, "medidas" => {…} }
         "modulos" => {}

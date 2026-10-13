@@ -77,6 +77,9 @@ src/royal_kitchens_studio/
   ui/receta.js  RCC_CORE: reglas de las recetas (validar, aplanar, nombre, importar); puro
   ui/reglas.js  RKReglas: manija por uso, Berlín/Lisa, MDF; puro
   ui/avanzado.js RKAvanzado: formulario de manifiesto + receta ↔ formulario
+  ui/entrepanos.js RKEntrepanos: gráfico interactivo de entrepaños y divisores dentro de
+                su grupo en «Avanzado» (alzado + corte lateral; arrastrar y clic). Sin estado
+                propio: escribe los campos del formulario; la geometría sale de receta.js
   ui/style.css  tokens, teclas y layout
 ```
 
@@ -90,7 +93,7 @@ partida de un modelo nuevo):
 {
   "version": 1,
   "global": { "frente": "1", "manija_puerta": "9", "manija_cajon": "15", "material": "", "tarja": false,
-              "medidas": { "igualar": false, "alto": 770, "fondo": 578 } },
+              "medidas": { "igualar": false, "ancho": 600, "alto": 770, "fondo": 600 } },
   "modulos": { "<id>": { "personalizado": true, "frente": "3", "manija_puerta": "11", "manija_cajon": "11",
                          "material": "MDF_LONDON_BLUE", "tarja": true,
                          "medidas": { "ancho": 600, "alto": 770, "fondo": 578 } } }

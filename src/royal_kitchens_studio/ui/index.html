@@ -78,6 +78,8 @@
         <div id="pj-actual"></div>
         <div class="pj-filtros">
           <div class="seg" id="pj-alcance"></div>
+          <i class="pj-corte" aria-hidden="true"></i>
+          <span class="stamp">Estado</span>
           <div class="chips" id="pj-estados"></div>
         </div>
         <p class="cf-error" id="pj-offline" hidden>Sin conexión con la carpeta de proyectos: es la última lista vista. Puedes seguir trabajando en tus proyectos con copia local; los cambios se suben al volver la conexión.</p>
@@ -100,7 +102,7 @@
             <h3 class="stamp">Tarja por defecto</h3>
             <div class="seg" id="pr-tarja"></div>
             <h3 class="stamp">Medidas comunes de gabinetes</h3>
-            <label class="switch"><input type="checkbox" id="pr-igualar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Igualar alto y fondo de cuerpo en todos los gabinetes</span></label>
+            <label class="switch"><input type="checkbox" id="pr-igualar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Igualar ancho, alto y fondo de cuerpo en todos los gabinetes</span></label>
             <div id="pr-medidas"></div>
           </div>
           <div class="plate preview-plate">
@@ -362,6 +364,7 @@
   <script src="vista.js"></script>
   <script src="visor.js"></script>
   <script src="receta.js"></script>
+  <script src="entrepanos.js"></script>
   <script src="avanzado.js"></script>
   <script src="reglas.js"></script>
   <script src="proyectos.js"></script>

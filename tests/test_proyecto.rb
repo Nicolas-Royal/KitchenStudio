@@ -12,7 +12,7 @@ P = RoyalKitchens::Studio::Proyecto
 d = P.normalizar(nil)
 assert d["global"]["frente"] == "1" && d["global"]["manija_puerta"] == "9" && d["global"]["manija_cajon"] == "9",
        "sin datos: diseño por defecto"
-assert d["global"]["medidas"] == { "igualar" => false, "alto" => 770, "fondo" => 578 }, "medidas por defecto"
+assert d["global"]["medidas"] == { "igualar" => false, "ancho" => 600, "alto" => 770, "fondo" => 600 }, "medidas por defecto"
 assert d["modulos"] == {}, "sin personalizaciones"
 
 d = P.normalizar("global" => { "frente" => "3", "medidas" => { "igualar" => true }, "basura" => 1 },
