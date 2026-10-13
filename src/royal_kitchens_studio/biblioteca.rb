@@ -15,11 +15,20 @@ module RoyalKitchens
       CATEGORIAS     = %w[Gabinetes Alacenas Esquineros Torres Decoraciones].freeze
       SIN_CLASIFICAR = "Sin clasificar".freeze
       GRUPOS         = %w[tipo puerta configuracion].freeze
+      # Origen del mueble (ficha["clase"]): «catalogo» entró por CSV (el catálogo
+      # de la empresa); «usuario» lo creó o alteró alguien desde «Avanzado»
+      # (ficha["creado_por"]). Las fichas sin clase son de catálogo.
+      CLASES         = %w[catalogo usuario].freeze
 
       # ---- Lógica pura -----------------------------------------------------
 
       def slug(str)
         str.to_s.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/\A-+|-+\z/, "")
+      end
+
+      def clase(valor)
+        valor = "usuario" if valor.to_s == "personalizado" # nombre de las primeras fichas
+        CLASES.include?(valor.to_s) ? valor.to_s : CLASES.first
       end
 
       # Ficha (<stem>.json) -> card para la UI, o nil si no trae receta.
@@ -35,6 +44,8 @@ module RoyalKitchens
           "id"             => "cr-#{slug(stem)}",
           "name"           => info["nombre"] || stem,
           "category"       => info["categoria"] || SIN_CLASIFICAR,
+          "clase"          => clase(info["clase"]),
+          "creado_por"     => (info["creado_por"] if info["creado_por"].is_a?(Hash)),
           "features"       => GRUPOS.each_with_object({}) { |g, h| h[g] = Array(feats[g]) },
           "ubicacion"      => info["ubicacion"],
           "skp"            => File.join(dir, "#{stem}.skp"),

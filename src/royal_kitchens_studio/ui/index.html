@@ -76,9 +76,9 @@
           </div>
         </header>
         <div id="pj-actual"></div>
-        <div class="pj-filtros">
+        <div class="filtros">
           <div class="seg" id="pj-alcance"></div>
-          <i class="pj-corte" aria-hidden="true"></i>
+          <i class="corte" aria-hidden="true"></i>
           <span class="stamp">Estado</span>
           <div class="chips" id="pj-estados"></div>
         </div>
@@ -109,7 +109,7 @@
             <h3 class="stamp">Así se verá</h3>
             <div class="preview" id="pr-preview"></div>
             <p class="hint" id="pr-preview-note"></p>
-            <h3 class="stamp">Módulos personalizados en este proyecto</h3>
+            <h3 class="stamp">Muebles con ajuste en este proyecto</h3>
             <div id="pr-personalizados" class="mini-list"></div>
           </div>
         </div>
@@ -128,8 +128,22 @@
           </label>
           <div class="sec-actions" id="ls-actions"></div>
         </header>
-        <div class="chips" id="chips"></div>
-        <div class="grid" id="grid"></div>
+        <div class="filtros">
+          <div class="seg" id="ls-clase"></div>
+          <i class="corte" aria-hidden="true"></i>
+          <span class="stamp">Tipo</span>
+          <div class="chips" id="chips"></div>
+          <div class="ver-con" id="ls-vista-wrap" hidden>
+            <span class="stamp">Ver con</span>
+            <div class="seg" id="ls-vista"></div>
+          </div>
+        </div>
+        <p class="hint" id="ls-nota"></p>
+        <div class="lista-body">
+          <!-- Características: barra a la izquierda -->
+          <aside class="plate facetas" id="ls-facetas" aria-label="Filtrar por características"></aside>
+          <div class="grid" id="grid"></div>
+        </div>
       </section>
 
       <!-- ============ Página de un módulo ============ -->
@@ -142,6 +156,7 @@
             <div class="stamp" id="md-stamp"></div>
             <h1 id="md-name"></h1>
             <div id="md-tags"></div>
+            <span id="md-origen"></span>
           </div>
           <button class="key key-ico" id="md-avanzado" title="Todas las variables del mueble">
             <svg class="ico" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
@@ -160,8 +175,10 @@
           <!-- Diseño: barra a la derecha -->
           <aside class="plate side" id="tab-diseno">
             <div class="side-scroll">
+              <h3 class="stamp">Diseño de este mueble</h3>
               <div class="seg seg-big" id="md-modo"></div>
               <p class="hint" id="md-modo-note"></p>
+              <p class="hint" id="md-alcance"></p>
               <h3 class="stamp">Dimensiones (mm)</h3>
               <div id="md-medidas"></div>
               <div id="md-tarja-wrap">
@@ -170,10 +187,15 @@
               </div>
               <h3 class="stamp">Frente, manija y material</h3>
               <div class="pickers" id="md-pickers"></div>
+              <div id="md-interior-wrap">
+                <h3 class="stamp">Entrepaños y divisores</h3>
+                <div class="interior-barra"><label class="switch"><input type="checkbox" id="md-entrepano"><span class="switch-track"><span class="switch-thumb"></span></span><span>Lleva entrepaños</span></label><button class="key sm" id="md-interior-reset" title="Volver a los entrepaños de la receta">Restablecer</button></div>
+                <div id="md-interior"></div>
+                <p class="hint" id="md-interior-note"></p>
+              </div>
               <p class="cf-error" id="md-error" hidden></p>
             </div>
             <footer class="actions">
-              <button class="key" id="md-asis">Insertar tal cual</button>
               <button class="use" id="md-insert">Insertar con este diseño</button>
             </footer>
           </aside>
@@ -367,6 +389,7 @@
   <script src="entrepanos.js"></script>
   <script src="avanzado.js"></script>
   <script src="reglas.js"></script>
+  <script src="muebles.js"></script>
   <script src="proyectos.js"></script>
   <script src="app.js"></script>
 </body>

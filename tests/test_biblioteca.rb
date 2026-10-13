@@ -19,6 +19,12 @@ assert c["specs"] == { "sku" => "GAB-600", "ancho_mm" => 600, "alto_mm" => 770 }
 assert c["features"] == { "tipo" => [], "puerta" => ["Lisa"], "configuracion" => [] }, "solo los grupos conocidos"
 assert c["receta_familia"] == "gabinete" && c["_source"] == "creaciones", "familia de la receta"
 assert B.card(ficha.merge("receta" => nil), "x.json").nil?, "sin receta no es mueble del catálogo"
+assert c["clase"] == "catalogo", "sin clase en la ficha: es de catálogo"
+u = B.card(ficha.merge("clase" => "usuario", "creado_por" => { "usuario" => "ana", "nombre" => "Ana" }), "x.json")
+assert u["clase"] == "usuario" && u["creado_por"]["nombre"] == "Ana", "creado por usuario"
+assert B.card(ficha.merge("clase" => "personalizado"), "x.json")["clase"] == "usuario", "«personalizado» de las primeras fichas es de usuario"
+assert c["creado_por"].nil?, "el de catálogo no tiene autor"
+assert B.card(ficha.merge("clase" => "otra"), "x.json")["clase"] == "catalogo", "clase desconocida: catálogo"
 assert B.card({}, "x.json").nil?, "ficha vacía"
 
 assert B.categorias([{ "category" => "Zapateras" }, { "category" => "Gabinetes" }]).last == "Zapateras",

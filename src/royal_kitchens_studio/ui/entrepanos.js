@@ -13,7 +13,6 @@
    sale de window.RCC_CORE (ui/receta.js). */
 window.RKEntrepanos = (function () {
   const NS = "http://www.w3.org/2000/svg";
-  const ESC_ALTO = 280;   // alto de dibujo del cuerpo (px)
   const MIN_ESPACIO = 10; // mm
 
   const fmt = (mm) => String(Math.round(mm * 10) / 10);
@@ -53,8 +52,10 @@ window.RKEntrepanos = (function () {
 
   /* +V+ = group.visual; +reg+ = { valores } del formulario (se modifica en
      sitio); cambio() avisa al formulario, que revalida y llama a pintar();
-     filaDe(id) devuelve el .field de un campo (para sus pistas). */
-  function crear(V, manifest, reg, rcc, cambio, filaDe) {
+     filaDe(id) devuelve el .field de un campo (para sus pistas, opcional);
+     opts.alto = alto de dibujo del cuerpo en px (280 si no se dice). */
+  function crear(V, manifest, reg, rcc, cambio, filaDe, opts) {
+    const ESC_ALTO = (opts && opts.alto) || 280;
     const wrap = el("div", "visual");
     const barra = el("div", "visual-barra");
     const vistas = el("div", "visual-vistas");
@@ -252,7 +253,10 @@ window.RKEntrepanos = (function () {
     function empezar(ev, modo, i, lienzo) {
       if (ev.button !== 0 || !geom) return;
       ev.preventDefault();
-      drag = { modo, i, x0: ev.clientX, y0: ev.clientY, left: lienzo.getBoundingClientRect().left, movio: false, base: geom, x: ev.clientX, y: ev.clientY };
+      // k = px de pantalla por unidad del dibujo: en un panel angosto el SVG se encoge (max-width).
+      const caja = lienzo.getBoundingClientRect();
+      const k = caja.width / lienzo.viewBox.baseVal.width || 1;
+      drag = { modo, i, k, x0: ev.clientX, y0: ev.clientY, left: caja.left, movio: false, base: geom, x: ev.clientX, y: ev.clientY };
       // Se fijan TODOS los espacios en su medida actual: mover una repisa no
       // hace saltar a las demás. El de arriba queda vacío (toma el resto).
       if (modo === "alto") drag.espacios = geom.G.espacios.slice();
@@ -265,12 +269,12 @@ window.RKEntrepanos = (function () {
       if (!drag || !drag.movio) return;
       const { G, s, XF } = drag.base;
       if (drag.modo === "alto") {
-        const e = arrastreAlto(drag.espacios, drag.i, -(drag.y - drag.y0) / s);
+        const e = arrastreAlto(drag.espacios, drag.i, -(drag.y - drag.y0) / drag.k / s);
         setValor(V.modo, V.modo_personalizado);
         for (let j = 0; j < G.n; j++) setValor(V.espacios[j], Math.round(e[j]));
         setValor(V.espacios[G.n], "");                      // el de arriba toma el resto
       } else {
-        setRetiro(drag.i, arrastreRetiro((XF - (drag.x - drag.left)) / s, G.prof));   // 0 = «Divisor»
+        setRetiro(drag.i, arrastreRetiro((XF - (drag.x - drag.left) / drag.k) / s, G.prof));   // 0 = «Divisor»
       }
       cambio();
     }

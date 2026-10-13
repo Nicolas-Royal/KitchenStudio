@@ -41,6 +41,9 @@ function setImg(img, url, fallback) {
 const FAMILIA_DE_CATEGORIA = { Gabinetes: "gabinete", Alacenas: "alacena", Esquineros: "esquinero" };
 // Por ahora Studio solo trabaja con gabinetes; alacena y esquinero vienen después.
 const FAMILIAS_ACTIVAS = ["gabinete"];
+// Biblioteca::CATEGORIAS en Ruby: las primeras de S.categorias, siempre visibles en el filtro.
+const CATEGORIAS_FIJAS = 5;
+const M = window.RKMuebles; // ui/muebles.js
 const SPEC_LABELS = { sku: "SKU", ancho_mm: "Ancho", alto_mm: "Alto", fondo_mm: "Fondo" };
 
 const S = {
@@ -52,7 +55,9 @@ const S = {
   modulos: [], categorias: [],
   opciones: { medidas: {}, frentes: [], tiradores: [], materiales: [], familias: {} },
   manifiestos: {}, rcc: window.RCC_CORE || null, // ui/receta.js
-  sec: "proyecto", lista: "catalogo", q: "", cat: null,
+  sec: "proyecto", lista: "catalogo", q: "", cat: null, clase: null,
+  car: {}, // características elegidas en la barra lateral: { grupo: [valores] }
+  vista: "original", // cómo se ven los creados por usuario en su filtro: "original" o "global"
   mod: null, avAbierto: false, av: {},
   csv: null,
   // Registro de proyectos
@@ -245,14 +250,17 @@ function pintarPreviewProyecto() {
 
 function pintarPersonalizados() {
   const box = $("#pr-personalizados");
-  const ids = Object.keys(S.proyecto.modulos).filter((id) => S.proyecto.modulos[id].personalizado);
-  if (!ids.length) { box.innerHTML = "<p class='hint'>Ninguno: todos siguen la configuración del proyecto.</p>"; return; }
+  // Lo que en este proyecto no sigue el diseño del proyecto: un mueble ajustado
+  // o uno creado por usuario que va con su diseño original.
+  const ids = Object.keys(S.proyecto.modulos).filter((id) => S.proyecto.modulos[id].personalizado || S.proyecto.modulos[id].original);
+  if (!ids.length) { box.innerHTML = "<p class='hint'>Ninguno: todos siguen el diseño del proyecto.</p>"; return; }
   box.innerHTML = "";
   ids.forEach((id) => {
     const m = S.modulos.find((x) => x.id === id);
     const row = document.createElement("div");
     row.className = "mini-row";
-    row.innerHTML = `<span>${esc(m ? m.name : id)}</span><button class="key sm">Abrir</button><button class="key sm">Usar global</button>`;
+    const que = S.proyecto.modulos[id].personalizado ? "ajustado" : "con su diseño original";
+    row.innerHTML = `<span>${esc(m ? m.name : id)} <i class="pj-sub">${que}</i></span><button class="key sm">Abrir</button><button class="key sm">Quitar ajuste</button>`;
     const [abrir, quitar] = $$("button", row);
     abrir.disabled = !m;
     abrir.onclick = () => abrirModulo(m);
@@ -448,43 +456,102 @@ function pintarLista() {
   $$("[data-nuevo]", acc).forEach((b) => (b.onclick = () => nuevoModulo(b.dataset.nuevo)));
   $("#ls-csv", acc).onclick = () => irA("csv");
   const enPanel = S.modulos.filter(enLista);
-  const cats = [...new Set(enPanel.map((m) => m.category))].filter(Boolean);
+  // Dos selectores: de qué origen (catálogo / creado por usuario) y de qué tipo de
+  // mueble. Cada etiqueta lleva cuántos hay con el otro filtro puesto.
+  const nClase = M.conteos(M.filtrar(enPanel, { cat: S.cat })).clase;
+  pintarSeg($("#ls-clase"), [["", `Todos · ${nClase.catalogo + nClase.usuario}`]]
+    .concat(M.CLASES.map(([v, t]) => [v, `${t} · ${nClase[v]}`])), S.clase || "", (v) => {
+      // Al entrar a los creados por usuario se ven como se crearon.
+      if (v === "usuario" && S.clase !== "usuario") S.vista = "original";
+      S.clase = v || null; pintarLista();
+    });
+  // «Ver con» solo aplica a los creados por usuario: el catálogo siempre va con el proyecto.
+  const conVista = S.clase === "usuario";
+  $("#ls-vista-wrap").hidden = !conVista;
+  if (conVista) pintarSeg($("#ls-vista"), [["original", "Original"], ["global", "Este proyecto"]], S.vista, (v) => { S.vista = v; pintarLista(); });
+  const deClase = M.filtrar(enPanel, { clase: S.clase });
+  const nCat = M.conteos(deClase).cat;
+  // Las categorías fijas salen siempre (aunque estén vacías) y luego las que existan.
+  const cats = S.categorias.filter((c, i) => nCat[c] || i < CATEGORIAS_FIJAS);
   const chips = $("#chips");
   chips.innerHTML = "";
-  chips.hidden = cats.length < 2;
-  [["", "Todas"]].concat(cats.map((c) => [c, c])).forEach(([v, t]) => {
+  [["", `Todos · ${deClase.length}`]].concat(cats.map((c) => [c, `${c} · ${nCat[c] || 0}`])).forEach(([v, t]) => {
     const b = document.createElement("button");
-    b.className = "chip" + ((S.cat || "") === v ? " active" : "");
+    b.className = "chip" + ((S.cat || "") === v ? " active" : "") + (v && !nCat[v] ? " is-vacio" : "");
     b.textContent = t;
     b.onclick = () => { S.cat = v || null; pintarLista(); };
     chips.appendChild(b);
   });
-  const q = S.q.trim().toLowerCase();
-  const lista = enPanel.filter((m) => (!S.cat || m.category === S.cat) &&
-    (!q || [m.name, m.id, m.specs && m.specs.sku, m.ubicacion, ...Object.values(m.features || {}).flat()].join(" ").toLowerCase().includes(q)));
+  $("#ls-nota").textContent = conVista
+    ? (S.vista === "original"
+      ? "Creados por usuario, con su diseño original. «Usar» los inserta como se crearon; cambia «Ver con» para aplicarles el diseño del proyecto."
+      : "Creados por usuario, con el diseño del proyecto (frente, manijas, material). «Usar» los inserta así.")
+    : "Todo se muestra e inserta con el diseño del proyecto. Los creados por usuario también pueden ir con su diseño original: fíltralos o entra al mueble.";
+  const q = S.q.trim();
+  pintarFacetas(M.filtrar(enPanel, { q, clase: S.clase, cat: S.cat }));
+  const lista = M.filtrar(enPanel, { q, clase: S.clase, cat: S.cat, car: S.car });
   const grid = $("#grid");
   grid.innerHTML = "";
   if (!lista.length) {
-    grid.innerHTML = `<p class="empty">${!q ? "Aún no hay muebles · crea uno con + Gabinete o desde CSV y guárdalo en el catálogo" : "Sin resultados"}</p>`;
+    const vacio = q ? "Sin resultados"
+      : Object.values(S.car).some((v) => v.length) && enPanel.length ? "Ningún mueble tiene esas características · quita alguna de la barra"
+      : !enPanel.length ? "Aún no hay muebles · crea uno con + Gabinete o desde CSV y guárdalo en el catálogo"
+      : S.cat && !FAMILIAS_ACTIVAS.includes(FAMILIA_DE_CATEGORIA[S.cat] || "gabinete") ? `${S.cat}: todavía no disponible en Studio`
+      : `No hay ${S.clase === "usuario" ? "muebles creados por usuario" : S.clase === "catalogo" ? "muebles de catálogo" : "muebles"}${S.cat ? " en " + S.cat : ""}`;
+    grid.innerHTML = `<p class="empty">${esc(vacio)}</p>`;
     return;
   }
   lista.forEach((m) => grid.appendChild(tarjeta(m)));
+}
+
+/* Barra lateral: características de los muebles de +base+ (lo que ya dejan
+   pasar el origen, el tipo y el texto). Los entrepaños no se filtran aquí. */
+function pintarFacetas(base) {
+  const box = $("#ls-facetas");
+  const grupos = M.facetas(base, S.car);
+  const elegidas = Object.values(S.car).reduce((n, v) => n + v.length, 0);
+  box.hidden = !grupos.length && !elegidas;
+  box.parentNode.classList.toggle("sin-facetas", box.hidden);
+  box.innerHTML = `<div class="facetas-head"><span class="stamp">Características</span>` +
+    `<button class="key sm" ${elegidas ? "" : "hidden"}>Limpiar</button></div>`;
+  $("button", box).onclick = () => { S.car = {}; pintarLista(); };
+  grupos.forEach((g) => {
+    const h = document.createElement("h3");
+    h.className = "stamp";
+    h.textContent = g.titulo;
+    box.appendChild(h);
+    g.opciones.forEach((o) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "faceta" + (o.activo ? " active" : "");
+      b.setAttribute("aria-pressed", o.activo ? "true" : "false");
+      b.disabled = !o.n && !o.activo;
+      b.innerHTML = `<i></i><span>${esc(o.valor)}</span><b>${o.n}</b>`;
+      b.onclick = () => {
+        const sel = S.car[g.id] || [];
+        S.car[g.id] = o.activo ? sel.filter((v) => v !== o.valor) : sel.concat(o.valor);
+        pintarLista();
+      };
+      box.appendChild(b);
+    });
+  });
 }
 
 function tarjeta(m) {
   const c = document.createElement("div");
   c.className = "card";
   c.tabIndex = 0;
-  const per = personalizado(m);
   const sku = (m.specs && m.specs.sku) || "";
+  const modo = modoDe(m, true);
   c.innerHTML = `<div class="vents" aria-hidden="true"><i></i><i></i><i></i></div>` +
-    (per ? `<span class="badge">Personalizado</span>` : "") +
-    `<div class="screen preview-mini" aria-hidden="true">${svgModulo(m)}</div><div class="body"><div class="name">${esc(m.name)}</div>` +
+    `<span class="badge ${M.clase(m)}">${esc(M.etiqueta(m))}</span>` +
+    `<div class="screen preview-mini" aria-hidden="true">${svgModulo(m, false, true)}</div><div class="body"><div class="name">${esc(m.name)}</div>` +
     `<div class="meta">${esc(m.category)}${sku ? " · " + esc(sku) : ""}</div>` +
-    `<div class="card-actions"><button class="use sm">Configurar</button><button class="key sm" title="Insertar como está">Usar</button></div></div>`;
+    `<div class="card-nota${modo === "global" ? "" : " ajuste"}">${NOTA_MODO[modo]}</div>` +
+    `<div class="card-actions"><button class="use sm">Configurar</button><button class="key sm" title="${TITULO_USAR[modo]}">Usar</button></div></div>`;
   const [conf, usar] = $$("button", c);
   conf.onclick = (e) => { e.stopPropagation(); abrirModulo(m); };
-  usar.onclick = (e) => { e.stopPropagation(); insertar(m, null); };
+  usar.onclick = (e) => { e.stopPropagation(); usarModulo(m, true); };
   c.onclick = () => abrirModulo(m);
   c.onkeydown = (e) => { if (e.target === c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrirModulo(m); } };
   return c;
@@ -509,20 +576,26 @@ function esGola(m) {
   if (m.receta) return recetaValor(m, "b01_gola_o_tirador") === "2";
   return Object.values(m.features || {}).flat().some((t) => /gola/i.test(t));
 }
-function personalizado(m) {
-  const o = S.proyecto.modulos[m.id];
-  return !!(o && o.personalizado);
+/* De dónde sale el diseño del mueble en este proyecto (ui/muebles.js):
+   "global", "original" (como se creó) o "personal" (ajustado aquí). +enLista+:
+   la tarjeta también obedece a «Ver con» del filtro de creados por usuario. */
+function modoDe(m, enLista) {
+  return M.modo(m, S.proyecto.modulos[m.id], enLista && S.clase === "usuario" ? S.vista : null);
 }
+const NOTA_MODO = { global: "Diseño del proyecto", personal: "Ajustado en este proyecto", original: "Diseño original" };
+const TITULO_USAR = { global: "Insertar con el diseño del proyecto", personal: "Insertar con el ajuste de este proyecto", original: "Insertar como se creó" };
 
-/* Diseño efectivo del módulo: el suyo si está personalizado, si no el global
-   (con las medidas propias del módulo, salvo «igualar» en gabinetes, que
-   pone el ancho, alto y fondo comunes). */
-function disenoDe(m) {
+/* Diseño efectivo del módulo: el original de su receta (creados por usuario), el
+   ajustado en este proyecto, o el global (con las medidas propias del módulo,
+   salvo «igualar» en gabinetes, que pone el ancho, alto y fondo comunes). */
+function disenoDe(m, enLista) {
   const g = S.proyecto.global;
   const o = S.proyecto.modulos[m.id];
   const s = m.specs || {};
   const base = { ancho: s.ancho_mm || 600, alto: s.alto_mm || 770, fondo: s.fondo_mm || 578 };
-  if (o && o.personalizado) return Object.assign({ modo: "personal" }, base, o, o.medidas || {});
+  const modo = modoDe(m, enLista);
+  if (modo === "original") return Object.assign({ modo }, base, M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores));
+  if (modo === "personal") return Object.assign({ modo: "personal" }, base, o, o.medidas || {});
   const d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja: g.tarja });
   if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.ancho = g.medidas.ancho || d.ancho; d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
   return d;
@@ -581,18 +654,30 @@ function pintarDiseno(m, d, real) {
   const personal = d.modo === "personal";
   const fc = cfgFamilia(m);
   const gola = esGola(m);
-  pintarSeg($("#md-modo"), [["global", "Del proyecto"], ["personal", "Personalizado"]], d.modo, (v) => {
+  const esUsuario = M.clase(m) === "usuario";
+  // Todos parten del diseño del proyecto. Los creados por usuario pueden ir
+  // también con su diseño original; cualquiera se puede ajustar aquí.
+  pintarSeg($("#md-modo"), M.modos(m), d.modo, (v) => {
     if (v === "personal") {
       const g = disenoDe(m);
       S.proyecto.modulos[m.id] = { personalizado: true, frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja: g.tarja,
         medidas: { ancho: g.ancho, alto: g.alto, fondo: g.fondo } };
-    } else delete S.proyecto.modulos[m.id];
+    } else if (v === "original") S.proyecto.modulos[m.id] = { original: true };
+    else delete S.proyecto.modulos[m.id];
     cambioDiseno(m);
     pintarModulo();
   });
-  $("#md-modo-note").textContent = personal
-    ? "Este módulo tiene su propio diseño; el resto del proyecto no cambia."
-    : "Sigue el diseño del proyecto (sección Proyecto). Para cambiar solo este, elige «Personalizado».";
+  $("#md-modo-note").textContent = {
+    original: "Va con el frente, manijas y material con que se creó, sin tomar los del proyecto.",
+    personal: "Ajuste solo de este mueble en este proyecto; el resto del proyecto y el catálogo no cambian.",
+    global: esUsuario ? "Toma el diseño del proyecto (sección Diseño). «Original» lo deja como se creó; «Ajustar este mueble» cambia solo este."
+      : "Mueble de catálogo: toma el diseño del proyecto (sección Diseño). Para cambiar solo este, elige «Ajustar este mueble».",
+  }[d.modo];
+  const al = M.alcance(fc, gola, !!S.proyecto.global.medidas.igualar && familiaDe(m) === "gabinete");
+  $("#md-alcance").hidden = d.modo !== "global";
+  $("#md-alcance").innerHTML = `<b>Del proyecto:</b> ${esc(al.cambia.join(", ") || "nada")}. <b>Se queda como está:</b> ${esc(al.fijo.join(", "))}.`;
+  $("#md-origen").textContent = M.etiqueta(m);
+  $("#md-origen").className = "badge-linea " + M.clase(m);
 
   const o = S.proyecto.modulos[m.id];
   const set = (k, v) => { o.medidas = o.medidas || {}; o.medidas[k] = v; cambioDiseno(m); pintarPreviewModulo(m); };
@@ -609,15 +694,97 @@ function pintarDiseno(m, d, real) {
   }, !personal || !real);
 
   pintarPickers($("#md-pickers"), personal ? o : d, personal, () => { cambioDiseno(m); pintarModulo(); }, { gola });
+  pintarInterior(m, d, personal && real);
   $("#md-error").hidden = true;
-  $("#md-insert").textContent = real ? "Insertar con este diseño" : "Insertar con estas medidas";
-  $("#md-insert").onclick = () => insertar(m, d);
-  $("#md-asis").onclick = () => insertar(m, null);
+  $("#md-insert").textContent = d.modo === "original" ? "Insertar como se creó" : real ? "Insertar con este diseño" : "Insertar con estas medidas";
+  $("#md-insert").onclick = () => usarModulo(m);
+}
+
+// ---- Entrepaños y divisores en «Ajustar este mueble» ---------------------------
+/* Fila de la receta con los entrepaños ajustados en este proyecto encima
+   (modulos[id].interior = { attr: valor de fila }). */
+function filaConInterior(m) {
+  const o = S.proyecto.modulos[m.id];
+  const fila = (m.receta && m.receta.valores) || {};
+  return o && o.personalizado && o.interior ? Object.assign({}, fila, o.interior) : fila;
+}
+
+function grupoInterior(man) {
+  return man && man.grupos.find((g) => g.visual && g.visual.tipo === "entrepanos");
+}
+
+/* Formulario (solo en memoria) del mueble con su diseño y medidas de este
+   proyecto: de ahí salen el gráfico, sus errores y lo que se guarda. */
+function regInterior(m, d) {
+  const man = S.manifiestos[familiaDe(m)];
+  const fc = cfgFamilia(m);
+  const valores = RKAvanzado.valoresDesdeFila(man, filaConInterior(m), S.rcc);
+  [["LenX", d.ancho], ["LenZ", d.alto], ["LenY", d.fondo]].forEach(([a, v]) => RKAvanzado.poner(man, valores, a, v, S.rcc));
+  if (fc && fc.tarja) RKAvanzado.poner(man, valores, fc.tarja.attr, d.tarja ? fc.tarja.si : fc.tarja.no, S.rcc);
+  return { familia: familiaDe(m), valores };
+}
+
+/* Errores del grupo de entrepaños (choques con cajones, espacios que no caben). */
+function erroresInterior(man, g, reg) {
+  const ids = g.campos.map((f) => f.id);
+  return S.rcc.erroresConfig(man, reg.valores).filter((e) => (e.ids || []).some((id) => ids.includes(id)));
+}
+
+function pintarInterior(m, d, editable) {
+  const man = S.manifiestos[familiaDe(m)];
+  const g = S.rcc && grupoInterior(man);
+  const wrap = $("#md-interior-wrap");
+  wrap.hidden = !(editable && g && window.RKEntrepanos);
+  if (wrap.hidden) return;
+  const o = S.proyecto.modulos[m.id];
+  const V = g.visual;
+  const reg = regInterior(m, d);
+  const box = $("#md-interior"), nota = $("#md-interior-note");
+  const activo = S.rcc.fieldByAttr(man, V.activo.attr);
+  const si = String(V.activo.valor);
+  const no = String((activo.opciones.find((x) => String(x.valor) !== si) || {}).valor);
+  box.innerHTML = "";
+  nota.classList.remove("bad");
+  $("#md-interior-reset").hidden = !o.interior;
+  $("#md-interior-reset").onclick = () => { delete o.interior; cambioDiseno(m); pintarModulo(); };
+  const sw = $("#md-entrepano");
+  sw.disabled = !S.rcc.groupEnabled(g, man, reg.valores);
+  if (sw.disabled) {
+    sw.checked = false;
+    nota.textContent = "Este mueble no lleva puertas: no hay entrepaños que acomodar.";
+    return;
+  }
+  let gr = null;
+  const refrescar = () => {
+    const on = String(reg.valores[activo.id]) === si;
+    sw.checked = on;
+    // Sin entrepaños no hay nada que acomodar: el gráfico se guarda.
+    gr.nodo.hidden = !on;
+    if (on) gr.pintar();
+    $("#md-interior-reset").hidden = !o.interior;
+    const errs = erroresInterior(man, g, reg);
+    nota.textContent = errs.length ? errs.map((e) => e.msg).join(" ")
+      : on ? "Arrastra una repisa para moverla; clic para cambiar entre entrepaño y divisor. Solo cambia este mueble en este proyecto." : "";
+    nota.classList.toggle("bad", errs.length > 0);
+  };
+  // Se guarda solo lo del grupo, ya como valores de fila: es lo que Ruby aplica a la receta.
+  const guardar = () => {
+    S.rcc.aplicarForzados(man, reg.valores);
+    const fila = S.rcc.flatten(man, reg);
+    o.interior = {};
+    g.campos.forEach((f) => { if (Object.prototype.hasOwnProperty.call(fila, f.attr)) o.interior[f.attr] = fila[f.attr]; });
+    cambioDiseno(m);
+    refrescar();
+  };
+  sw.onchange = () => { reg.valores[activo.id] = sw.checked ? si : no; guardar(); };
+  gr = RKEntrepanos.crear(V, man, reg, S.rcc, guardar, null, { alto: 200 });
+  box.appendChild(gr.nodo);
+  refrescar();
 }
 
 /* Alzado SVG del módulo: con su diseño efectivo, o con las variables de
    «Avanzado» (+avanzado+, solo gabinete). */
-function svgModulo(m, avanzado) {
+function svgModulo(m, avanzado, enLista) {
   if (avanzado && S.av[m.id] && familiaDe(m) === "gabinete") {
     const st = S.av[m.id];
     const v = st.reg.valores;
@@ -625,7 +792,7 @@ function svgModulo(m, avanzado) {
     return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: v.d16_z1_tirador_tipo, manija_cajon: v.e01_tirador_tipo,
       material: st.material }, v.b01_gola_o_tirador === "2"));
   }
-  const d = disenoDe(m);
+  const d = disenoDe(m, enLista);
   const lay = m.receta && familiaDe(m) === "gabinete"
     ? RKVista.desdeValores(m.receta.valores, { ancho: d.ancho, alto: d.alto })
     : RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
@@ -659,7 +826,7 @@ function estadoAvanzado(m) {
     valores = JSON.parse(JSON.stringify(m.valores));
     nota = "Valores de la fila del CSV.";
   } else if (m.receta) {
-    valores = RKAvanzado.valoresDesdeFila(man, m.receta.valores || {}, S.rcc);
+    valores = RKAvanzado.valoresDesdeFila(man, filaConInterior(m), S.rcc);
     nota = "Valores de la receta de este mueble, con el diseño elegido en «Diseño».";
   } else {
     valores = S.rcc.defaultValores(man);
@@ -687,7 +854,7 @@ function estadoAvanzado(m) {
   }
   const sku = m.specs && m.specs.sku;
   reg.nombre_salida = m._source === "csv" ? m.name : (sku ? sku + "-P" : S.rcc.autoNombre(man, valores));
-  S.av[m.id] = { man, reg, nota, material: m._source === "csv" ? "" : d.material || "", nombreManual: m._source === "csv" || !!sku };
+  S.av[m.id] = { man, reg, nota, material: m._source === "csv" ? "" : d.material || "", nombreManual: m._source === "csv" || !!sku, csv: m._source === "csv" };
   return S.av[m.id];
 }
 
@@ -728,6 +895,8 @@ function payloadGenerar(st, ref, insertar, publicar) {
     valores: S.rcc.flatten(st.man, reg),
     divisores: S.rcc.nombresDivisores(st.man, reg),
     material: st.material || "",
+    // Origen: lo que entra por CSV es catálogo; lo generado desde «Avanzado», del usuario.
+    clase: st.csv ? "catalogo" : "usuario",
     insertar, publicar,
   };
 }
@@ -742,7 +911,14 @@ function generarAvanzado(m, st) {
   bridge("generar", JSON.stringify(p));
 }
 
-// ---- Insertar desde «Diseño» -----------------------------------------------------
+// ---- Insertar ------------------------------------------------------------------
+/* «Usar»: lo que muestra la tarjeta. El diseño original es el .skp guardado
+   (rápido); con diseño del proyecto o ajustado, se regenera la pieza. */
+function usarModulo(m, enLista) {
+  const d = disenoDe(m, enLista);
+  insertar(m, d.modo === "original" ? null : d);
+}
+
 function insertar(m, d) {
   let eleccion = null;
   if (d) {
@@ -754,8 +930,18 @@ function insertar(m, d) {
       const gola = esGola(m);
       Object.values(RKReglas.USOS).forEach((k) => { if (fc[k] && d[k] && !gola) eleccion[k] = d[k]; });
       if (fc.material && d.material) eleccion.material = d.material;
+      if (d.modo === "personal" && d.interior) {
+        const man = S.manifiestos[familiaDe(m)], g = grupoInterior(man);
+        const reg = g && regInterior(m, d);
+        const errs = g ? erroresInterior(man, g, reg) : [];
+        if (errs.length) return aviso("Error: entrepaños de " + m.name + ": " + errs.map((e) => e.msg).join(" "));
+        eleccion.interior = d.interior;
+        const div = reg && S.rcc.nombresDivisores(man, reg);
+        if (div) eleccion.divisores = div;
+      }
       const error = RKReglas.diseno(S.opciones, d, gola);
       if (error) {
+        if (S.sec !== "modulo") return aviso(`Error: ${m.name}: ${error}. Revísalo en «Configurar».`);
         const e = $("#md-error");
         e.textContent = error + ".";
         e.hidden = false;
@@ -763,7 +949,7 @@ function insertar(m, d) {
       }
     }
   }
-  ocupado(true, `Insertando ${m.name}…`);
+  ocupado(true, eleccion && tieneReceta(m) ? `Insertando ${m.name} con su diseño… (puede tardar unos segundos)` : `Insertando ${m.name}…`);
   bridge("insertar", JSON.stringify({ id: m.id, eleccion }));
 }
 
@@ -837,7 +1023,7 @@ function csvSiguiente(res) {
   pr.hidden = false;
   $("i", pr).style.width = `${Math.round((hechos / c.total) * 100)}%`;
   $("span", pr).textContent = `${hechos + 1} de ${c.total} · ${f.nombre}`;
-  const st = { man: S.manifiestos[f.familia], reg: { familia: f.familia, valores: f.valores, nombre_salida: f.nombre }, material: "" };
+  const st = { man: S.manifiestos[f.familia], reg: { familia: f.familia, valores: f.valores, nombre_salida: f.nombre }, material: "", csv: true };
   const p = payloadGenerar(st, "csv-" + i, c.escena, true);
   if (p.error) return csvSiguiente({ ok: false, error: p.error });
   ocupado(true, `Generando ${hechos + 1} de ${c.total}: ${f.nombre}`);

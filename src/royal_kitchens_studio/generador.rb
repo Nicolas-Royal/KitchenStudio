@@ -1,6 +1,7 @@
 require "json"
 require "fileutils"
 require_relative "familias"
+require_relative "biblioteca"
 require_relative "motor/engine"
 require_relative "motor/plantilla"
 require_relative "motor/importer"
@@ -204,6 +205,17 @@ module RoyalKitchens
         valores
       end
 
+      # Entrepaños y divisores ajustados en un proyecto ({ attr => valor de fila },
+      # los escribe la UI): solo pasan los campos de los grupos con gráfico
+      # (`visual`) del manifiesto; lo demás se descarta.
+      def cambios_interior(manifest, interior)
+        return {} unless interior.is_a?(Hash)
+        permitidos = Array(manifest["grupos"]).select { |g| g["visual"] }
+                                              .flat_map { |g| Array(g["campos"]).map { |c| c["attr"] } }
+        interior.select { |attr, v| permitidos.include?(attr) && (v.is_a?(String) || v.is_a?(Numeric)) }
+                .transform_values(&:to_s)
+      end
+
       # ---- Creaciones -----------------------------------------------------------
 
       def etiqueta(manifest, attr, valor)
@@ -227,13 +239,15 @@ module RoyalKitchens
 
       # Ficha de la creación (<nombre>.json junto a su .skp). La receta es lo que
       # permite volver a generarla con otras medidas o diseño.
-      def ficha_creacion(familia, manifest, nombre, receta, ahora = Time.now)
+      def ficha_creacion(familia, manifest, nombre, receta, ahora = Time.now, clase: nil, creado_por: nil)
         cat = manifest["catalogo"] || {}
         valores = receta["valores"]
         {
           "tipo"            => "creacion",
           "version"         => 1,
           "categoria"       => cat["categoria"] || manifest["titulo"],
+          "clase"           => Biblioteca.clase(clase),
+          "creado_por"      => (creado_por if Biblioteca.clase(clase) == "usuario"),
           "nombre"          => nombre,
           "familia"         => familia,
           "caracteristicas" => caracteristicas(manifest, valores),
@@ -291,10 +305,12 @@ module RoyalKitchens
 
       # Genera un mueble desde la fila plana +valores+.
       #   insertar: queda en la escena (a la derecha de lo que hay)
-      #   publicar: se guarda en Creaciones (.skp + receta)
+      #   publicar: se guarda en Creaciones (.skp + receta), con su origen:
+      #             +clase+ («catalogo» o «usuario», ver Biblioteca::CLASES) y,
+      #             si es de usuario, +creado_por+ { "usuario", "nombre" }
       # Una sola generación para las dos cosas. Devuelve
       # { "ok", "error", "avisos", "publicado" }.
-      def generar(familia, nombre, valores, divisores: nil, insertar: true, publicar: false, transformation: nil)
+      def generar(familia, nombre, valores, divisores: nil, insertar: true, publicar: false, transformation: nil, clase: nil, creado_por: nil)
         manifest = Familias.manifiesto(familia)
         err = validar(manifest, valores)
         return { "ok" => false, "error" => err } if err
@@ -323,7 +339,7 @@ module RoyalKitchens
           receta = { "valores" => valores }
           receta["divisores"] = divisores if opts[:divisores]
           File.write(File.join(creaciones_dir, "#{nombre}.json"),
-                     JSON.pretty_generate(ficha_creacion(familia, manifest, nombre, receta)))
+                     JSON.pretty_generate(ficha_creacion(familia, manifest, nombre, receta, clase: clase, creado_por: creado_por)))
           # Una foto vieja con el mismo nombre ya no corresponde.
           FileUtils.rm_f(File.join(creaciones_dir, "#{nombre}.png"))
           out["publicado"] = true
@@ -332,10 +348,12 @@ module RoyalKitchens
       end
 
       # Una creación con otros cambios (medidas, frente, manija, material…).
-      def instanciar_receta(familia, receta, cambios, nombre: nil, transformation: nil)
+      # +divisores+: nombres de las divisiones si los cambios mueven su cantidad
+      # o tipo (los resuelve la UI); si no, valen los de la receta.
+      def instanciar_receta(familia, receta, cambios, nombre: nil, transformation: nil, divisores: nil)
         manifest = Familias.manifiesto(familia)
         valores = aplicar_cambios(manifest, receta["valores"] || {}, cambios)
-        generar(familia, nombre || "modulo", valores, divisores: receta["divisores"],
+        generar(familia, nombre || "modulo", valores, divisores: divisores || receta["divisores"],
                 transformation: transformation)
       end
 

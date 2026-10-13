@@ -37,6 +37,46 @@ Una cosa a la vez:
    (catálogo y página de cada mueble) y **Desde CSV**. Sin proyecto abierto no
    se entra (`irA` manda a la lista); al abrir o crear uno se entra solo.
 
+## Catálogo de muebles: origen y diseño
+
+Dos cosas separadas. La regla: **«Usar» inserta lo que muestra la tarjeta.**
+
+**Origen** (`ficha["clase"]`, `Biblioteca::CLASES`; lo pone Studio al guardar
+y solo sirve de etiqueta y filtro):
+
+| Clase | Cómo nace | Etiqueta |
+|---|---|---|
+| `catalogo` | Entra por CSV (y las fichas sin clase) | «Catálogo» |
+| `usuario` | Se genera desde «Avanzado», nuevo o alterando otro | «Creado por <nombre>» (`ficha["creado_por"]`) |
+
+**Diseño** en un proyecto (`proyecto.modulos[id]`, `RKMuebles.modo`). Todos
+parten de «Este proyecto»:
+
+| Modo | Guardado | Quién | Al insertar |
+|---|---|---|---|
+| Este proyecto | nada | todos | se regenera con el diseño del proyecto |
+| Original | `{ "original": true }` | solo `usuario` | el `.skp` guardado, rápido |
+| Ajustar este mueble | `{ "personalizado": true, … }` | todos | se regenera con el ajuste |
+
+- En la lista todo se ve con el diseño del proyecto. Solo en el filtro
+  «Creados por usuario» aparece «Ver con: Original / Este proyecto» (entra en
+  Original): vale para las tarjetas de ese filtro y su «Usar», salvo los
+  muebles con elección propia. El catálogo nunca va con el original.
+- El diseño del proyecto pone frente, manijas (no con gola), material, tarja y,
+  con «Igualar», las medidas; zonas, puertas, cajones y entrepaños no cambian
+  (`RKMuebles.alcance`).
+- «Ajustar este mueble» incluye sus entrepaños y divisores (el mismo gráfico
+  de «Avanzado», compacto): se guardan en `modulos[id].interior` como valores
+  de fila `{ attr: valor }` del grupo con `visual`, y al insertar viajan en
+  `eleccion.interior` → `Generador.cambios_interior` (solo deja pasar los
+  campos de ese grupo). «Avanzado» parte también de ese interior.
+- Barra lateral de características (`RKMuebles.facetas`): tipo, configuración,
+  frente original (de `ficha["caracteristicas"]`) y ancho. Dentro de un grupo
+  suma, entre grupos se cumplen todos. Los entrepaños no se filtran: se
+  ajustan después, dentro del mueble.
+- Filtros de la lista: origen (Todos / Catálogo / Creados por usuario) y tipo
+  (categorías fijas de `Biblioteca::CATEGORIAS`, aunque estén vacías).
+
 ## Estilo: qué se escribe y qué se lee (0.6.2)
 
 - **Hundido** (`--shadow-recessed`) = se escribe o se opera: campos, buscadores,
@@ -76,6 +116,7 @@ src/royal_kitchens_studio/
   ui/visor.js   RKVisor: marco con zoom/desplazamiento sobre el viewBox del SVG
   ui/receta.js  RCC_CORE: reglas de las recetas (validar, aplanar, nombre, importar); puro
   ui/reglas.js  RKReglas: manija por uso, Berlín/Lisa, MDF; puro
+  ui/muebles.js RKMuebles: origen del mueble, de dónde sale su diseño, filtros de la lista; puro
   ui/avanzado.js RKAvanzado: formulario de manifiesto + receta ↔ formulario
   ui/entrepanos.js RKEntrepanos: gráfico interactivo de entrepaños y divisores dentro de
                 su grupo en «Avanzado» (alzado + corte lateral; arrastrar y clic). Sin estado
@@ -96,7 +137,9 @@ partida de un modelo nuevo):
               "medidas": { "igualar": false, "ancho": 600, "alto": 770, "fondo": 600 } },
   "modulos": { "<id>": { "personalizado": true, "frente": "3", "manija_puerta": "11", "manija_cajon": "11",
                          "material": "MDF_LONDON_BLUE", "tarja": true,
-                         "medidas": { "ancho": 600, "alto": 770, "fondo": 578 } } }
+                         "medidas": { "ancho": 600, "alto": 770, "fondo": 578 },
+                         "interior": { "h01_entrepano": "0", "h02_cantidad": "2" } },
+               "<id creado por usuario>": { "original": true } }
 }
 ```
 
@@ -159,7 +202,8 @@ y llegan a la UI en `estado.transiciones`.
 
 ## Flujos
 
-- **Insertar (catálogo)** → `insertar {id, eleccion}`. Sin elección («Usar»):
+- **Insertar (catálogo)** → `insertar {id, eleccion}`. Sin elección (mueble
+  de usuario con su diseño original):
   `Biblioteca.insertar_tal_cual` (el .skp guardado, ~1 s). Con elección:
   `Catalogo.cambios_receta` (reglas incluidas) + `Generador.instanciar_receta`
   (receta + cambios, ~15 s).

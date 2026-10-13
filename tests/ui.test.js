@@ -102,6 +102,8 @@ prueba("vista: manija distinta en puertas y en cajones", () => {
 
 new Function("window", fs.readFileSync(path.join(UI, "reglas.js"), "utf8"))(w);
 const R = w.RKReglas;
+new Function("window", fs.readFileSync(path.join(UI, "muebles.js"), "utf8"))(w);
+const MU = w.RKMuebles;
 prueba("reglas: concha solo en cajones, Berlín solo con Lisa, Lateral negra al centro en puertas", () => {
   assert.ok(/no se usa en puertas/.test(R.manija(op, "puerta", "15", "1")));
   assert.strictEqual(R.manija(op, "cajon", "15", "1"), "");
@@ -194,6 +196,66 @@ prueba("entrepaños: lo que escribe el gráfico lo lee la geometría y la fila",
   assert.ok(Math.abs(G.espacios.reduce((a, b) => a + b, 0) + 2 * G.esp - G.alto) < 0.01);
   assert.ok(!G.repisas[0].divisor && G.repisas[1].divisor);
   assert.strictEqual(rcc.flatten(m, reg)[V.espacios[0]], Math.round(e[0]) + "mm");
+});
+
+prueba("muebles: origen y de dónde sale el diseño en el proyecto", () => {
+  const cat = { id: "a", clase: "catalogo" }, usr = { id: "b", clase: "usuario", creado_por: { usuario: "ana", nombre: "Ana" } };
+  assert.strictEqual(MU.clase({}), "catalogo");
+  assert.strictEqual(MU.clase({ clase: "personalizado" }), "usuario");
+  assert.strictEqual(MU.etiqueta(cat), "Catálogo");
+  assert.strictEqual(MU.etiqueta(usr), "Creado por Ana");
+  assert.strictEqual(MU.etiqueta({ clase: "usuario" }), "Creado por usuario");
+  // Todos parten del diseño del proyecto; el catálogo nunca va con el original.
+  assert.strictEqual(MU.modo(cat, undefined), "global");
+  assert.strictEqual(MU.modo(cat, undefined, "original"), "global");
+  assert.strictEqual(MU.modo(cat, { original: true }), "global");
+  assert.strictEqual(MU.modo(cat, { personalizado: true }), "personal");
+  assert.strictEqual(MU.modo(usr, undefined), "global");
+  assert.strictEqual(MU.modo(usr, { original: true }), "original");
+  // «Ver con: Original» del filtro vale para los que no tienen elección propia.
+  assert.strictEqual(MU.modo(usr, undefined, "original"), "original");
+  assert.strictEqual(MU.modo(usr, { personalizado: true }, "original"), "personal");
+  assert.deepStrictEqual(MU.modos(cat).map((x) => x[0]), ["global", "personal"]);
+  assert.deepStrictEqual(MU.modos(usr).map((x) => x[0]), ["global", "original", "personal"]);
+});
+
+prueba("muebles: diseño original desde la receta y alcance del diseño del proyecto", () => {
+  const fc = JSON.parse(fs.readFileSync(path.join(UI, "..", "catalogo", "opciones.json"), "utf8")).familias.gabinete;
+  const d = MU.disenoOriginal(fc, { l01_linea_frente: "3", d16_z1_tirador_tipo: "11", e01_tirador_tipo: "15", c16_material_puerta: "MDF_X", i06_trasera: "1" });
+  assert.deepStrictEqual(d, { frente: "3", manija_puerta: "11", manija_cajon: "15", material: "MDF_X", tarja: true });
+  assert.deepStrictEqual(MU.disenoOriginal(fc, {}), { frente: "", manija_puerta: "", manija_cajon: "", material: "", tarja: false });
+  const a = MU.alcance(fc, false, false);
+  assert.ok(a.cambia.includes("manijas") && a.cambia.includes("frente") && a.fijo.includes("medidas"));
+  const g = MU.alcance(fc, true, true);
+  assert.ok(!g.cambia.includes("manijas") && g.cambia.includes("ancho, alto y fondo") && g.fijo.some((x) => /gola/.test(x)));
+});
+
+prueba("muebles: filtros por clase, tipo y texto, con conteos", () => {
+  const l = [{ id: "1", name: "Gab A", category: "Gabinetes" }, { id: "2", name: "Gab B", category: "Gabinetes", clase: "usuario", creado_por: { nombre: "Ana" } },
+    { id: "3", name: "Ala C", category: "Alacenas", features: { tipo: ["Avento"] } }];
+  assert.deepStrictEqual(MU.filtrar(l, {}).map((m) => m.id), ["1", "2", "3"]);
+  assert.deepStrictEqual(MU.filtrar(l, { clase: "catalogo", cat: "Gabinetes" }).map((m) => m.id), ["1"]);
+  assert.deepStrictEqual(MU.filtrar(l, { clase: "usuario" }).map((m) => m.id), ["2"]);
+  assert.deepStrictEqual(MU.filtrar(l, { q: "ana" }).map((m) => m.id), ["2"]);
+  assert.deepStrictEqual(MU.filtrar(l, { q: "avento" }).map((m) => m.id), ["3"]);
+  assert.deepStrictEqual(MU.conteos(l), { clase: { catalogo: 2, usuario: 1 }, cat: { Gabinetes: 2, Alacenas: 1 } });
+});
+
+prueba("muebles: características de la barra lateral, sin entrepaños", () => {
+  const mk = (id, tipo, conf, ancho) => ({ id, name: id, category: "Gabinetes", features: { tipo, configuracion: conf, puerta: ["Lisa"] }, specs: { ancho_mm: ancho } });
+  const l = [mk("a", ["Tirador", "Entrepaño"], ["2 zonas"], 600), mk("b", ["Gola", "Tarja"], ["2 zonas"], 900), mk("c", ["Gola"], ["1 zona"], 600)];
+  const f = MU.facetas(l, {});
+  assert.deepStrictEqual(f.map((g) => g.id), ["tipo", "configuracion", "puerta", "ancho"]);
+  assert.deepStrictEqual(f[0].opciones.map((o) => [o.valor, o.n]), [["Gola", 2], ["Tarja", 1], ["Tirador", 1]]);
+  assert.deepStrictEqual(f[3].opciones.map((o) => o.valor), ["600 mm", "900 mm"]);
+  // Dentro de un grupo suma; entre grupos se cumplen todos.
+  assert.deepStrictEqual(MU.filtrar(l, { car: { ancho: ["600 mm", "900 mm"], tipo: ["Gola"] } }).map((m) => m.id), ["b", "c"]);
+  assert.deepStrictEqual(MU.filtrar(l, { car: { tipo: ["Gola"], configuracion: ["1 zona"] } }).map((m) => m.id), ["c"]);
+  assert.deepStrictEqual(MU.filtrar(l, { car: { tipo: [] } }).length, 3);
+  // Los conteos de un grupo no se restringen por su propia elección, sí por la de los demás.
+  const g = MU.facetas(l, { tipo: ["Gola"] });
+  assert.deepStrictEqual(g[0].opciones.map((o) => [o.valor, o.n, o.activo]), [["Gola", 2, true], ["Tarja", 1, false], ["Tirador", 1, false]]);
+  assert.deepStrictEqual(g[3].opciones.map((o) => [o.valor, o.n]), [["600 mm", 1], ["900 mm", 1]]);
 });
 
 console.log(`${n}/${n} pruebas OK`);

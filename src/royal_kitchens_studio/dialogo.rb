@@ -149,10 +149,10 @@ module RoyalKitchens
 
       # ---- Insertar un mueble del catálogo ------------------------------------
       #
-      # { id, eleccion }. Sin elección («Usar»): el .skp guardado tal cual. Con
+      # { id, eleccion }. Sin elección (mueble «como se hizo»): el .skp guardado tal cual. Con
       # elección: se regenera desde la receta con los cambios que calcula
       # Catalogo.cambios_receta (medidas, frente, manija por uso, material y sus
-      # reglas).
+      # reglas) más los entrepaños ajustados en el proyecto (eleccion["interior"]).
       def insertar(req)
         m  = Biblioteca.buscar(Generador.creaciones_dir, req["id"])
         el = req["eleccion"]
@@ -161,7 +161,9 @@ module RoyalKitchens
           cfg = (op["familias"] || {})[m["receta_familia"]] || {}
           cambios = Catalogo.cambios_receta(cfg, el, op, m["receta"]["valores"] || {})
           asegurar_material(el["material"]) if cambios.key?(cfg.dig("material", "attr"))
-          Generador.instanciar_receta(m["receta_familia"], m["receta"], cambios, nombre: m["specs"]["sku"])
+          cambios.merge!(Generador.cambios_interior(Familias.manifiesto(m["receta_familia"]), el["interior"]))
+          Generador.instanciar_receta(m["receta_familia"], m["receta"], cambios, nombre: m["specs"]["sku"],
+                                      divisores: el["divisores"])
         else
           Biblioteca.insertar_tal_cual(m)
         end
@@ -172,7 +174,7 @@ module RoyalKitchens
       # ---- Generar desde «Avanzado» o desde una fila del CSV -------------------
       #
       #   { familia, nombre, valores (fila plana), divisores, material,
-      #     insertar: bool, publicar: bool, ref }
+      #     insertar: bool, publicar: bool, clase, ref }
       #
       # Una sola generación (Generador.generar): queda en la escena y/o se
       # guarda en Creaciones personalizadas.
@@ -187,7 +189,8 @@ module RoyalKitchens
           valores["c22matpuertade"]      = "=c16_material_puerta"
         end
         r = Generador.generar(req["familia"].to_s, nombre, valores, divisores: req["divisores"],
-                              insertar: !!req["insertar"], publicar: !!req["publicar"])
+                              insertar: !!req["insertar"], publicar: !!req["publicar"], clase: req["clase"],
+                              creado_por: Usuario.actual.slice("usuario", "nombre"))
         { "ok" => r["ok"], "error" => r["error"], "ref" => req["ref"], "nombre" => nombre,
           "avisos" => r["avisos"], "publicado" => r["publicado"] ? true : false }
       end

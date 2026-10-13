@@ -30,6 +30,14 @@ assert G.capturado_mm(MAN, fila, "LenZ") == 720, "medida capturada sin zoclo par
 
 f = G.ficha_creacion("gabinete", MAN, "GAB-PRUEBA", { "valores" => fila }, Time.at(0))
 assert f["tipo"] == "creacion" && f["medidas_mm"]["ancho"] == 600 && f["receta"]["valores"] == fila, "ficha de la creación"
+assert f["clase"] == "catalogo", "una creación nace de catálogo si no se dice otra cosa"
+fu = G.ficha_creacion("gabinete", MAN, "X", { "valores" => fila }, Time.at(0), clase: "usuario", creado_por: { "usuario" => "ana", "nombre" => "Ana" })
+assert fu["clase"] == "usuario" && fu["creado_por"]["nombre"] == "Ana", "ficha creada por usuario"
+assert G.ficha_creacion("gabinete", MAN, "X", { "valores" => fila }, Time.at(0), creado_por: { "usuario" => "ana" })["creado_por"].nil?, "el catálogo no lleva autor"
+
+int = G.cambios_interior(MAN, { "h02_cantidad" => 2, "h11_espacio1_alto" => "343mm", "LenX" => "9000mm", "h21_entrepano1_retiro_fondo" => ["x"] })
+assert int == { "h02_cantidad" => "2", "h11_espacio1_alto" => "343mm" }, "interior: solo campos del grupo de entrepaños, como texto"
+assert G.cambios_interior(MAN, nil) == {}, "interior vacío"
 
 modelo = RoyalKitchens::Studio::Plantilla.modelo(RoyalKitchens::Studio::Familias.manifiestos.to_a)
 assert modelo.is_a?(Hash) || modelo.is_a?(Array), "modelo de columnas de la plantilla"
