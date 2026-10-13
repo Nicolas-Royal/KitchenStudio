@@ -37,6 +37,15 @@ Dir.mktmpdir do |dir|
   File.write(File.join(dir, "sin_receta.json"), JSON.generate("nombre" => "x"))
   assert B.modulos(dir).map { |m| m["name"] } == %w[A B], "lee la carpeta, ordena y salta lo roto"
   assert B.buscar(dir, "cr-a")["name"] == "A", "buscar por id"
+  assert B.existente(dir, "a") == "A" && B.existente(dir, " A ") == "A", "existente: mismo id aunque cambien mayúsculas o espacios"
+  assert B.existente(dir, "C").nil? && B.existente(nil, "A").nil?, "existente: nombre libre"
+  File.write(File.join(dir, "GAB 600.json"), JSON.generate(ficha.merge("nombre" => "con espacio")))
+  File.write(File.join(dir, "GAB-600.json"), JSON.generate(ficha.merge("nombre" => "con guion")))
+  File.write(File.join(dir, "suelto.skp"), "")
+  ids = B.modulos(dir).map { |m| m["id"] }
+  assert ids.uniq.size == ids.size && ids.include?("cr-gab-600") && ids.include?("cr-gab-600-2"), "dos archivos con el mismo id no se tapan"
+  assert B.buscar(dir, "cr-gab-600-2")["name"] == "con guion", "el segundo se puede abrir"
+  assert B.existente(dir, "gab_600") == "GAB 600" && B.existente(dir, "SUELTO") == "suelto", "existente: también un .skp sin ficha"
   err = (B.buscar(dir, "cr-zzz") rescue $!.message)
   assert err =~ /No encontré/, "buscar algo que no está"
 end

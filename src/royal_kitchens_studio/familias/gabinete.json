@@ -163,7 +163,7 @@
         { "id": "LenX", "attr": "LenX", "label": "Ancho", "tipo": "numero", "unidad": "mm", "default": "600", "placeholder": "600", "positivo": true, "requerido": true },
         { "id": "LenY", "attr": "LenY", "label": "Profundidad del cuerpo", "tipo": "numero", "unidad": "mm", "default": "578", "placeholder": "578", "positivo": true, "requerido": true, "nota": "Sin la puerta: el componente mide la profundidad total, así que se le suma el espesor de puerta.", "suma": [{ "attr": "c02_espesor_puerta" }] },
         { "id": "LenZ", "attr": "LenZ", "label": "Alto del cuerpo", "tipo": "numero", "unidad": "mm", "default": "770", "placeholder": "770", "positivo": true, "requerido": true, "nota": "Sin el zoclo: se le suma el alto del zoclo, que eleva la estructura.", "suma": [{ "attr": "a02_alto_zoclo" }] },
-        { "id": "a02_alto_zoclo", "attr": "a02_alto_zoclo", "label": "Alto del zoclo", "tipo": "numero", "unidad": "mm", "default": "100", "placeholder": "100", "nota": "La estructura queda elevada esta medida aunque el zoclo esté apagado (patas o zoclo corrido). Para un gabinete al piso, 0." }
+        { "id": "a02_alto_zoclo", "attr": "a02_alto_zoclo", "label": "Alto del zoclo", "tipo": "numero", "unidad": "mm", "default": "100", "placeholder": "100", "nota": "Lo que el zoclo eleva la estructura.", "habilitado_si": { "attr": "j02_zoclo_activo", "valor": "1", "mensaje": "Sin zoclo el gabinete va al piso." }, "forzar": [{ "valor": "0", "si": [{ "attr": "j02_zoclo_activo", "valor": "2" }], "mensaje": "Sin zoclo: el gabinete va apoyado en el piso." }] }
       ]
     },
     {
@@ -629,11 +629,7 @@
       "id": "zoclo",
       "titulo": "Zoclo",
       "campos": [
-        { "id": "j02_zoclo_activo", "attr": "j02_zoclo_activo", "label": "Zoclo", "tipo": "select", "default": "1", "nota": "«No» quita la pieza de zoclo; la estructura sigue elevada el alto del zoclo.", "opciones": [
-          { "label": "Sí", "valor": "1" },
-          { "label": "No", "valor": "2" }
-        ] },
-        { "id": "j01_pieza_frontal", "attr": "j01_pieza_frontal", "label": "Pieza frontal del zoclo", "tipo": "select", "default": "1", "habilitado_si": { "attr": "j02_zoclo_activo", "valor": "1", "mensaje": "Sin zoclo no hay pieza frontal." }, "opciones": [
+        { "id": "j02_zoclo_activo", "attr": "j02_zoclo_activo", "label": "Zoclo", "tipo": "select", "default": "1", "nota": "«No» quita el zoclo y el gabinete queda apoyado en el piso.", "opciones": [
           { "label": "Sí", "valor": "1" },
           { "label": "No", "valor": "2" }
         ] }

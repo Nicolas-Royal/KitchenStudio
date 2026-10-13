@@ -70,6 +70,19 @@ parten de «Este proyecto»:
   de fila `{ attr: valor }` del grupo con `visual`, y al insertar viajan en
   `eleccion.interior` → `Generador.cambios_interior` (solo deja pasar los
   campos de ese grupo). «Avanzado» parte también de ese interior.
+- **Un mueble nunca pisa a otro.** El id sale del nombre del archivo
+  (`Biblioteca.slug` = `RKMuebles.idDe`), así que «GAB 600» y «GAB-600» son
+  el mismo. Guardar con un nombre ocupado se rechaza: en «Avanzado» y en las
+  filas del CSV (`RKMuebles.choque`, `csvChoque`) y, como última barrera, en
+  `Generador.generar` (`Biblioteca.existente`). Dos archivos que ya den el
+  mismo id reciben sufijo (`Biblioteca.unicos`) para que ninguno tape al otro.
+  Al borrar un mueble se quitan sus ajustes del proyecto abierto.
+- Nombre de un mueble nuevo (`RKMuebles.nombreNuevo`): `GAB-600-2P-3C-014` =
+  familia, ancho, frentes de arriba abajo y un consecutivo (el siguiente al
+  mayor del catálogo), para que no se repita. Las filas de CSV conservan su
+  nombre; un nombre escrito a mano se respeta.
+- Tarjeta: nombre, frentes (`RKMuebles.resumenFrentes`), medidas, rasgos y, al
+  pie, de dónde sale el diseño y los botones, siempre a la misma altura.
 - Barra lateral de características (`RKMuebles.facetas`): tipo, configuración,
   frente original (de `ficha["caracteristicas"]`) y ancho. Dentro de un grupo
   suma, entre grupos se cumplen todos. Los entrepaños no se filtran: se
@@ -212,6 +225,12 @@ y llegan a la UI en `estado.transiciones`.
   → `Generador.generar`.
   El material se escribe como `c16_material_puerta` + `c22matpuertade =
   "=c16_material_puerta"` en la fila, así viaja en la receta publicada.
+- **CSV**: todo se genera desde la tabla (frentes, medidas, diseño, estado y
+  avisos de cada fila). «Editar» abre «Avanzado» sobre una copia de la fila
+  (`editarFilaCsv`, `S.avCsv`), sin pasar por la página del mueble: ahí solo se
+  guarda (`guardarFilaCsv`, con la configuración sin errores) o se descarta al
+  cerrar. El material de frentes se elige en «Avanzado» (`st.material`; en una
+  fila, `f.material`) y viaja en `generar.material`.
 - **Receta → formulario** (`RKAvanzado.valoresDesdeFila`): quita unidades y
   la `suma` (zoclo, puerta) y resuelve presets por fórmula/valor. Probado:
   formulario → fila → formulario → fila da la misma fila.

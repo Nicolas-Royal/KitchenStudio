@@ -40,7 +40,9 @@ window.RKVista = (function () {
   function desdeValores(v, medidas) {
     const ancho = medidas.ancho || num(v.LenX, 600);
     const alto = medidas.alto || 770;
-    const zoclo = num(v.a02_alto_zoclo, 100);
+    // Sin zoclo el gabinete va apoyado en el piso: no hay nada que lo eleve.
+    const conZoclo = String(v.j02_zoclo_activo || "1") !== "2";
+    const zoclo = conZoclo ? num(v.a02_alto_zoclo, 100) : 0;
     const dos = String(v.d01_cantidad_zonas) === "2";
     const zonas = [zona(v.d11_z1_contenido, v.d15_z1_cant_puertas, v.d12_z1_cant_cajones)];
     let sup = alto;
@@ -53,7 +55,7 @@ window.RKVista = (function () {
     if (dos) zonas[1].h = alto - sup;
     return {
       ancho, alto, zoclo,
-      zocloVisible: String(v.j02_zoclo_activo || "1") !== "2",
+      zocloVisible: conZoclo,
       gola: String(v.b01_gola_o_tirador) === "2",
       zonas,
     };
@@ -195,13 +197,11 @@ window.RKVista = (function () {
     let out = "";
     // Cuerpo (costados y techo asoman alrededor de los frentes).
     out += rect(0, 0, W, H, 'fill="#ece8e1" stroke="rgba(0,0,0,.35)" stroke-width="1.5"');
-    // Zoclo o patas. El zoclo lleva el material de los frentes, pero metido:
-    // más angosto, oscurecido y con la sombra del cuerpo encima.
-    if (Z > 0) {
-      out += layout.zocloVisible
-        ? rect(30, H, W - 60, Z, `fill="url(#${d._pat})"`) +
-          rect(30, H, W - 60, Z, `fill="url(#${d._pat}-hueco)" stroke="rgba(0,0,0,.3)" stroke-width="1"`)
-        : rect(40, H, 40, Z, 'fill="#555"') + rect(W - 80, H, 40, Z, 'fill="#555"');
+    // El zoclo lleva el material de los frentes, pero metido: más angosto,
+    // oscurecido y con la sombra del cuerpo encima. Sin zoclo, el cuerpo va al piso.
+    if (Z > 0 && layout.zocloVisible) {
+      out += rect(30, H, W - 60, Z, `fill="url(#${d._pat})"`) +
+        rect(30, H, W - 60, Z, `fill="url(#${d._pat}-hueco)" stroke="rgba(0,0,0,.3)" stroke-width="1"`);
     }
     let y = 0;
     layout.zonas.forEach((z) => {

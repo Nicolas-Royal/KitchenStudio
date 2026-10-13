@@ -60,6 +60,7 @@ const S = {
   vista: "original", // cómo se ven los creados por usuario en su filtro: "original" o "global"
   mod: null, avAbierto: false, av: {},
   csv: null,
+  avCsv: null, // fila del CSV que se está editando en «Avanzado»: { i, m }
   // Registro de proyectos
   usuario: { usuario: "", nombre: "", sede: "", rol: "diseno" },
   actual: { folio: null }, estados: [], transiciones: {},
@@ -127,7 +128,8 @@ window.RKS = {
     if (!r.ok) return aviso("Error: " + (r.error || "no se pudo leer el archivo"));
     if (!S.rcc) return aviso("Error: no cargó ui/receta.js");
     const imp = S.rcc.construirImportacion(r);
-    S.csv = { imp, sel: new Set(imp.filas.map((f, i) => (csvUsable(f) ? i : -1)).filter((i) => i >= 0)), hechos: {} };
+    S.csv = { imp, sel: new Set(), hechos: {} };
+    imp.filas.forEach((f, i) => { if (csvUsable(f, i)) S.csv.sel.add(i); });
     pintarCsv();
   },
   onPlantilla(r) {
@@ -199,7 +201,8 @@ function pintarSeccion() {
   pintarBarra();
   ["proyectos", "proyecto", "lista", "modulo", "csv", "ajustes"].forEach((s) => { $("#sec-" + s).hidden = S.sec !== s; });
   if (S.sec !== "modulo") S.avAbierto = false;
-  $("#avanzado").hidden = !S.avAbierto;
+  if (S.sec !== "csv") S.avCsv = null;
+  $("#avanzado").hidden = !(S.avAbierto || S.avCsv);
   if (S.sec === "proyectos") pintarProyectos();
   if (S.sec === "proyecto") pintarProyecto();
   if (S.sec === "lista") pintarLista();
@@ -346,6 +349,16 @@ function pintarPickers(box, d, editable, onCambio, extra) {
   });
   // Diseños guardados antes de una regla (p. ej. concha en puertas).
   if (error) box.insertAdjacentHTML("beforeend", `<p class="cf-error pick-error">${esc(error)}: cámbialo antes de insertar.</p>`);
+}
+
+/* Un solo selector con foto sobre +d+ (el material en «Avanzado»). */
+function pintarTile(box, p, d, onCambio) {
+  const o = opcion(p.key, d[p.key]);
+  box.innerHTML = `<button type="button" class="pick-tile"><div class="pick-photo"><img alt=""></div><div class="pick-text">` +
+    `<span class="stamp">${p.titulo}</span><strong>${esc(o ? o.nombre : "Como el módulo")}</strong>` +
+    `<span class="pick-sub">${esc(o && o.grupo ? o.grupo : "")}</span><span class="pick-change">Cambiar…</span></div></button>`;
+  setImg($("img", box), fotoDe(p.key, o));
+  $("button", box).onclick = () => abrirPicker(p, d, onCambio);
 }
 
 let pk = null;
@@ -537,18 +550,44 @@ function pintarFacetas(base) {
   });
 }
 
+/* Lo que la tarjeta dice del mueble: medidas, frentes (de su receta) y rasgos. */
+const INFO = new Map();
+function infoMueble(m) {
+  const clave = m.id + "|" + (m.creado || "");
+  if (INFO.has(clave)) return INFO.get(clave);
+  const s = m.specs || {};
+  const info = { medidas: [s.ancho_mm, s.alto_mm, s.fondo_mm].filter(Boolean).join(" × "), frentes: "", rasgos: [] };
+  const man = S.manifiestos[familiaDe(m)];
+  const g = S.rcc && grupoInterior(man);
+  if (g && m.receta) {
+    const valores = RKAvanzado.valoresDesdeFila(man, m.receta.valores || {}, S.rcc);
+    info.frentes = M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual)).texto;
+  }
+  const f = m.features || {};
+  // Tirador o gola, tarja, entrepaño y el tipo de cajón: lo que distingue a dos muebles con los mismos frentes.
+  info.rasgos = (f.tipo || []).concat((f.configuracion || []).filter((t) => /^Cajón /.test(t)).map((t) => t.replace(/^Cajón /, "")));
+  INFO.set(clave, info);
+  return info;
+}
+
 function tarjeta(m) {
   const c = document.createElement("div");
   c.className = "card";
   c.tabIndex = 0;
   const sku = (m.specs && m.specs.sku) || "";
   const modo = modoDe(m, true);
+  const info = infoMueble(m);
   c.innerHTML = `<div class="vents" aria-hidden="true"><i></i><i></i><i></i></div>` +
     `<span class="badge ${M.clase(m)}">${esc(M.etiqueta(m))}</span>` +
-    `<div class="screen preview-mini" aria-hidden="true">${svgModulo(m, false, true)}</div><div class="body"><div class="name">${esc(m.name)}</div>` +
-    `<div class="meta">${esc(m.category)}${sku ? " · " + esc(sku) : ""}</div>` +
-    `<div class="card-nota${modo === "global" ? "" : " ajuste"}">${NOTA_MODO[modo]}</div>` +
-    `<div class="card-actions"><button class="use sm">Configurar</button><button class="key sm" title="${TITULO_USAR[modo]}">Usar</button></div></div>`;
+    `<div class="screen preview-mini" aria-hidden="true">${svgModulo(m, false, true)}</div><div class="body">` +
+    `<div class="name" title="${esc(m.name)}">${esc(m.name)}</div>` +
+    (sku && sku !== m.name ? `<div class="meta">${esc(sku)}</div>` : "") +
+    (info.frentes ? `<div class="card-frentes">${esc(info.frentes)}</div>` : "") +
+    (info.medidas ? `<div class="meta">${esc(info.medidas)} mm</div>` : "") +
+    (info.rasgos.length ? `<div class="card-rasgos">${info.rasgos.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : "") +
+    // El pie (de dónde sale el diseño + botones) va siempre abajo, a la misma altura en toda la fila.
+    `<div class="card-pie"><div class="card-nota${modo === "global" ? "" : " ajuste"}">${NOTA_MODO[modo]}</div>` +
+    `<div class="card-actions"><button class="use sm">Configurar</button><button class="key sm" title="${TITULO_USAR[modo]}">Usar</button></div></div></div>`;
   const [conf, usar] = $$("button", c);
   conf.onclick = (e) => { e.stopPropagation(); abrirModulo(m); };
   usar.onclick = (e) => { e.stopPropagation(); usarModulo(m, true); };
@@ -609,6 +648,8 @@ function abrirModulo(m, avanzado) {
 }
 
 function abrirAvanzado(on) {
+  // Editando una fila del CSV, cerrar descarta lo que no se guardó.
+  if (S.avCsv) { delete S.av[S.avCsv.m.id]; S.avCsv = null; $("#avanzado").hidden = true; return; }
   S.avAbierto = on;
   $("#avanzado").hidden = !on;
   if (on) pintarAvanzado(S.mod);
@@ -852,38 +893,67 @@ function estadoAvanzado(m) {
       });
     }
   }
-  const sku = m.specs && m.specs.sku;
-  reg.nombre_salida = m._source === "csv" ? m.name : (sku ? sku + "-P" : S.rcc.autoNombre(man, valores));
-  S.av[m.id] = { man, reg, nota, material: m._source === "csv" ? "" : d.material || "", nombreManual: m._source === "csv" || !!sku, csv: m._source === "csv" };
+  // Una fila del CSV trae su nombre; lo demás se nombra solo (y se renombra al cambiar la configuración).
+  reg.nombre_salida = m._source === "csv" ? m.name : nombreNuevo(man, valores);
+  S.av[m.id] = { man, reg, nota, material: m._source === "csv" ? "" : d.material || "", nombreManual: m._source === "csv", csv: m._source === "csv" };
   return S.av[m.id];
+}
+
+/* Nombre automático de un mueble nuevo (RKMuebles.nombreNuevo): familia, ancho,
+   frentes y un consecutivo que no existe en el catálogo. */
+function nombreNuevo(man, valores) {
+  const g = grupoInterior(man);
+  const codigo = g ? M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual)).codigo : "";
+  const prefijo = (/^[A-Z]+/.exec(man.nombre_patron || "") || [man.titulo.slice(0, 3)])[0];
+  return M.nombreNuevo(prefijo, RKVista.num(valores.LenX, 0), codigo, S.modulos.map((x) => (x.specs && x.specs.sku) || x.name));
 }
 
 function pintarAvanzado(m) {
   const st = estadoAvanzado(m);
   const form = $("#av-form");
+  // Fila del CSV: aquí solo se edita y se guarda; se genera desde la tabla.
+  const csv = S.avCsv && S.avCsv.m === m ? S.avCsv : null;
   $("#av-title").textContent = m.name;
+  $("#av-stamp").textContent = csv ? "Editar fila del archivo" : "Configuración avanzada";
+  $("#av-escena").closest("label").hidden = !!csv;
+  $("#av-publicar").closest("label").hidden = !!csv;
+  $("#av-generar").textContent = csv ? "Guardar" : "Generar";
+  $("#av-material").hidden = !st;
   if (!st) {
     form.innerHTML = `<p class="empty">${S.rcc ? "Esta familia todavía no tiene manifiesto en Studio" : "No cargó ui/receta.js"}</p>`;
     $("#av-generar").disabled = true;
     return;
   }
-  $("#av-note").textContent = st.nota + (st.material ? ` Material de frentes: ${(opcion("material", st.material) || {}).nombre || st.material}.` : "");
+  $("#av-note").textContent = st.nota;
   const nombre = $("#av-nombre");
   nombre.value = st.reg.nombre_salida;
   nombre.oninput = () => { st.reg.nombre_salida = nombre.value; st.nombreManual = nombre.value.trim() !== ""; };
   $("#av-publicar").checked = m._source === "csv" || m._source === "nuevo";
-  $("#av-reset").onclick = () => { delete S.av[m.id]; pintarModulo(); };
-  RKAvanzado.montar(form, st.man, st.reg, S.rcc, (errMotor) => {
+  $("#av-reset").onclick = () => { delete S.av[m.id]; if (csv) editarFilaCsv(csv.i); else pintarModulo(); };
+  const fc = (S.opciones.familias || {})[st.reg.familia];
+  const frenteDe = () => (fc && fc.frente ? st.reg.valores[fc.frente.attr] : "");
+  const vista = RKAvanzado.montar(form, st.man, st.reg, S.rcc, (errMotor) => {
     // Las del motor + las de fabricación de Studio (manijas por uso, MDF).
-    const errores = errMotor.concat(RKReglas.receta(S.opciones, (S.opciones.familias || {})[st.reg.familia], st.reg.valores));
-    if (!st.nombreManual) { st.reg.nombre_salida = S.rcc.autoNombre(st.man, st.reg.valores); nombre.value = st.reg.nombre_salida; }
+    const errores = errMotor.concat(RKReglas.receta(S.opciones, fc, st.reg.valores));
+    const errMat = st.material && RKReglas.material(S.opciones, st.material, frenteDe());
+    if (errMat) errores.push({ label: "Material", msg: errMat });
+    if (!st.nombreManual) { st.reg.nombre_salida = nombreNuevo(st.man, st.reg.valores); nombre.value = st.reg.nombre_salida; }
     const box = $("#av-errores");
     box.hidden = !errores.length;
     box.innerHTML = errores.map((e) => `<div>• ${esc(e.label ? e.label + ": " : "")}${esc(e.msg)}</div>`).join("");
     $("#av-generar").disabled = errores.length > 0;
-    pintarPreviewModulo(m);
+    if (csv) visor("#av-preview").mostrar(svgModulo(m, true), m.id);
+    else pintarPreviewModulo(m);
   });
-  $("#av-generar").onclick = () => generarAvanzado(m, st);
+  // Material de frentes: no es un campo del manifiesto (lo aplica Studio al generar).
+  const pintarMaterial = () => {
+    const d = { material: st.material || "", frente: frenteDe() };
+    pintarTile($("#av-material"), PICKERS.find((p) => p.key === "material"), d, () => {
+      st.material = d.material; pintarMaterial(); vista.refrescar();
+    });
+  };
+  pintarMaterial();
+  $("#av-generar").onclick = () => (csv ? guardarFilaCsv(csv.i, st) : generarAvanzado(m, st));
 }
 
 function payloadGenerar(st, ref, insertar, publicar) {
@@ -907,6 +977,9 @@ function generarAvanzado(m, st) {
   if (!insertarEsc && !publicar) return aviso("Error: elige insertar en la escena, guardar en el catálogo, o ambos");
   const p = payloadGenerar(st, m.id, insertarEsc, publicar);
   if (p.error) return aviso("Error: " + p.error);
+  // Guardar nunca reemplaza un mueble que ya está en el catálogo.
+  const existe = publicar && M.choque(p.nombre, S.modulos);
+  if (existe) return aviso(`Error: ya existe «${existe.name}» en el catálogo · usa otro nombre para no reemplazarlo`);
   ocupado(true, `Generando ${p.nombre}… (puede tardar unos segundos)`);
   bridge("generar", JSON.stringify(p));
 }
@@ -954,8 +1027,24 @@ function insertar(m, d) {
 }
 
 // Por ahora solo se generan las filas de familias activas (gabinete).
-function csvUsable(f) {
-  return f.estado !== "error" && FAMILIAS_ACTIVAS.includes(f.familia);
+/* Por qué el nombre de la fila +i+ pisaría a otro mueble, o "": uno del
+   catálogo, o una fila anterior del mismo archivo (se comparan como ids:
+   «GAB 600» y «GAB-600» son el mismo). Una fila ya generada no cuenta. */
+function csvChoque(i) {
+  const c = S.csv, f = c.imp.filas[i];
+  if (!f.nombre || (c.hechos[i] && c.hechos[i].estado === "generado")) return "";
+  const id = M.idDe(f.nombre);
+  const otra = c.imp.filas.findIndex((x, j) => j < i && x.nombre && M.idDe(x.nombre) === id);
+  if (otra >= 0) return `Mismo nombre que la fila ${otra + 1} (${c.imp.filas[otra].nombre}): cámbialo en «Editar»`;
+  const m = M.choque(f.nombre, S.modulos);
+  return m ? `Ya existe «${m.name}» en el catálogo: cámbiale el nombre en «Editar» para no reemplazarlo` : "";
+}
+
+// Por ahora solo se generan las filas de familias activas (gabinete), sin
+// errores, cuyo nombre no pise a otro mueble y que no se hayan generado ya.
+function csvUsable(f, i) {
+  const hecho = S.csv.hechos[i];
+  return f.estado !== "error" && FAMILIAS_ACTIVAS.includes(f.familia) && !(hecho && hecho.estado === "generado") && !csvChoque(i);
 }
 
 // ==== CSV ============================================================================
@@ -965,30 +1054,123 @@ function pintarCsv() {
   $("#csv-tabla-wrap").hidden = !c;
   if (!c) return;
   const imp = c.imp;
+  // Una fila que dejó de ser usable (ya se generó, o su nombre ya está en el catálogo) no se queda seleccionada.
+  imp.filas.forEach((f, i) => { if (!csvUsable(f, i)) c.sel.delete(i); });
   const ok = imp.filas.filter(csvUsable).length;
-  $("#csv-resumen").textContent = `${imp.filas.length} filas · ${ok} listas · ${imp.filas.length - ok} con error · ${c.sel.size} seleccionadas`;
+  $("#csv-resumen").textContent = `${imp.filas.length} filas · ${ok} por generar · ${Object.values(c.hechos).filter((h) => h.estado === "generado").length} generadas · ${c.sel.size} seleccionadas`;
   $("#csv-generar").disabled = !c.sel.size || !!c.cola;
+  $("#csv-quitar").disabled = !!c.cola;
   const t = $("#csv-tabla");
-  t.innerHTML = "<thead><tr><th></th><th>Nombre</th><th>Familia</th><th>Estado</th><th>Detalle</th><th></th></tr></thead>";
+  t.innerHTML = "<thead><tr><th></th><th>Nombre</th><th>Mueble</th><th>Medidas (mm)</th><th>Diseño</th><th>Estado</th><th>Avisos y errores</th><th></th></tr></thead>";
   const tb = document.createElement("tbody");
   imp.filas.forEach((f, i) => {
     const man = S.manifiestos[f.familia];
     const msgs = [f.error].concat(Object.values(f.errores || {})).filter(Boolean);
     const hecho = c.hechos[i];
-    const estado = hecho ? hecho.estado : (FAMILIAS_ACTIVAS.includes(f.familia) ? f.estado : "pendiente");
+    const choque = csvChoque(i);
+    const estado = hecho ? hecho.estado : !FAMILIAS_ACTIVAS.includes(f.familia) ? "pendiente" : choque ? "error" : f.estado;
+    const det = detalleFila(f, man);
+    const notas = estado === "pendiente" ? ["Por ahora Studio solo genera gabinetes"] : hecho && hecho.msg ? [hecho.msg] : [choque].concat(msgs, f.avisos || []).filter(Boolean);
     const tr = document.createElement("tr");
     tr.className = "st-" + estado;
-    tr.innerHTML = `<td><input type="checkbox" ${c.sel.has(i) ? "checked" : ""} ${csvUsable(f) ? "" : "disabled"}></td>` +
-      `<td><b>${esc(f.nombre || "—")}</b></td><td>${esc(man ? man.titulo : f.familia || "—")}</td>` +
+    tr.innerHTML = `<td><input type="checkbox" ${c.sel.has(i) ? "checked" : ""} ${csvUsable(f, i) ? "" : "disabled"}></td>` +
+      `<td><b>${esc(f.nombre || "—")}</b>${f.editada ? `<span class="pj-sub">Editada aquí</span>` : ""}</td>` +
+      `<td>${esc(man ? man.titulo : f.familia || "—")}<span class="pj-sub">${esc(det.frentes)}</span></td>` +
+      `<td class="mono">${esc(det.medidas || "—")}</td>` +
+      `<td>${esc(det.diseno || "—")}<span class="pj-sub">${esc(det.material)}</span></td>` +
       `<td><span class="pill">${esc({ ok: "Lista", aviso: "Con avisos", error: "Error", generado: "Generada", fallo: "Falló", pendiente: "Solo gabinete" }[estado] || estado)}</span></td>` +
-      `<td class="msgs">${esc(estado === "pendiente" ? "Por ahora Studio solo genera gabinetes" : hecho && hecho.msg ? hecho.msg : msgs.concat(f.avisos || []).slice(0, 3).join(" · "))}</td>` +
-      `<td><button class="key sm" ${f.valores && estado !== "pendiente" ? "" : "disabled"}>Editar</button></td>`;
+      `<td class="msgs" title="${esc(notas.join("\n"))}">${esc(notas.slice(0, 2).join(" · ") || "—")}${notas.length > 2 ? ` <b>+${notas.length - 2}</b>` : ""}</td>` +
+      `<td><button class="key sm" ${f.valores && estado !== "pendiente" && !c.cola ? "" : "disabled"}>Editar</button></td>`;
     $("input", tr).onchange = (e) => { e.target.checked ? c.sel.add(i) : c.sel.delete(i); pintarCsv(); };
-    $("button", tr).onclick = () => abrirModulo({ id: "csv-" + i, name: f.nombre, category: man && man.titulo, familia: f.familia,
-      _source: "csv", _virtual: true, valores: f.valores, specs: {}, features: {} }, true);
+    $("button", tr).onclick = () => editarFilaCsv(i);
     tb.appendChild(tr);
   });
   t.appendChild(tb);
+}
+
+/* Lo más relevante de una fila para la tabla: frentes, medidas y diseño. */
+function detalleFila(f, man) {
+  const out = { frentes: "", medidas: "", diseno: "", material: "" };
+  const v = f.valores;
+  if (!man || !v || !S.rcc) return out;
+  const etiqueta = (attr) => {
+    const campo = S.rcc.fieldByAttr(man, attr);
+    const o = campo && (campo.opciones || []).find((x) => String(x.valor) === String(v[campo.id]));
+    return o ? o.label : "";
+  };
+  const g = grupoInterior(man);
+  if (g) out.frentes = M.resumenFrentes(S.rcc.geomFrentes(man, v, g.visual)).texto;
+  out.medidas = ["LenX", "LenZ", "LenY"].map((a) => RKVista.num(v[a], 0)).filter((n) => n > 0).join(" × ");
+  const fc = (S.opciones.familias || {})[f.familia] || {};
+  // Tirador o gola, con el nombre corto del catálogo (manifest.catalogo.caracteristicas.tipo).
+  const tipo = (((man.catalogo || {}).caracteristicas || {}).tipo || [])[0];
+  const campoTipo = tipo && S.rcc.fieldByAttr(man, tipo.attr);
+  const apertura = campoTipo && tipo.valores ? tipo.valores[String(v[campoTipo.id])] || "" : "";
+  out.diseno = [apertura, fc.frente ? etiqueta(fc.frente.attr) : ""].filter(Boolean).join(" · ");
+  out.material = f.material ? (opcion("material", f.material) || {}).nombre || f.material : "";
+  return out;
+}
+
+/* «Editar» una fila: abre «Avanzado» sobre una copia de sus valores. Ahí solo se
+   guarda (vuelve a la tabla); generar es siempre desde la tabla. */
+function editarFilaCsv(i) {
+  const f = S.csv.imp.filas[i];
+  const man = S.manifiestos[f.familia];
+  if (!man || !f.valores) return;
+  const m = { id: "csv-" + i, name: f.nombre, category: man.titulo, familia: f.familia, _source: "csv", _virtual: true, specs: {}, features: {} };
+  S.av[m.id] = { man, csv: true, nombreManual: true, material: f.material || "",
+    nota: `Fila ${i + 1} del archivo. Los cambios se guardan en la tabla; el mueble se genera desde ahí.`,
+    reg: { familia: f.familia, titulo: man.titulo, valores: JSON.parse(JSON.stringify(f.valores)), nombre_salida: f.nombre } };
+  S.avCsv = { i, m };
+  $("#avanzado").hidden = false;
+  pintarAvanzado(m);
+}
+
+function guardarFilaCsv(i, st) {
+  const c = S.csv, f = c.imp.filas[i];
+  const nombre = (st.reg.nombre_salida || "").trim();
+  if (!nombre || /[\\/:*?"<>|]/.test(nombre)) return aviso("Error: escribe un nombre válido (sin \\ / : * ? \" < > |)");
+  const otra = c.imp.filas.find((x, j) => j !== i && x.nombre && M.idDe(x.nombre) === M.idDe(nombre));
+  if (otra) return aviso(`Error: la fila «${otra.nombre}» ya usa ese nombre`);
+  const existe = M.choque(nombre, S.modulos);
+  if (existe) return aviso(`Error: ya existe «${existe.name}» en el catálogo · usa otro nombre para no reemplazarlo`);
+  // «Guardar» solo se deja con la configuración sin errores: la fila queda lista.
+  f.nombre = nombre;
+  f.valores = st.reg.valores;
+  f.material = st.material || "";
+  f.error = null;
+  f.errores = {};
+  f.avisos = S.rcc.avisosConfig(st.man, f.valores);
+  f.estado = f.avisos.length ? "aviso" : "ok";
+  f.editada = true;
+  delete c.hechos[i];
+  c.sel.add(i);
+  delete S.av[S.avCsv.m.id];
+  S.avCsv = null;
+  $("#avanzado").hidden = true;
+  aviso(`${nombre}: fila guardada · genérala desde la tabla`);
+  pintarCsv();
+}
+
+/* «Quitar archivo»: la sección vuelve a como estaba antes de importar. Lo ya
+   generado sigue en el catálogo; lo editado aquí y no generado se pierde, así
+   que eso se pregunta antes. */
+function csvQuitar() {
+  const c = S.csv;
+  if (!c || c.cola) return;
+  const quitar = () => {
+    if (S.avCsv) { delete S.av[S.avCsv.m.id]; S.avCsv = null; $("#avanzado").hidden = true; }
+    S.csv = null;
+    $("#csv-progreso").hidden = true;
+    pintarCsv();
+  };
+  const pendientes = c.imp.filas.filter((f, i) => f.editada && !(c.hechos[i] && c.hechos[i].estado === "generado")).length;
+  if (!pendientes) return quitar();
+  preguntar("Quitar el archivo",
+    `${pendientes === 1 ? "Hay 1 fila editada" : `Hay ${pendientes} filas editadas`} aquí que no se ${pendientes === 1 ? "ha" : "han"} generado. Al quitar el archivo esos cambios se pierden; el archivo original no se toca.`, [
+      ["key", "Cancelar", null],
+      ["use", "Quitar archivo", quitar],
+    ]);
 }
 
 function csvGenerar() {
@@ -1023,7 +1205,7 @@ function csvSiguiente(res) {
   pr.hidden = false;
   $("i", pr).style.width = `${Math.round((hechos / c.total) * 100)}%`;
   $("span", pr).textContent = `${hechos + 1} de ${c.total} · ${f.nombre}`;
-  const st = { man: S.manifiestos[f.familia], reg: { familia: f.familia, valores: f.valores, nombre_salida: f.nombre }, material: "", csv: true };
+  const st = { man: S.manifiestos[f.familia], reg: { familia: f.familia, valores: f.valores, nombre_salida: f.nombre }, material: f.material || "", csv: true };
   const p = payloadGenerar(st, "csv-" + i, c.escena, true);
   if (p.error) return csvSiguiente({ ok: false, error: p.error });
   ocupado(true, `Generando ${hechos + 1} de ${c.total}: ${f.nombre}`);
@@ -1485,6 +1667,7 @@ $("#picker").addEventListener("click", (e) => { if (e.target.id === "picker") $(
 $("#csv-importar").onclick = () => { $("#csv-importar").disabled = true; bridge("importar_csv"); };
 $("#csv-plantilla").onclick = () => { $("#csv-plantilla").disabled = true; bridge("plantilla"); };
 $("#csv-generar").onclick = csvGenerar;
+$("#csv-quitar").onclick = csvQuitar;
 $("#pj-q").addEventListener("input", (e) => { S.pj.q = e.target.value; pintarTablaProyectos(); });
 $("#pj-recargar").onclick = () => bridge("recargar");
 $("#pj-nuevo").onclick = abrirCrear;

@@ -74,7 +74,26 @@ module RoyalKitchens
 
       def modulos(dir)
         return [] if dir.to_s.empty? || !File.directory?(dir)
-        Dir.glob(File.join(dir, "*.json")).sort.map { |j| card(leer_ficha(j), j) }.compact
+        unicos(Dir.glob(File.join(dir, "*.json")).sort.map { |j| card(leer_ficha(j), j) }.compact)
+      end
+
+      # Dos archivos pueden dar el mismo id («GAB 600» y «GAB-600»): el segundo
+      # recibe un sufijo para que los dos se puedan abrir y ninguno tape al otro.
+      def unicos(cards)
+        vistos = Hash.new(0)
+        cards.each do |c|
+          n = (vistos[c["id"]] += 1)
+          c["id"] = "#{c['id']}-#{n}" if n > 1
+        end
+        cards
+      end
+
+      # Mueble (nombre) que ya ocupa +nombre+ en la carpeta, o nil: mismo id en
+      # una ficha o en un .skp suelto. Guardar encima lo reemplazaría.
+      def existente(dir, nombre)
+        return nil if dir.to_s.empty? || !File.directory?(dir)
+        s = slug(nombre)
+        Dir.glob(File.join(dir, "*.{json,skp}")).map { |f| File.basename(f, ".*") }.find { |stem| slug(stem) == s }
       end
 
       def buscar(dir, id)

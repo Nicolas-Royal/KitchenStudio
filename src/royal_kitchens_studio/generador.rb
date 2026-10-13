@@ -314,6 +314,10 @@ module RoyalKitchens
         manifest = Familias.manifiesto(familia)
         err = validar(manifest, valores)
         return { "ok" => false, "error" => err } if err
+        # Guardar nunca reemplaza un mueble del catálogo: se pide otro nombre.
+        if publicar && (ya = Biblioteca.existente(creaciones_dir, nombre))
+          return { "ok" => false, "error" => "Ya existe «#{ya}» en el catálogo. Usa otro nombre para no reemplazarlo." }
+        end
         base_path = componente(manifest)
         return { "ok" => false, "error" => "No está el componente base de #{manifest['titulo']}:\n#{base_path}" } unless File.exist?(base_path)
 

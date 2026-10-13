@@ -208,7 +208,7 @@
           <div class="grow">
             <div class="stamp">Piezas únicas</div>
             <h1>Crear desde CSV o Excel</h1>
-            <p class="lead">Cada fila es un módulo. Se valida con las mismas reglas que «Avanzado»; lo generado se guarda en el <b>catálogo</b>.</p>
+            <p class="lead">Cada fila es un módulo. Revisa la tabla, edita la fila que haga falta y genera desde aquí; lo generado se guarda en el <b>catálogo</b>.</p>
           </div>
           <div class="sec-actions">
             <button class="key" id="csv-plantilla">Descargar plantilla</button>
@@ -222,6 +222,7 @@
           <div class="csv-bar">
             <span id="csv-resumen" class="stamp"></span>
             <label class="switch"><input type="checkbox" id="csv-escena"><span class="switch-track"><span class="switch-thumb"></span></span><span>Insertar también en la escena</span></label>
+            <button class="key" id="csv-quitar" title="Vacía la tabla para importar otro archivo">Quitar archivo</button>
             <button class="use" id="csv-generar">Generar seleccionados</button>
           </div>
           <div class="progress" id="csv-progreso" hidden><i></i><span></span></div>
@@ -255,7 +256,7 @@
     <div class="sheet sheet-adv" role="dialog" aria-modal="true" aria-labelledby="av-title">
       <header class="sheet-head">
         <div class="grow">
-          <div class="stamp">Configuración avanzada</div>
+          <div class="stamp" id="av-stamp">Configuración avanzada</div>
           <h2 id="av-title"></h2>
         </div>
         <label class="field-name">
@@ -275,6 +276,7 @@
         <div class="adv-vista">
           <div class="preview" id="av-preview"></div>
           <p class="hint">Vista según estas variables.</p>
+          <div id="av-material"></div>
         </div>
       </div>
       <footer class="actions sheet-foot">

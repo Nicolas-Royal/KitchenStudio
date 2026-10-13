@@ -207,6 +207,10 @@ module RoyalKitchens
         return unless ok == IDYES
         base = mod["_file"].sub(/\.json\z/i, "")
         %w[.json .skp .png].each { |ext| FileUtils.rm_f(base + ext) }
+        # Sus ajustes en el proyecto abierto se van con él: otro mueble con el
+        # mismo nombre no debe heredarlos.
+        proyecto = Proyecto.leer
+        Proyecto.guardar(proyecto) if proyecto["modulos"].delete(mod["id"])
         enviar_estado(dlg)
       end
 

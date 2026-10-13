@@ -258,4 +258,53 @@ prueba("muebles: características de la barra lateral, sin entrepaños", () => {
   assert.deepStrictEqual(g[3].opciones.map((o) => [o.valor, o.n]), [["600 mm", 1], ["900 mm", 1]]);
 });
 
+prueba("muebles: resumen de frentes y nombre nuevo que no se repite", () => {
+  const m = man.gabinete, V = m.grupos.find((g) => g.visual).visual;
+  const v = rcc.defaultValores(m);
+  const r = MU.resumenFrentes(rcc.geomFrentes(m, v, V));
+  assert.ok(/^\d+[PC](-\d+[PC])?$/.test(r.codigo), r.codigo);
+  assert.ok(/puerta|caj/.test(r.texto), r.texto);
+  const F = { zonas: [{ contenido: "puerta", frentes: [1, 2] }, { contenido: "cajones", frentes: [1, 2, 3] }] };
+  assert.deepStrictEqual(MU.resumenFrentes(F), { texto: "2 puertas + 3 cajones", codigo: "2P-3C" });
+  assert.deepStrictEqual(MU.resumenFrentes({ zonas: [{ contenido: "cajones", frentes: [1] }, { contenido: "nada", frentes: [] }] }),
+    { texto: "1 cajón + abierto", codigo: "1C-A" });
+  assert.strictEqual(MU.nombreNuevo("GAB", 600, "2P-3C", []), "GAB-600-2P-3C-001");
+  // El consecutivo sigue al mayor del catálogo, sea del mueble que sea; los nombres viejos no cuentan.
+  assert.strictEqual(MU.nombreNuevo("GAB", 900, "3C", ["GAB-600-2P-3C-007", "GAB-600-T-Z1P2-Z2C3", "JIJE", "ALA-800-2P-012"]), "GAB-900-3C-013");
+  // El ancho de un nombre viejo («GAB-600») no es un consecutivo.
+  assert.strictEqual(MU.nombreNuevo("GAB", 600, "2P-3C", ["GAB-600", "GAB-900-T", "X-999"]), "GAB-600-2P-3C-001");
+  assert.strictEqual(MU.nombreNuevo("gab", 0, "", ["GAB-001"]), "GAB-002");
+  // Nunca devuelve un nombre cuyo id ya esté ocupado (aunque se escriba distinto).
+  assert.strictEqual(MU.nombreNuevo("GAB", 600, "2P", ["gab 600 2p 001", "GAB_600_2P_002"]), "GAB-600-2P-003");
+  assert.strictEqual(MU.nombreNuevo("GAB", 600, "2P", ["X-2P-001", "GAB 600 2P 002"]), "GAB-600-2P-003");
+});
+
+prueba("muebles: dos nombres que dan el mismo id son el mismo mueble", () => {
+  assert.strictEqual(MU.idDe("GAB 600"), "cr-gab-600");
+  assert.strictEqual(MU.idDe("  gab_600. "), "cr-gab-600");
+  assert.strictEqual(MU.idDe("Cajón"), MU.idDe("Caj-n"));
+  const cat = [{ id: "cr-gab-600", name: "GAB-600", specs: { sku: "GAB-600" } }, { id: "cr-jije", name: "Jije", specs: {} }];
+  assert.strictEqual(MU.choque("gab 600", cat).name, "GAB-600");
+  assert.strictEqual(MU.choque("JIJE", cat).name, "Jije");
+  assert.strictEqual(MU.choque("GAB-601", cat), null);
+  assert.strictEqual(MU.choque("", cat), null);
+});
+
+prueba("gabinete: sin zoclo va al piso (alto 0, sin sumarlo al cuerpo) y no hay pieza frontal que quitar", () => {
+  const m = man.gabinete;
+  assert.strictEqual(rcc.fieldByAttr(m, "j01_pieza_frontal"), null);
+  const reg = { familia: "gabinete", valores: rcc.defaultValores(m) };
+  assert.strictEqual(rcc.flatten(m, reg).LenZ, "870mm");
+  reg.valores.j02_zoclo_activo = "2";
+  rcc.aplicarForzados(m, reg.valores);
+  const fila = rcc.flatten(m, reg);
+  assert.strictEqual(fila.a02_alto_zoclo, "0mm");
+  assert.strictEqual(fila.LenZ, "770mm");
+  const lay = RKVista.desdeValores(fila, { ancho: 600, alto: 770 });
+  assert.strictEqual(lay.zoclo, 0);
+  // Una receta vieja «sin zoclo» que aún trae su alto también se dibuja al piso.
+  assert.strictEqual(RKVista.desdeValores({ j02_zoclo_activo: "2", a02_alto_zoclo: "100mm" }, { ancho: 600, alto: 770 }).zoclo, 0);
+  assert.strictEqual(RKVista.desdeValores({ a02_alto_zoclo: "100mm" }, { ancho: 600, alto: 770 }).zoclo, 100);
+});
+
 console.log(`${n}/${n} pruebas OK`);

@@ -121,5 +121,52 @@ window.RKMuebles = (function () {
     return out;
   }
 
-  return { CLASES, clase, etiqueta, modo, modos, disenoOriginal, alcance, filtrar, conteos, facetas };
+  // ---- Resumen y nombre -------------------------------------------------------
+  /* Frentes del mueble de arriba abajo, desde RCC_CORE.geomFrentes:
+     { texto: "2 puertas + 3 cajones", codigo: "2P-3C" }. Zona sin frente = abierta. */
+  function resumenFrentes(F) {
+    const zonas = ((F && F.zonas) || []).map((z) => {
+      const n = z.frentes.length;
+      if (!n) return { texto: "abierto", codigo: "A" };
+      const puerta = z.contenido === "puerta";
+      return { texto: n + " " + (puerta ? "puerta" : "cajón").replace("ón", n === 1 ? "ón" : "on") + (n === 1 ? "" : puerta ? "s" : "es"), codigo: n + (puerta ? "P" : "C") };
+    });
+    return { texto: zonas.map((z) => z.texto).join(" + "), codigo: zonas.map((z) => z.codigo).join("-") };
+  }
+
+  // ---- Identidad: que dos muebles no se pisen ----------------------------------
+  /* Id de un mueble a partir de su nombre, igual que Biblioteca.slug en Ruby:
+     «GAB 600», «GAB-600» y «gab_600» son el MISMO mueble (cr-gab-600). */
+  function idDe(nombre) {
+    return "cr-" + String(nombre == null ? "" : nombre).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+
+  /* El mueble de +modulos+ que quedaría pisado al guardar otro como +nombre+, o null. */
+  function choque(nombre, modulos) {
+    const id = idDe(nombre);
+    if (id === "cr-") return null;
+    return (modulos || []).find((m) => idDe((m.specs && m.specs.sku) || m.name) === id || m.id === id) || null;
+  }
+
+  /* Nombre de un mueble nuevo: fácil de leer y que no se repite.
+       GAB-600-2P-3C-014 = familia, ancho en mm, frentes de arriba abajo y un
+     consecutivo de tres cifras: el siguiente al mayor que haya en +usados+
+     (los nombres del catálogo), así dos muebles iguales no se pisan. */
+  function nombreNuevo(prefijo, ancho, codigo, usados) {
+    let mayor = 0;
+    const ids = {};
+    (usados || []).forEach((n) => {
+      ids[idDe(n)] = true;
+      // Solo cuentan los nombres con este formato (frentes y luego el consecutivo):
+      // en «GAB-600» el 600 es el ancho, no un consecutivo.
+      const m = /-(?:\d+[PC]|A)-(\d{3,})$/.exec(String(n || ""));
+      if (m) mayor = Math.max(mayor, parseInt(m[1], 10));
+    });
+    const base = [String(prefijo || "MUE").toUpperCase(), ancho > 0 ? String(Math.round(ancho)) : "", codigo || ""].filter(Boolean).join("-");
+    let n = mayor + 1, nombre;
+    do { nombre = base + "-" + String(n++).padStart(3, "0"); } while (ids[idDe(nombre)]);
+    return nombre;
+  }
+
+  return { idDe, choque, CLASES, clase, etiqueta, modo, modos, disenoOriginal, alcance, filtrar, conteos, facetas, resumenFrentes, nombreNuevo };
 })();
