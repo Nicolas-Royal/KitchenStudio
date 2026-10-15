@@ -1,8 +1,9 @@
 "use strict";
 
 /* RKProyectos: lógica pura de la lista de proyectos (filtrar, ordenar, textos
-   de fecha, candado y sincronía). Sin DOM: se prueba en node. Las reglas de
-   estados viven en Ruby (Registro) y llegan en onEstado. */
+   de fecha, candado, sincronía y botones de estado). Sin DOM: se prueba en
+   node. Las reglas de estados viven en Ruby (Registro::PASOS) y llegan en
+   onEstado; Ruby vuelve a validar cada paso. */
 window.RKProyectos = (function () {
   const CANDADO_VENCE_MS = 30 * 60 * 1000; // igual a Registro::CANDADO_VENCE
 
@@ -16,7 +17,7 @@ window.RKProyectos = (function () {
       if (f.estado && p.estado !== f.estado) return false;
       if (!q) return true;
       const d = p.disenadora || {}, a = p.actualizado || {};
-      return norm([p.folio, p.cliente, p.telefono, p.notas, d.nombre, d.sede, a.nombre].join(" ")).includes(q);
+      return norm([p.folio, p.cliente, p.notas, d.nombre, d.sede, a.nombre].join(" ")).includes(q);
     });
   }
 
@@ -85,5 +86,47 @@ window.RKProyectos = (function () {
     return e ? e[1] : id;
   }
 
-  return { filtrar, ordenar, fecha, haceCuanto, compromiso, candado, sincronia, nombreEstado, CANDADO_VENCE_MS };
+  const EN_FABRICA = ["planeacion", "fabricacion"]; // igual a Registro::EN_FABRICA
+
+  /* Botones de la ficha para +rol+, el principal primero. +pasos+ viene de
+     Registro::PASOS. Cada uno: { tipo: "estado"|"cambio"|"recibido", a,
+     etiqueta, principal, atras, nota (obligatoria), confirmar }. */
+  function acciones(reg, pasos, rol) {
+    const r = rol === "planeacion" ? "planeacion" : "diseno";
+    const out = [];
+    if (r === "planeacion" && reg.cambio_sin_revisar) {
+      out.push({ tipo: "recibido", etiqueta: `Recibí el cambio (v${reg.version_congelada})`, principal: true });
+    }
+    (pasos || []).filter((p) => p.de === reg.estado && p.rol === r)
+      .sort((x, y) => !!x.atras - !!y.atras)
+      .forEach((p) => {
+        out.push({
+          tipo: "estado", a: p.a, atras: !!p.atras, nota: !!p.nota, confirmar: p.confirmar || "",
+          etiqueta: p.a === "planeacion" && !p.atras ? `${p.etiqueta} (congela v${reg.version_actual})` : p.etiqueta,
+          // Con un cambio sin confirmar no se avanza (Ruby lo valida igual).
+          principal: !p.atras && !reg.cambio_sin_revisar, bloqueado: !p.atras && !!reg.cambio_sin_revisar,
+        });
+      });
+    if (EN_FABRICA.includes(reg.estado) && reg.cambios_tras_congelar) {
+      out.push({
+        tipo: "cambio", nota: true, principal: !out.some((x) => x.principal),
+        etiqueta: `Enviar cambio a planeación (v${reg.version_congelada} → v${reg.version_actual})`,
+        confirmar: `La v${reg.version_actual} pasa a ser la congelada; la v${reg.version_congelada} queda en el historial.` +
+          (r === "diseno" ? " Planeación tiene que confirmar que lo recibió." : ""),
+      });
+    }
+    return out;
+  }
+
+  // Texto de un movimiento del historial del proyecto.
+  function movimiento(e, estados) {
+    const n = (id) => nombreEstado(estados, id);
+    if (e.tipo === "creado") return "Creó el proyecto";
+    if (e.tipo === "cambio") return `Cambio en ${e.de_version ? `v${e.de_version} → ` : ""}v${e.version}`;
+    if (e.tipo === "recibido") return `Planeación recibió el cambio (v${e.version})`;
+    const extra = e.version ? ` (${e.a === "aprobado" ? "aprobó" : "congeló"} v${e.version})` : "";
+    return `${n(e.de)} → ${n(e.a)}${extra}`;
+  }
+
+  return { filtrar, ordenar, fecha, haceCuanto, compromiso, candado, sincronia, nombreEstado, acciones, movimiento, CANDADO_VENCE_MS };
 })();

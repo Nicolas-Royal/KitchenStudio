@@ -27,13 +27,27 @@ module RoyalKitchens
         %w[entregado Entregado]
       ].freeze
       IDS_ESTADO = ESTADOS.map(&:first).freeze
-      # Diseño mueve el proyecto hasta entregarlo a planeación; desde ahí es de
-      # Planeación, que puede avanzarlo o devolverlo a diseño con una nota.
-      DE_DISENO      = %w[diseno revision aprobado].freeze
-      DE_PLANEACION  = %w[planeacion fabricacion entregado].freeze
-      CONGELA        = "planeacion".freeze
+      # Flujo lineal: cada estado tiene un solo paso adelante y, donde tiene
+      # sentido, uno atrás que siempre pide nota. Diseño lo lleva hasta
+      # planeación (congela la versión aprobada); desde ahí es de Planeación.
+      # Un cambio en planeación/fabricación no regresa el estado: se envía como
+      # versión congelada nueva (enviar_cambio).
+      PASOS = [
+        { "de" => "diseno", "a" => "revision", "rol" => "diseno", "etiqueta" => "Presentar al cliente" },
+        { "de" => "revision", "a" => "aprobado", "rol" => "diseno", "etiqueta" => "Cliente aprobó",
+          "confirmar" => "La versión vigente queda como la que aprobó el cliente. Si después la cambias, el proyecto regresa a revisión." },
+        { "de" => "revision", "a" => "diseno", "rol" => "diseno", "etiqueta" => "Cliente pidió cambios", "atras" => true, "nota" => true },
+        { "de" => "aprobado", "a" => "planeacion", "rol" => "diseno", "etiqueta" => "Enviar a planeación",
+          "confirmar" => "Se congela la versión aprobada: es con la que Planeación va a trabajar." },
+        { "de" => "planeacion", "a" => "fabricacion", "rol" => "planeacion", "etiqueta" => "Iniciar fabricación" },
+        { "de" => "planeacion", "a" => "diseno", "rol" => "planeacion", "etiqueta" => "Devolver a diseño", "atras" => true, "nota" => true },
+        { "de" => "fabricacion", "a" => "entregado", "rol" => "planeacion", "etiqueta" => "Marcar entregado",
+          "confirmar" => "El proyecto queda cerrado: ya no se podrán enviar cambios." }
+      ].each(&:freeze).freeze
+      CONGELA    = "planeacion".freeze
+      EN_FABRICA = %w[planeacion fabricacion].freeze   # aceptan cambios congelados
 
-      CAMPOS = %w[cliente telefono fecha_compromiso notas].freeze
+      CAMPOS = %w[cliente fecha_compromiso notas].freeze
       RESERVADOS = %w[CON PRN AUX NUL COM1 COM2 COM3 COM4 COM5 COM6 COM7 COM8 COM9
                       LPT1 LPT2 LPT3 LPT4 LPT5 LPT6 LPT7 LPT8 LPT9].freeze
 
@@ -91,6 +105,10 @@ module RoyalKitchens
         %w[disenadora creado actualizado].each { |k| r[k] = data[k].is_a?(Hash) ? data[k] : {} }
         r["version_actual"]    = data["version_actual"].to_i
         r["version_congelada"] = data["version_congelada"] ? data["version_congelada"].to_i : nil
+        r["version_aprobada"]  = data["version_aprobada"] ? data["version_aprobada"].to_i : nil
+        # Registros de antes de la versión aprobada: lo aprobado es lo vigente.
+        r["version_aprobada"] ||= r["version_actual"] if r["estado"] == "aprobado"
+        r["cambio_sin_revisar"] = data["cambio_sin_revisar"] == true
         r["diseno_global"]     = data["diseno_global"].is_a?(Hash) ? data["diseno_global"] : nil
         r["historial"] = (data["historial"].is_a?(Array) ? data["historial"] : []).select { |h| h.is_a?(Hash) && h["v"] }
         r["eventos"]   = (data["eventos"].is_a?(Array) ? data["eventos"] : []).select { |h| h.is_a?(Hash) }
@@ -98,18 +116,39 @@ module RoyalKitchens
         r
       end
 
-      def transicion_permitida?(de, a, rol)
-        return false if de == a || !IDS_ESTADO.include?(a)
-        origen = rol == "planeacion" ? DE_PLANEACION : DE_DISENO
-        destinos = rol == "planeacion" ? DE_PLANEACION + ["diseno"] : DE_DISENO + [CONGELA]
-        origen.include?(de) && destinos.include?(a)
+      def nombre_estado(id)
+        (ESTADOS.find { |e| e[0] == id } || [id, id])[1]
       end
 
-      # { "diseno" => { "diseno" => [...], ... }, "planeacion" => {...} } para la UI.
-      def transiciones
-        %w[diseno planeacion].to_h do |rol|
-          [rol, IDS_ESTADO.to_h { |de| [de, IDS_ESTADO.select { |a| transicion_permitida?(de, a, rol) }] }]
+      def rol_de(rol)
+        rol == "planeacion" ? "planeacion" : "diseno"
+      end
+
+      def paso(de, a, rol)
+        PASOS.find { |p| p["de"] == de && p["a"] == a && p["rol"] == rol_de(rol) }
+      end
+
+      def transicion_permitida?(de, a, rol)
+        !paso(de, a, rol).nil?
+      end
+
+      # nil si se puede dar el paso; si no, el motivo.
+      def error_paso(reg, a, rol, nota)
+        p = paso(reg["estado"], a, rol)
+        unless p
+          return "Con el rol actual no se puede pasar de «#{nombre_estado(reg['estado'])}» a «#{nombre_estado(a)}»."
         end
+        return "Escribe en la nota qué hay que cambiar." if p["nota"] && nota.to_s.strip.empty?
+        if reg["cambio_sin_revisar"] && !p["atras"]
+          return "Primero confirma que recibiste el cambio (v#{reg['version_congelada']})."
+        end
+        if %w[revision aprobado planeacion].include?(a) && reg["version_actual"].to_i < 1
+          return "El proyecto aún no tiene ninguna versión guardada."
+        end
+        if a == CONGELA && reg["version_aprobada"] != reg["version_actual"]
+          return "La versión vigente (v#{reg['version_actual']}) no es la que aprobó el cliente: preséntala de nuevo."
+        end
+        nil
       end
 
       # Los números de versión no se repiten nunca (las copias de conflicto
@@ -130,13 +169,20 @@ module RoyalKitchens
       end
 
       # Agrega la versión al historial. Una copia de conflicto no se vuelve la
-      # vigente: queda en el historial para revisarla.
+      # vigente: queda en el historial para revisarla. Cambiar algo ya aprobado
+      # lo regresa a revisión: a planeación solo llega lo que vio el cliente.
       def registrar_version(reg, v, archivo, firma, ahora, nota, conflicto: false)
         reg["historial"] << { "v" => v, "fecha" => hora(ahora), "por" => firma["nombre"], "usuario" => firma["usuario"],
                               "nota" => nota.to_s, "archivo" => archivo, "congelada" => false, "conflicto" => conflicto }
         unless conflicto
           reg["version_actual"] = v
           reg["actualizado"] = firma.merge("fecha" => hora(ahora), "nota" => nota.to_s)
+          if reg["estado"] == "aprobado" && reg["version_aprobada"] != v
+            reg["estado"] = "revision"
+            reg["eventos"] << { "fecha" => hora(ahora), "por" => firma["nombre"], "tipo" => "estado", "de" => "aprobado",
+                                "a" => "revision", "auto" => true,
+                                "nota" => "Cambió después de aprobar (v#{reg['version_aprobada']} → v#{v}): hay que presentarlo de nuevo" }
+          end
         end
         reg
       end
@@ -154,13 +200,50 @@ module RoyalKitchens
         de = reg["estado"]
         reg["estado"] = a
         ev = { "fecha" => hora(ahora), "por" => firma["nombre"], "tipo" => "estado", "de" => de, "a" => a, "nota" => nota.to_s }
-        if a == CONGELA && reg["version_actual"] > 0
-          reg["version_congelada"] = reg["version_actual"]
-          h = reg["historial"].find { |x| x["v"] == reg["version_actual"] }
-          h["congelada"] = true if h
+        if a == "aprobado"
+          reg["version_aprobada"] = reg["version_actual"]
           ev["version"] = reg["version_actual"]
         end
+        if a == CONGELA && reg["version_actual"] > 0
+          congelar(reg)
+          ev["version"] = reg["version_actual"]
+        end
+        reg["cambio_sin_revisar"] = false if a == "diseno" || a == CONGELA
         reg["eventos"] << ev
+        reg
+      end
+
+      def congelar(reg)
+        reg["version_congelada"] = reg["version_actual"]
+        h = reg["historial"].find { |x| x["v"] == reg["version_actual"] }
+        h["congelada"] = true if h
+      end
+
+      # ---- Cambios con el proyecto ya en planeación o fabricación -----------
+
+      def error_cambio(reg, nota)
+        return "Solo se envían cambios cuando el proyecto está en planeación o en fabricación." unless EN_FABRICA.include?(reg["estado"])
+        return "No hay cambios después de la versión congelada." unless cambios_despues_de_congelar?(reg)
+        return "Escribe en la nota qué cambió y por qué." if nota.to_s.strip.empty?
+        nil
+      end
+
+      # La vigente pasa a ser la congelada; la anterior sigue congelada en el
+      # historial (es lo que ya pudo haberse cortado). Si lo manda Diseño,
+      # Planeación tiene que confirmar que lo recibió.
+      def enviar_cambio(reg, firma, ahora, nota, revisado: false)
+        antes = reg["version_congelada"]
+        congelar(reg)
+        reg["cambio_sin_revisar"] = !revisado
+        reg["eventos"] << { "fecha" => hora(ahora), "por" => firma["nombre"], "tipo" => "cambio",
+                            "de_version" => antes, "version" => reg["version_actual"], "nota" => nota.to_s }
+        reg
+      end
+
+      def recibir_cambio(reg, firma, ahora)
+        reg["cambio_sin_revisar"] = false
+        reg["eventos"] << { "fecha" => hora(ahora), "por" => firma["nombre"], "tipo" => "recibido",
+                            "version" => reg["version_congelada"] }
         reg
       end
 

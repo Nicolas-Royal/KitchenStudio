@@ -99,10 +99,8 @@
           <div class="plate">
             <h3 class="stamp">Frente, manija y material</h3>
             <div class="pickers" id="pr-pickers"></div>
-            <h3 class="stamp">Tarja por defecto</h3>
-            <div class="seg" id="pr-tarja"></div>
             <h3 class="stamp">Medidas comunes de gabinetes</h3>
-            <label class="switch"><input type="checkbox" id="pr-igualar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Igualar ancho, alto y fondo de cuerpo en todos los gabinetes</span></label>
+            <label class="switch"><input type="checkbox" id="pr-igualar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Igualar alto y fondo de cuerpo en todos los gabinetes</span></label>
             <div id="pr-medidas"></div>
           </div>
           <div class="plate preview-plate">
@@ -322,18 +320,21 @@
         </button>
       </header>
       <div class="sheet-body pf-body">
-        <div>
+        <div class="pf-col-proyecto">
           <p class="cf-error" id="pf-aviso" hidden></p>
+          <h3 class="stamp">Vista previa</h3>
+          <img class="pf-mini" id="pf-mini" alt="Vista previa del proyecto">
           <h3 class="stamp">Datos</h3>
           <div class="pj-form" id="pf-datos"></div>
           <div class="pf-guardar"><button class="key sm" id="pf-guardar-datos">Guardar datos</button></div>
+        </div>
+        <div class="pf-col-estado">
           <h3 class="stamp">Estado</h3>
-          <div class="seg" id="pf-transiciones"></div>
-          <input class="pj-input" id="pf-nota-estado" type="text" placeholder="Nota (opcional; al devolver a diseño, explica qué cambiar)">
+          <ol class="pf-pasos" id="pf-pasos"></ol>
+          <div class="pf-acciones" id="pf-acciones"></div>
+          <p class="hint" id="pf-estado-hint" hidden></p>
           <h3 class="stamp">Movimientos</h3>
           <div class="mini-list" id="pf-eventos"></div>
-        </div>
-        <div>
           <h3 class="stamp">Versiones</h3>
           <div class="table-wrap"><table class="tabla" id="pf-versiones"></table></div>
         </div>

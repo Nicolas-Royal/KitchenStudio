@@ -170,6 +170,41 @@ prueba("proyectos: etiqueta de sincronía", () => {
   assert.strictEqual(P.sincronia({ folio: "x", modo: "edicion", sincronia: "conflicto" }).clase, "bad");
 });
 
+const PASOS = [
+  { de: "diseno", a: "revision", rol: "diseno", etiqueta: "Presentar al cliente" },
+  { de: "revision", a: "aprobado", rol: "diseno", etiqueta: "Cliente aprobó", confirmar: "x" },
+  { de: "revision", a: "diseno", rol: "diseno", etiqueta: "Cliente pidió cambios", atras: true, nota: true },
+  { de: "aprobado", a: "planeacion", rol: "diseno", etiqueta: "Enviar a planeación", confirmar: "x" },
+  { de: "planeacion", a: "diseno", rol: "planeacion", etiqueta: "Devolver a diseño", atras: true, nota: true },
+  { de: "planeacion", a: "fabricacion", rol: "planeacion", etiqueta: "Iniciar fabricación" },
+  { de: "fabricacion", a: "entregado", rol: "planeacion", etiqueta: "Marcar entregado", confirmar: "x" },
+];
+
+prueba("proyectos: un paso adelante como principal y el regreso después", () => {
+  const acc = P.acciones({ estado: "revision", version_actual: 4 }, PASOS, "diseno");
+  assert.deepStrictEqual(acc.map((x) => [x.a, x.principal, x.atras]), [["aprobado", true, false], ["diseno", false, true]]);
+  assert.ok(acc[1].nota, "regresar pide nota");
+  assert.strictEqual(P.acciones({ estado: "aprobado", version_actual: 4 }, PASOS, "diseno")[0].etiqueta, "Enviar a planeación (congela v4)");
+  assert.deepStrictEqual(P.acciones({ estado: "fabricacion" }, PASOS, "diseno"), [], "diseño no mueve lo de planeación");
+});
+
+prueba("proyectos: cambio en fabricación y confirmación de Planeación", () => {
+  const reg = { estado: "fabricacion", version_actual: 15, version_congelada: 12, cambios_tras_congelar: true };
+  const d = P.acciones(reg, PASOS, "diseno");
+  assert.deepStrictEqual(d.map((x) => [x.tipo, x.principal]), [["cambio", true]]);
+  assert.ok(/v12 → v15/.test(d[0].etiqueta) && d[0].nota);
+  const pl = P.acciones({ estado: "fabricacion", version_congelada: 15, cambio_sin_revisar: true }, PASOS, "planeacion");
+  assert.deepStrictEqual(pl.map((x) => [x.tipo, x.principal, !!x.bloqueado]), [["recibido", true, false], ["estado", false, true]]);
+  assert.deepStrictEqual(P.acciones({ estado: "entregado", cambios_tras_congelar: true }, PASOS, "diseno"), [], "entregado: nada");
+});
+
+prueba("proyectos: texto de los movimientos", () => {
+  const est = [["aprobado", "Aprobado"], ["revision", "Revisión con cliente"]];
+  assert.strictEqual(P.movimiento({ tipo: "estado", de: "revision", a: "aprobado", version: 4 }, est), "Revisión con cliente → Aprobado (aprobó v4)");
+  assert.strictEqual(P.movimiento({ tipo: "cambio", de_version: 12, version: 15 }, est), "Cambio en v12 → v15");
+  assert.strictEqual(P.movimiento({ tipo: "recibido", version: 15 }, est), "Planeación recibió el cambio (v15)");
+});
+
 prueba("entrepaños: arrastrar una repisa mueve solo sus dos espacios y respeta el mínimo", () => {
   assert.deepStrictEqual(RKEntrepanos.arrastreAlto([200, 200, 300], 0, 50), [250, 150, 300]);
   assert.deepStrictEqual(RKEntrepanos.arrastreAlto([200, 200, 300], 1, -500), [200, 10, 490]);
@@ -226,8 +261,10 @@ prueba("muebles: diseño original desde la receta y alcance del diseño del proy
   assert.deepStrictEqual(MU.disenoOriginal(fc, {}), { frente: "", manija_puerta: "", manija_cajon: "", material: "", tarja: false });
   const a = MU.alcance(fc, false, false);
   assert.ok(a.cambia.includes("manijas") && a.cambia.includes("frente") && a.fijo.includes("medidas"));
+  // El ancho y la tarja son siempre del mueble: el proyecto no los pone.
+  assert.ok(a.fijo.includes("tarja") && !a.cambia.includes("tarja"));
   const g = MU.alcance(fc, true, true);
-  assert.ok(!g.cambia.includes("manijas") && g.cambia.includes("ancho, alto y fondo") && g.fijo.some((x) => /gola/.test(x)));
+  assert.ok(!g.cambia.includes("manijas") && g.cambia.includes("alto y fondo") && g.fijo.includes("ancho") && g.fijo.some((x) => /gola/.test(x)));
 });
 
 prueba("muebles: filtros por clase, tipo y texto, con conteos", () => {

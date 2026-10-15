@@ -64,8 +64,8 @@ window.RKMuebles = (function () {
     if (f.frente) cambia.push("frente");
     if (f.manija_puerta || f.manija_cajon) (gola ? fijo : cambia).push(gola ? "gola (no lleva manijas)" : "manijas");
     if (f.material) cambia.push("material");
-    if (f.tarja) cambia.push("tarja");
-    (igualar ? cambia : fijo).push(igualar ? "ancho, alto y fondo" : "medidas");
+    if (f.tarja) fijo.push("tarja");
+    if (igualar) { cambia.push("alto y fondo"); fijo.push("ancho"); } else fijo.push("medidas");
     return { cambia, fijo };
   }
 

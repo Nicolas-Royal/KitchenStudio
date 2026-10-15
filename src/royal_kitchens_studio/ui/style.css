@@ -685,11 +685,41 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 #rail-proyecto:empty { display: none; }
 
 .sheet-msg .sheet-body p { margin: 0; line-height: 1.5; }
-.pf-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; }
+/* La ficha nunca pasa del alto de la ventana y no se desplaza completa: el
+   Proyecto (izq.) y el Estado quedan fijos; solo Movimientos y Versiones tienen
+   barra. El relleno deja ver las sombras que el recorte cortaría. */
+.pf-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; padding: 8px 12px 12px; }
+/* Las columnas no se apilan (el diálogo mide al menos 760 px). Solo si la
+   ventana es tan baja que ni así caben, la columna se desplaza completa. */
+.pf-body > div { min-height: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 8px 12px 12px; }
+.pf-body > div > * { flex: none; }
+/* Si falta alto, la vista previa se achica (sin deformarse) en vez de recortar los datos. */
+.pf-col-proyecto > .pf-mini { flex: 0 1 auto; min-height: 120px; }
+.pf-col-estado > #pf-eventos, .pf-col-estado > .table-wrap { flex: 1 1 0; min-height: 110px; overflow-y: auto; overscroll-behavior: contain; }
+#pf-eventos { padding: 4px 6px 6px 4px; }
+.pf-col-estado thead th { position: sticky; top: 0; z-index: 1; background: var(--chassis); }
+.pf-body > div, .pf-col-estado > * { scrollbar-width: thin; scrollbar-color: var(--deep) transparent; }
+.pf-body > div::-webkit-scrollbar, .pf-col-estado > *::-webkit-scrollbar { width: 8px; }
+.pf-body > div::-webkit-scrollbar-thumb, .pf-col-estado > *::-webkit-scrollbar-thumb { border-radius: var(--radius-full); background: var(--deep); }
 .pf-body h3 { margin: 20px 0 10px; }
 .pf-body > div > h3:first-of-type { margin-top: 0; }
 .pf-body .table-wrap { max-height: none; }
+.pf-mini { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; border-radius: var(--radius-md); background: var(--recessed); box-shadow: var(--shadow-recessed); }
 .pf-guardar { display: flex; justify-content: flex-end; margin-top: 10px; }
+/* Línea de pasos del proyecto: hechos con LED, el actual resaltado. */
+.pf-pasos { display: flex; gap: 4px; margin: 0 0 12px; padding: 0; list-style: none; counter-reset: paso; }
+.pf-pasos li { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; text-align: center; color: var(--text-muted); counter-increment: paso; }
+.pf-pasos li::before {
+  content: counter(paso); width: 24px; height: 24px; display: grid; place-items: center; flex: none;
+  border-radius: var(--radius-full); background: var(--chassis); box-shadow: var(--shadow-recessed);
+  font: 700 11px/1 var(--font-mono);
+}
+.pf-pasos li.hecho::before { content: "✓"; background: var(--tint); box-shadow: var(--shadow-raised); color: var(--text); }
+.pf-pasos li.actual { color: var(--text); font-weight: 700; }
+.pf-pasos li.actual::before { background: var(--accent); color: #fff; box-shadow: var(--shadow-accent); }
+.pf-pasos span { overflow-wrap: anywhere; }
+.pf-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-acciones:empty { display: none; }
 .pf-ev { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
 .pf-ev b { font-weight: 600; }
 
@@ -740,7 +770,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 1000px) {
   .split { grid-template-columns: 1fr; }
-  .pf-body { grid-template-columns: 1fr; }
   /* La barra de diseño sigue a la derecha, más angosta; se apila solo en 760. */
   .mod-body { grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
   .adv-body { grid-template-columns: minmax(0, 1fr) 320px; }

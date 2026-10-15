@@ -62,8 +62,9 @@ parten de «Este proyecto»:
   «Creados por usuario» aparece «Ver con: Original / Este proyecto» (entra en
   Original): vale para las tarjetas de ese filtro y su «Usar», salvo los
   muebles con elección propia. El catálogo nunca va con el original.
-- El diseño del proyecto pone frente, manijas (no con gola), material, tarja y,
-  con «Igualar», las medidas; zonas, puertas, cajones y entrepaños no cambian
+- El diseño del proyecto pone frente, manijas (no con gola), material y, con
+  «Igualar», el alto y el fondo; ancho, tarja, zonas, puertas, cajones y
+  entrepaños son del mueble y no cambian
   (`RKMuebles.alcance`).
 - «Ajustar este mueble» incluye sus entrepaños y divisores (el mismo gráfico
   de «Avanzado», compacto): se guardan en `modulos[id].interior` como valores
@@ -146,8 +147,8 @@ partida de un modelo nuevo):
 ```json
 {
   "version": 1,
-  "global": { "frente": "1", "manija_puerta": "9", "manija_cajon": "15", "material": "", "tarja": false,
-              "medidas": { "igualar": false, "ancho": 600, "alto": 770, "fondo": 600 } },
+  "global": { "frente": "1", "manija_puerta": "9", "manija_cajon": "15", "material": "",
+              "medidas": { "igualar": false, "alto": 770, "fondo": 600 } },
   "modulos": { "<id>": { "personalizado": true, "frente": "3", "manija_puerta": "11", "manija_cajon": "11",
                          "material": "MDF_LONDON_BLUE", "tarja": true,
                          "medidas": { "ancho": 600, "alto": 770, "fondo": 578 },
@@ -208,10 +209,28 @@ El modelo se liga con el atributo `RK_Proyecto/folio`. Las copias de consulta
 (`…\consulta\<FOLIO>_vNNNN.skp`, para Planeación o para versiones viejas) nunca se suben.
 
 **Estados**: diseño → revisión con cliente → aprobado → enviado a planeación → en
-fabricación → entregado. Diseño mueve el proyecto hasta «enviado a planeación», lo que
-**congela** la versión vigente (no se poda). Desde ahí solo Planeación cambia el estado y
-puede devolverlo a diseño con una nota. Las reglas viven en `Registro.transicion_permitida?`
-y llegan a la UI en `estado.transiciones`.
+fabricación → entregado. Flujo lineal: cada estado tiene **un** paso adelante y, donde
+tiene sentido, uno atrás que pide nota (`Registro::PASOS`, que llega a la UI en
+`estado.pasos`; `Registro.error_paso` valida rol, nota y condiciones). En la ficha se ven
+como línea de pasos + botón principal, y cada paso se confirma en una pregunta.
+
+| Paso | Rol | Condición |
+|---|---|---|
+| Presentar al cliente (diseño → revisión) | Diseño | al menos una versión |
+| Cliente aprobó (revisión → aprobado) | Diseño | guarda `version_aprobada` |
+| Cliente pidió cambios (revisión → diseño) | Diseño | nota obligatoria |
+| Enviar a planeación (aprobado → planeación) | Diseño | vigente = aprobada, nada sin subir; **congela** (no se poda) |
+| Iniciar fabricación / Marcar entregado | Planeación | sin cambio por confirmar |
+| Devolver a diseño (planeación → diseño) | Planeación | nota obligatoria |
+
+Guardar una versión nueva con el proyecto «aprobado» lo regresa solo a revisión (evento
+`auto`): a planeación solo llega lo que vio el cliente.
+
+**Cambios en planeación/fabricación**: el estado no regresa. Guardar crea versiones
+normales («cambio sin enviar»); «Enviar cambio a planeación» (nota obligatoria, cualquier
+rol) congela la vigente sin soltar la congelada anterior (`Registro.enviar_cambio`). Si lo
+envía Diseño queda `cambio_sin_revisar` hasta que Planeación da «Recibí el cambio»; mientras
+tanto Planeación no puede avanzar el estado. Entregado no acepta cambios.
 
 ## Flujos
 

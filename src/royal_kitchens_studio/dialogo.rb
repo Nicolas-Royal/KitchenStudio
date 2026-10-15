@@ -56,6 +56,8 @@ module RoyalKitchens
         cb(dlg, "proyecto_abrir")    { |json| en_segundo_plano(dlg, "onProyectoAbierto") { abrir_proyecto(JSON.parse(json)) } }
         cb(dlg, "proyecto_datos")    { |json| responder(dlg, "onProyectoDetalle", guardar_datos(JSON.parse(json))) }
         cb(dlg, "proyecto_estado")   { |json| responder(dlg, "onProyectoDetalle", cambiar_estado(JSON.parse(json))) }
+        cb(dlg, "proyecto_cambio")   { |json| responder(dlg, "onProyectoDetalle", enviar_cambio(JSON.parse(json))) }
+        cb(dlg, "proyecto_recibido") { |json| responder(dlg, "onProyectoDetalle", recibir_cambio(JSON.parse(json))) }
         cb(dlg, "proyecto_subir")    { |nota| subir_con_nota(nota) }
         cb(dlg, "proyecto_resolver") { |json| en_segundo_plano(dlg, "onProyectoAbierto") { resolver(JSON.parse(json)) } }
         cb(dlg, "usuario_guardar")   { |json| Usuario.guardar(JSON.parse(json)); enviar_estado(dlg) }
@@ -135,7 +137,7 @@ module RoyalKitchens
         modulos = Biblioteca.modulos(Generador.creaciones_dir)
         { "proyecto" => Proyecto.leer, "version" => VERSION,
           "usuario" => Usuario.actual, "sesion" => Usuario.sesion?, "actual" => Sincronia.actual,
-          "estados" => Registro::ESTADOS, "transiciones" => Registro.transiciones,
+          "estados" => Registro::ESTADOS, "pasos" => Registro::PASOS,
           "opciones" => Catalogo.para_ui, "manifiestos" => Familias.manifiestos,
           "modulos" => modulos, "categorias" => Biblioteca.categorias(modulos),
           "carpetas" => { "proyectos" => Registro.raiz, "creaciones" => Generador.creaciones_dir } }
@@ -218,7 +220,9 @@ module RoyalKitchens
 
       def detalle(folio)
         reg = Registro.leer(folio.to_s) or raise "No se encontró el proyecto «#{folio}»."
+        mini = Registro.archivo(reg["folio"], "miniatura.png")
         reg.merge("candado" => Registro.candado(reg["folio"]),
+                  "miniatura" => File.exist?(mini) ? mini : nil,
                   "cambios_tras_congelar" => Registro.cambios_despues_de_congelar?(reg),
                   "local" => Sincronia.estado_local(reg["folio"]).slice("version_base", "pendiente", "conflicto"))
       end
@@ -256,27 +260,49 @@ module RoyalKitchens
         reg = Registro.leer(req["folio"].to_s) or raise "No se encontró el proyecto."
         a = req["a"].to_s
         u = Usuario.actual
-        unless Registro.transicion_permitida?(reg["estado"], a, u["rol"])
-          raise "Con el rol actual no se puede pasar de «#{nombre_estado(reg['estado'])}» a «#{nombre_estado(a)}»."
-        end
-        if a == Registro::CONGELA
-          # Lo que se congela es la versión del almacén: no debe quedar nada
-          # local sin subir.
-          model = Sketchup.active_model
-          if Sincronia.folio_de(model) == reg["folio"] && Sincronia.modo(model) == "edicion" && model.modified?
-            raise "Guarda el modelo antes de enviarlo a planeación."
-          end
-          raise "Hay cambios sin subir: espera a que se sincronicen." if Sincronia.estado_local(reg["folio"])["pendiente"]
-          raise "El proyecto aún no tiene ninguna versión guardada." if reg["version_actual"] < 1
-        end
+        err = Registro.error_paso(reg, a, u["rol"], req["nota"])
+        raise err if err
+        todo_subido!(reg) if a == Registro::CONGELA
         Registro.cambiar_estado(reg, a, Usuario.firma(u), Time.now, req["nota"])
         Registro.escribir(reg)
         refrescar
         detalle(reg["folio"])
       end
 
-      def nombre_estado(id)
-        (Registro::ESTADOS.find { |e| e[0] == id } || [id, id])[1]
+      # Proyecto en planeación/fabricación: la versión vigente se vuelve la
+      # congelada sin mover el estado.
+      def enviar_cambio(req)
+        necesita_almacen!
+        reg = Registro.leer(req["folio"].to_s) or raise "No se encontró el proyecto."
+        todo_subido!(reg)
+        err = Registro.error_cambio(reg, req["nota"])
+        raise err if err
+        u = Usuario.actual
+        Registro.enviar_cambio(reg, Usuario.firma(u), Time.now, req["nota"], revisado: u["rol"] == "planeacion")
+        Registro.escribir(reg)
+        refrescar
+        detalle(reg["folio"])
+      end
+
+      def recibir_cambio(req)
+        necesita_almacen!
+        reg = Registro.leer(req["folio"].to_s) or raise "No se encontró el proyecto."
+        raise "Solo Planeación confirma que recibió un cambio." unless Usuario.actual["rol"] == "planeacion"
+        raise "No hay cambios por confirmar." unless reg["cambio_sin_revisar"]
+        Registro.recibir_cambio(reg, Usuario.firma(Usuario.actual), Time.now)
+        Registro.escribir(reg)
+        refrescar
+        detalle(reg["folio"])
+      end
+
+      # Lo que se congela es la versión del almacén: no debe quedar nada local
+      # sin subir.
+      def todo_subido!(reg)
+        model = Sketchup.active_model
+        if Sincronia.folio_de(model) == reg["folio"] && Sincronia.modo(model) == "edicion" && model.modified?
+          raise "Guarda el modelo antes de enviarlo a planeación."
+        end
+        raise "Hay cambios sin subir: espera a que se sincronicen." if Sincronia.estado_local(reg["folio"])["pendiente"]
       end
 
       # «Guardar versión con nota»: un guardado normal con nota adjunta.

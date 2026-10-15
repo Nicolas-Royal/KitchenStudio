@@ -28,12 +28,52 @@ assert !reg.key?("basura"), "nuevo: descarta campos desconocidos"
 assert R.normalizar("estado" => "inventado")["estado"] == "diseno", "estado desconocido -> diseño"
 
 # ---- Estados por rol ------------------------------------------------------------
-assert R.transicion_permitida?("diseno", "planeacion", "diseno"), "diseño envía a planeación"
+assert R.transicion_permitida?("aprobado", "planeacion", "diseno"), "diseño envía a planeación lo aprobado"
+assert !R.transicion_permitida?("diseno", "planeacion", "diseno"), "no se salta revisión ni aprobación"
+assert !R.transicion_permitida?("diseno", "aprobado", "diseno"), "no se aprueba sin presentar"
+assert !R.transicion_permitida?("aprobado", "diseno", "diseno"), "lo aprobado no regresa a mano (regresa al cambiarlo)"
 assert !R.transicion_permitida?("planeacion", "diseno", "diseno"), "diseño no recupera lo que tiene planeación"
 assert R.transicion_permitida?("planeacion", "diseno", "planeacion"), "planeación devuelve a diseño"
 assert R.transicion_permitida?("planeacion", "fabricacion", "planeacion"), "planeación pasa a fabricación"
+assert !R.transicion_permitida?("entregado", "planeacion", "planeacion"), "lo entregado no se reabre"
 assert !R.transicion_permitida?("diseno", "fabricacion", "planeacion"), "planeación no toma lo que sigue en diseño"
-assert R.transiciones["diseno"]["aprobado"].include?("planeacion"), "tabla de transiciones para la UI"
+R::IDS_ESTADO.each do |e|
+  n = R::PASOS.count { |p| p["de"] == e && !p["atras"] }
+  assert n <= 1, "«#{e}»: a lo más un paso adelante"
+end
+
+flujo = R.nuevo({ "folio" => "P-200" }, ana, ahora)
+assert R.error_paso(flujo, "revision", "diseno", "") =~ /ninguna versión/, "no se presenta sin versión"
+R.registrar_version(flujo, 1, "versiones/v1.skp", ana, ahora, "")
+assert R.error_paso(flujo, "revision", "diseno", "").nil?, "con versión se presenta"
+R.cambiar_estado(flujo, "revision", ana, ahora, "")
+assert R.error_paso(flujo, "diseno", "diseno", " ") =~ /nota/, "regresar pide nota"
+R.cambiar_estado(flujo, "aprobado", ana, ahora, "")
+assert flujo["version_aprobada"] == 1, "aprobar registra la versión aprobada"
+R.registrar_version(flujo, 2, "versiones/v2.skp", ana, ahora, "otra tarja")
+assert flujo["estado"] == "revision" && flujo["eventos"].last["auto"], "cambiar lo aprobado lo regresa a revisión"
+R.cambiar_estado(flujo, "aprobado", ana, ahora, "")
+assert R.error_paso(flujo, "planeacion", "diseno", "").nil?, "aprobado al día se envía"
+R.cambiar_estado(flujo, "planeacion", ana, ahora, "")
+assert flujo["version_congelada"] == 2, "enviar congela la aprobada"
+
+# ---- Cambio con el proyecto en fabricación --------------------------------------
+luz = { "usuario" => "luz", "nombre" => "Luz" }
+R.cambiar_estado(flujo, "fabricacion", luz, ahora, "")
+assert R.error_cambio(flujo, "x") =~ /No hay cambios/, "sin versión nueva no hay cambio que enviar"
+R.registrar_version(flujo, 3, "versiones/v3.skp", ana, ahora, "jaladera")
+assert flujo["estado"] == "fabricacion", "guardar en fabricación no mueve el estado"
+assert R.error_cambio(flujo, "") =~ /nota/, "el cambio pide nota"
+R.enviar_cambio(flujo, ana, ahora, "cliente cambió jaladera")
+assert flujo["version_congelada"] == 3 && flujo["cambio_sin_revisar"], "el cambio congela v3 y espera a Planeación"
+assert flujo["historial"].select { |h| h["congelada"] }.map { |h| h["v"] } == [2, 3], "la congelada anterior se conserva"
+assert R.error_paso(flujo, "entregado", "planeacion", "") =~ /recibiste/, "no se entrega con un cambio sin confirmar"
+R.recibir_cambio(flujo, luz, ahora)
+assert !flujo["cambio_sin_revisar"] && flujo["eventos"].last["tipo"] == "recibido", "Planeación confirma el cambio"
+R.cambiar_estado(flujo, "entregado", luz, ahora, "")
+R.registrar_version(flujo, 4, "versiones/v4.skp", ana, ahora, "")
+assert R.error_cambio(flujo, "x") =~ /planeación o en fabricación/, "lo entregado ya no recibe cambios"
+assert R.normalizar("estado" => "aprobado", "version_actual" => 5)["version_aprobada"] == 5, "registro viejo aprobado: aprobada = vigente"
 
 # ---- Versiones, congelado y poda ------------------------------------------------
 12.times do |i|

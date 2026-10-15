@@ -49,8 +49,8 @@ const SPEC_LABELS = { sku: "SKU", ancho_mm: "Ancho", alto_mm: "Alto", fondo_mm: 
 const S = {
   carpetas: {}, version: "",
   // Igual a Proyecto::DEFAULT en Ruby; se reemplaza con lo que llegue de onEstado.
-  proyecto: { global: { frente: "1", manija_puerta: "9", manija_cajon: "9", material: "", tarja: false,
-    medidas: { igualar: false, ancho: 600, alto: 770, fondo: 600 } }, modulos: {} },
+  proyecto: { global: { frente: "1", manija_puerta: "9", manija_cajon: "9", material: "",
+    medidas: { igualar: false, alto: 770, fondo: 600 } }, modulos: {} },
   listo: false,
   modulos: [], categorias: [],
   opciones: { medidas: {}, frentes: [], tiradores: [], materiales: [], familias: {} },
@@ -63,7 +63,7 @@ const S = {
   avCsv: null, // fila del CSV que se está editando en «Avanzado»: { i, m }
   // Registro de proyectos
   usuario: { usuario: "", nombre: "", sede: "", rol: "diseno" },
-  actual: { folio: null }, estados: [], transiciones: {},
+  actual: { folio: null }, estados: [], pasos: [],
   pj: { lista: [], disponible: true, q: "", alcance: null, estado: null, detalle: null },
   iniciado: false,
   sesion: false, loginRol: null,
@@ -84,7 +84,7 @@ window.RKS = {
     const folioAntes = S.actual.folio;
     S.actual = d.actual || { folio: null };
     S.estados = d.estados || [];
-    S.transiciones = d.transiciones || {};
+    S.pasos = d.pasos || [];
     S.listo = true;
     $("#ver").textContent = $("#login-ver").textContent = "v" + S.version;
     contadores();
@@ -226,15 +226,12 @@ function guardarProyecto() {
 function pintarProyecto() {
   const g = S.proyecto.global;
   pintarPickers($("#pr-pickers"), g, true, () => { guardarProyecto(); pintarProyecto(); }, {});
-  pintarSeg($("#pr-tarja"), [["0", "No"], ["1", "Sí · refuerzos para fregadero"]], g.tarja ? "1" : "0", (v) => {
-    g.tarja = v === "1"; guardarProyecto(); pintarProyecto();
-  });
   $("#pr-igualar").checked = !!g.medidas.igualar;
   $("#pr-igualar").onchange = (e) => { g.medidas.igualar = e.target.checked; guardarProyecto(); pintarProyecto(); };
   const md = $("#pr-medidas");
   md.innerHTML = "";
   md.classList.toggle("is-off", !g.medidas.igualar);
-  ["ancho", "alto", "fondo"].forEach((k) => md.appendChild(filaMedida(k, g.medidas[k], (v) => {
+  ["alto", "fondo"].forEach((k) => md.appendChild(filaMedida(k, g.medidas[k], (v) => {
     g.medidas[k] = v; guardarProyecto(); pintarPreviewProyecto();
   }, !g.medidas.igualar)));
   pintarPreviewProyecto();
@@ -244,11 +241,10 @@ function pintarProyecto() {
 function pintarPreviewProyecto() {
   const g = S.proyecto.global;
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
-  const ancho = (g.medidas.igualar && g.medidas.ancho) || 600;
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
-    d31_z2_contenido: "2", d32_z2_cant_cajones: "3", b01_gola_o_tirador: "1", a02_alto_zoclo: "100mm" }, { ancho, alto });
+    d31_z2_contenido: "2", d32_z2_cant_cajones: "3", b01_gola_o_tirador: "1", a02_alto_zoclo: "100mm" }, { ancho: 600, alto });
   visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto");
-  $("#pr-preview-note").textContent = `Ejemplo: gabinete de ${ancho} mm con puerta doble y 3 cajones.`;
+  $("#pr-preview-note").textContent = "Ejemplo: gabinete de 600 mm con puerta doble y 3 cajones.";
 }
 
 function pintarPersonalizados() {
@@ -626,7 +622,8 @@ const TITULO_USAR = { global: "Insertar con el diseño del proyecto", personal: 
 
 /* Diseño efectivo del módulo: el original de su receta (creados por usuario), el
    ajustado en este proyecto, o el global (con las medidas propias del módulo,
-   salvo «igualar» en gabinetes, que pone el ancho, alto y fondo comunes). */
+   salvo «igualar» en gabinetes, que pone el alto y fondo comunes). El ancho y
+   la tarja son siempre del mueble: no hay un valor de proyecto para ellos. */
 function disenoDe(m, enLista) {
   const g = S.proyecto.global;
   const o = S.proyecto.modulos[m.id];
@@ -635,8 +632,9 @@ function disenoDe(m, enLista) {
   const modo = modoDe(m, enLista);
   if (modo === "original") return Object.assign({ modo }, base, M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores));
   if (modo === "personal") return Object.assign({ modo: "personal" }, base, o, o.medidas || {});
-  const d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja: g.tarja });
-  if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.ancho = g.medidas.ancho || d.ancho; d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
+  const tarja = M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores).tarja;
+  const d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja });
+  if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
   return d;
 }
 
@@ -1266,7 +1264,8 @@ function pintarTablaProyectos() {
         (comp ? `<span class="pj-sub ${comp.vencida && p.estado !== "entregado" ? "bad" : ""}">Compromiso ${esc(comp.texto)}</span>` : "") + "</td>" +
       `<td>${esc(d.nombre || d.usuario || "—")}<span class="pj-sub">${esc(d.sede || "")}</span></td>` +
       `<td><div class="pj-flags">${pillEstado(p.estado)}` +
-        (p.cambios_tras_congelar && cerrado ? `<span class="pill aviso">Cambios después de congelar</span>` : "") + "</div></td>" +
+        (p.cambio_sin_revisar ? `<span class="pill bad">Cambio sin revisar</span>` : "") +
+        (p.cambios_tras_congelar && cerrado ? `<span class="pill aviso">Cambio sin enviar</span>` : "") + "</div></td>" +
       `<td>${esc(a.nombre || "—")}<span class="pj-sub" title="${esc(P.fecha(a.fecha))}">${esc(P.haceCuanto(a.fecha, ahora))}` +
         `${a.nota ? " · " + esc(a.nota) : ""}</span></td>` +
       `<td><span class="pj-folio">v${esc(p.version_actual)}</span>` +
@@ -1405,8 +1404,7 @@ function preguntarCandado(r) {
 
 // ---- Ficha del proyecto ----------------------------------------------------------
 const CAMPOS_PROYECTO = [
-  ["cliente", "Cliente", "text"], ["telefono", "Teléfono", "tel"],
-  ["fecha_compromiso", "Fecha compromiso", "date"], ["notas", "Notas / áreas (cocina, closet, baño…)", "textarea"],
+  ["cliente", "Cliente", "text"], ["fecha_compromiso", "Fecha compromiso", "date"], ["notas", "Notas / áreas (cocina, closet, baño…)", "textarea"],
 ];
 
 const CANDADO = '<svg class="candado" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
@@ -1464,11 +1462,16 @@ function pintarFicha() {
   $("#pf-stamp").textContent = `Diseñó ${(r.disenadora || {}).nombre || "—"}${(r.disenadora || {}).sede ? " · " + r.disenadora.sede : ""}`;
   $("#pf-estado").className = "pill e-" + r.estado;
   $("#pf-estado").textContent = nombreEstado(r.estado);
+  // La misma imagen que la lista (la de la lista sirve si el detalle no la trae).
+  const enLista = S.pj.lista.find((p) => p.folio === r.folio) || {};
+  const mini = r.miniatura || enLista.miniatura;
+  setImg($("#pf-mini"), mini ? fileURL(mini) + "?v=" + r.version_actual : "", placeholder("sin vista", "#e4e7e7"));
 
   const cand = P.candado(r.candado, S.usuario.usuario, ahora);
   const avisos = [];
   if (cand && !cand.propio) avisos.push(cand.texto + ".");
-  if (r.cambios_tras_congelar) avisos.push(`Hay cambios después de la versión congelada (v${r.version_congelada}); fábrica trabaja con la congelada.`);
+  if (r.cambio_sin_revisar) avisos.push(`Cambio enviado (v${r.version_congelada}) sin confirmar por Planeación.`);
+  if (r.cambios_tras_congelar) avisos.push(`Hay cambios después de la versión congelada (v${r.version_congelada}); fábrica trabaja con la congelada hasta que se envíe el cambio.`);
   if ((r.local || {}).pendiente) avisos.push("Esta PC tiene cambios sin subir de este proyecto.");
   $("#pf-aviso").hidden = !avisos.length;
   $("#pf-aviso").textContent = avisos.join(" ");
@@ -1481,35 +1484,36 @@ function pintarFicha() {
     bridge("proyecto_datos", JSON.stringify(Object.assign({ folio: r.folio }, leerCampos($("#pf-datos")))));
   };
 
-  // Estados permitidos para el rol de esta PC (las reglas vienen de Ruby).
-  const destinos = ((S.transiciones[S.usuario.rol] || {})[r.estado]) || [];
-  const box = $("#pf-transiciones");
+  // Línea de pasos: dónde va el proyecto.
+  const iActual = S.estados.findIndex(([id]) => id === r.estado);
+  $("#pf-pasos").innerHTML = S.estados.map(([id, txt], i) =>
+    `<li class="${i < iActual ? "hecho" : i === iActual ? "actual" : ""}"><span>${esc(txt)}</span></li>`).join("");
+
+  // Un paso adelante (botón principal) y, si aplica, uno atrás; las reglas
+  // vienen de Ruby y Ruby las vuelve a validar.
+  const acc = P.acciones(r, S.pasos, S.usuario.rol);
+  const box = $("#pf-acciones");
   box.innerHTML = "";
-  if (!destinos.length) box.innerHTML = `<p class="hint">${esPlaneacion() ? "Diseño todavía no lo envía a planeación." : "Lo tiene Planeación: solo ellos pueden cambiar el estado."}</p>`;
-  destinos.forEach((a) => {
+  acc.forEach((x) => {
     const b = document.createElement("button");
-    b.className = a === "planeacion" ? "use sm" : "chip";
-    const devolver = esPlaneacion() && a === "diseno";
-    b.textContent = devolver ? "Devolver a diseño" : (a === "planeacion" ? "Enviar a planeación (congela v" + r.version_actual + ")" : nombreEstado(a));
-    b.onclick = () => {
-      const nota = $("#pf-nota-estado").value.trim();
-      if (devolver && !nota) return aviso("Error: escribe en la nota qué hay que cambiar");
-      ocupado(true, "Cambiando estado…");
-      bridge("proyecto_estado", JSON.stringify({ folio: r.folio, a, nota }));
-      $("#pf-nota-estado").value = "";
-    };
-    b.disabled = !editable;
+    b.className = (x.principal ? "use" : "key") + " sm";
+    b.textContent = x.etiqueta;
+    b.disabled = !editable || !!x.bloqueado;
+    if (x.bloqueado) b.title = "Primero confirma que recibiste el cambio";
+    b.onclick = () => darPaso(r, x);
     box.appendChild(b);
   });
-  $("#pf-nota-estado").hidden = !destinos.length;
+  $("#pf-estado-hint").textContent = acc.length ? "" : r.estado === "entregado" ? "Proyecto entregado: ya no se envían cambios."
+    : esPlaneacion() ? "Diseño todavía no lo envía a planeación."
+    : "Lo tiene Planeación. Si el cliente pide un cambio: ábrelo, haz el cambio y guarda; aquí aparecerá «Enviar cambio a planeación».";
+  $("#pf-estado-hint").hidden = !!acc.length;
 
   const ev = $("#pf-eventos");
   ev.innerHTML = "";
   (r.eventos || []).slice().reverse().forEach((e) => {
     const row = document.createElement("div");
     row.className = "mini-row";
-    const que = e.tipo === "creado" ? "Creó el proyecto"
-      : `${nombreEstado(e.de)} → ${nombreEstado(e.a)}${e.version ? ` (congeló v${e.version})` : ""}`;
+    const que = P.movimiento(e, S.estados);
     row.innerHTML = `<div class="pf-ev"><b>${esc(que)}</b><span class="hint">${esc(e.por || "")} · ${esc(P.fecha(e.fecha))}${e.nota ? " · " + esc(e.nota) : ""}</span></div>`;
     ev.appendChild(row);
   });
@@ -1521,6 +1525,7 @@ function pintarFicha() {
   hist.forEach((h) => {
     const tr = document.createElement("tr");
     const marcas = [h.v === r.version_actual ? "<span class='pill ok'>Vigente</span>" : "",
+      h.v === r.version_aprobada ? "<span class='pill e-aprobado'>Aprobada</span>" : "",
       h.congelada ? "<span class='pill info'>Congelada</span>" : "",
       h.conflicto ? "<span class='pill bad'>Conflicto</span>" : ""].join(" ");
     tr.innerHTML = `<td><span class="pj-folio">v${esc(h.v)}</span> ${marcas}</td>` +
@@ -1539,6 +1544,28 @@ function pintarFicha() {
   $("#pf-consulta").disabled = !editable || !r.version_actual;
   $("#pf-consulta").textContent = r.version_congelada && esPlaneacion() ? `Abrir congelada v${r.version_congelada}` : "Abrir solo lectura";
   $("#pf-consulta").onclick = () => abrirProyecto(r.folio, true, r.version_congelada && esPlaneacion() ? { version: r.version_congelada } : {});
+}
+
+/* Cada paso se confirma en una pregunta con nota (obligatoria al regresar o
+   al enviar un cambio): un clic suelto ya no mueve el proyecto. */
+function darPaso(r, x, notaPrevia) {
+  if (x.tipo === "recibido") {
+    ocupado(true, "Guardando…");
+    return bridge("proyecto_recibido", JSON.stringify({ folio: r.folio }));
+  }
+  const texto = x.confirmar || (x.atras ? "Explica en la nota qué hay que cambiar." : `El proyecto pasa a «${nombreEstado(x.a)}».`);
+  preguntar(x.etiqueta, texto, [
+    ["key", "Cancelar", null],
+    [x.atras ? "key" : "use", x.atras ? x.etiqueta : "Confirmar", (nota) => {
+      if (x.nota && !nota) {
+        aviso(x.tipo === "cambio" ? "Error: escribe qué cambió y por qué" : "Error: escribe en la nota qué hay que cambiar");
+        return darPaso(r, x);
+      }
+      ocupado(true, x.tipo === "cambio" ? "Enviando cambio…" : "Cambiando estado…");
+      if (x.tipo === "cambio") bridge("proyecto_cambio", JSON.stringify({ folio: r.folio, nota }));
+      else bridge("proyecto_estado", JSON.stringify({ folio: r.folio, a: x.a, nota }));
+    }],
+  ], x.nota ? (x.tipo === "cambio" ? "Qué cambió y por qué (obligatorio)" : "Qué hay que cambiar (obligatorio)") : "Nota (opcional)");
 }
 
 // ---- Nuevo proyecto ------------------------------------------------------------------

@@ -3,7 +3,7 @@ require "json"
 module RoyalKitchens
   module Studio
     # Configuración del proyecto de cocina: el diseño global (frente, manija,
-    # material, tarja, medidas comunes) y lo que cada módulo personaliza.
+    # material, medidas comunes) y lo que cada módulo personaliza.
     #
     # Se guarda en el propio .skp (viaja con el proyecto) y además como
     # «última usada», que es el punto de partida de un modelo nuevo.
@@ -22,10 +22,9 @@ module RoyalKitchens
           "manija_puerta" => "9",   # Andrea
           "manija_cajon"  => "9",
           "material" => "",    # "" = el de la receta / el del módulo
-          "tarja"    => false,
           # Medidas comunes: si «igualar» está activo, los gabinetes toman este
-          # ancho, alto y fondo de cuerpo.
-          "medidas"  => { "igualar" => false, "ancho" => 600, "alto" => 770, "fondo" => 600 }
+          # alto y fondo de cuerpo. El ancho y la tarja son siempre de cada mueble.
+          "medidas"  => { "igualar" => false, "alto" => 770, "fondo" => 600 }
         },
         # id del módulo => { "personalizado" => true, "frente" =>…, "medidas" => {…} }
         "modulos" => {}
@@ -39,9 +38,9 @@ module RoyalKitchens
         data = {} unless data.is_a?(Hash)
         g = data["global"].is_a?(Hash) ? manijas(data["global"]) : {}
         base = DEFAULT["global"]
-        medidas = base["medidas"].merge(g["medidas"].is_a?(Hash) ? g["medidas"] : {})
+        # Solo las claves vigentes: un proyecto viejo puede traer «ancho» o «tarja» globales.
+        medidas = base["medidas"].merge((g["medidas"].is_a?(Hash) ? g["medidas"] : {}).slice(*base["medidas"].keys))
         global = base.merge(g.slice(*base.keys)).merge("medidas" => medidas)
-        global["tarja"] = global["tarja"] == true
         modulos = (data["modulos"].is_a?(Hash) ? data["modulos"] : {}).select { |k, v| k.is_a?(String) && v.is_a?(Hash) }
         modulos = modulos.transform_values { |v| manijas(v) }
         { "version" => VERSION_DATOS, "global" => global, "modulos" => modulos }
