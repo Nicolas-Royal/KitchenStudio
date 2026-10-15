@@ -39,3 +39,15 @@ assert !c.key?("d16_z1_tirador_tipo"), "con gola no se escribe manija (ni se val
 
 mdf = OP["materiales"].find { |m| m["familia"] == "MDF" }
 assert falla("frente" => "3", "material" => mdf["id"]) =~ /MDF/, "MDF solo en Lisa"
+
+# Con gola solo puerta Lisa: el frente del proyecto no se aplica.
+assert C.frente_gola(OP) == "1", "el frente con gola es Lisa"
+assert C.error_gola(OP, "3") =~ /Con gola solo se fabrica puerta Lisa \(no Mitered\)/, "Mitered no va con gola"
+assert C.error_gola(OP, "1").nil?, "Lisa va con gola"
+c = C.cambios_receta(CFG, { "frente" => "3" }, OP, { "b01_gola_o_tirador" => "2" })
+assert c["l01_linea_frente"] == "1", "con gola, el frente del proyecto se vuelve Lisa"
+assert falla({ "frente" => "3", "material" => mdf["id"] }, { "b01_gola_o_tirador" => "2" }).nil?, "con gola el MDF se revisa contra Lisa"
+c = C.cambios_receta(CFG, { "frente" => "3" }, OP, { "b01_gola_o_tirador" => "1" })
+assert c["l01_linea_frente"] == "3", "sin gola, el frente del proyecto"
+c = C.cambios_receta(CFG, { "ancho" => 600 }, OP, { "b01_gola_o_tirador" => "2", "l01_linea_frente" => "7" })
+assert c["l01_linea_frente"] == "1", "una receta con gola y otro frente se corrige al insertar"

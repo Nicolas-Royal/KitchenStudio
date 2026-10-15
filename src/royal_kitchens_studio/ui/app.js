@@ -116,10 +116,7 @@ window.RKS = {
     if (S.csv && S.csv.cola) return csvSiguiente(r);
     ocupado(false);
     if (!r || !r.ok) return aviso("Error: " + ((r && r.error) || "no se pudo generar"));
-    const partes = [];
-    if (r.publicado) partes.push("guardado en el catálogo");
-    if (!r.publicado || $("#av-escena").checked) partes.push("insertado");
-    aviso(`${r.nombre}: ${partes.join(" y ")}`);
+    aviso(`${r.nombre}: insertado${r.publicado ? " y guardado en el catálogo" : ""}`);
     if (r.publicado) bridge("recargar");
   },
   onImportado(r) {
@@ -327,20 +324,25 @@ function notaManija(p, o) {
 /* Tiles de los selectores sobre el objeto +d+ (global o del módulo). */
 function pintarPickers(box, d, editable, onCambio, extra) {
   box.innerHTML = "";
-  const error = RKReglas.diseno(S.opciones, d, !!extra.gola);
+  // Con gola el frente no se elige (va Lisa): un ajuste viejo con otro no es error.
+  const error = RKReglas.diseno(S.opciones, extra.gola ? Object.assign({}, d, { frente: RKReglas.frenteGola(S.opciones) }) : d, !!extra.gola);
   PICKERS.forEach((p) => {
+    // Con gola no hay manija y el frente es siempre Lisa: no se eligen.
     const sinManija = esManija(p.key) && extra.gola;
-    const o = opcion(p.key, d[p.key]);
+    const frenteGola = p.key === "frente" && extra.gola;
+    const fijo = sinManija || frenteGola;
+    const o = opcion(p.key, frenteGola ? RKReglas.frenteGola(S.opciones) : d[p.key]);
     const t = document.createElement("button");
     t.type = "button";
-    t.className = "pick-tile" + (editable && !sinManija ? "" : " off");
-    t.disabled = !editable || sinManija;
-    const nombre = sinManija ? "Con gola: sin manija" : (o ? o.nombre : (p.sinCambio ? "Como el módulo" : "—"));
+    t.className = "pick-tile" + (editable && !fijo ? "" : " off");
+    t.disabled = !editable || fijo;
+    const nombre = sinManija ? "Con gola: sin manija" : frenteGola ? `Con gola: ${o ? o.nombre : "Lisa"}`
+      : (o ? o.nombre : (p.sinCambio ? "Como el módulo" : "—"));
     t.innerHTML = `<div class="pick-photo"><img alt=""></div><div class="pick-text"><span class="stamp">${p.titulo}</span>` +
       `<strong>${esc(nombre)}</strong><span class="pick-sub">${esc(o && o.grupo ? o.grupo : notaManija(p, o))}</span>` +
-      (editable && !sinManija ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
+      (editable && !fijo ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
     setImg($("img", t), sinManija ? placeholder("Gola") : fotoDe(p.key, o));
-    if (editable && !sinManija) t.onclick = () => abrirPicker(p, d, onCambio);
+    if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio);
     box.appendChild(t);
   });
   // Diseños guardados antes de una regla (p. ej. concha en puertas).
@@ -630,11 +632,16 @@ function disenoDe(m, enLista) {
   const s = m.specs || {};
   const base = { ancho: s.ancho_mm || 600, alto: s.alto_mm || 770, fondo: s.fondo_mm || 578 };
   const modo = modoDe(m, enLista);
-  if (modo === "original") return Object.assign({ modo }, base, M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores));
-  if (modo === "personal") return Object.assign({ modo: "personal" }, base, o, o.medidas || {});
-  const tarja = M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores).tarja;
-  const d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja });
-  if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
+  let d;
+  if (modo === "original") d = Object.assign({ modo }, base, M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores));
+  else if (modo === "personal") d = Object.assign({ modo: "personal" }, base, o, o.medidas || {});
+  else {
+    const tarja = M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores).tarja;
+    d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja });
+    if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
+  }
+  // Con gola el frente es siempre Lisa: ni el proyecto ni un ajuste lo cambian.
+  if (esGola(m) && RKReglas.gola(S.opciones, d.frente)) d.frente = RKReglas.frenteGola(S.opciones);
   return d;
 }
 
@@ -913,7 +920,6 @@ function pintarAvanzado(m) {
   const csv = S.avCsv && S.avCsv.m === m ? S.avCsv : null;
   $("#av-title").textContent = m.name;
   $("#av-stamp").textContent = csv ? "Editar fila del archivo" : "Configuración avanzada";
-  $("#av-escena").closest("label").hidden = !!csv;
   $("#av-publicar").closest("label").hidden = !!csv;
   $("#av-generar").textContent = csv ? "Guardar" : "Generar";
   $("#av-material").hidden = !st;
@@ -969,11 +975,11 @@ function payloadGenerar(st, ref, insertar, publicar) {
   };
 }
 
+/* Lo generado desde «Avanzado» siempre queda en la escena; guardarlo en el
+   catálogo es opcional. */
 function generarAvanzado(m, st) {
-  const insertarEsc = $("#av-escena").checked;
   const publicar = $("#av-publicar").checked;
-  if (!insertarEsc && !publicar) return aviso("Error: elige insertar en la escena, guardar en el catálogo, o ambos");
-  const p = payloadGenerar(st, m.id, insertarEsc, publicar);
+  const p = payloadGenerar(st, m.id, true, publicar);
   if (p.error) return aviso("Error: " + p.error);
   // Guardar nunca reemplaza un mueble que ya está en el catálogo.
   const existe = publicar && M.choque(p.nombre, S.modulos);
@@ -1586,12 +1592,16 @@ let usarModeloActual = "1";
 function abrirCrear() {
   if (!S.usuario.nombre) return aviso("Error: primero escribe tu nombre");
   formCampos($("#pc-form"), [["folio", "Folio / número de pedido", "text"]].concat(CAMPOS_PROYECTO), {}, true);
-  pintarSeg($("#pc-modelo"), [["1", "Usar el modelo abierto"], ["0", "Empezar con un modelo vacío"]], usarModeloActual, (v) => {
-    usarModeloActual = v; abrirCrear();
-  });
+  pintarModeloCrear();
   $("#pc-error").hidden = true;
   $("#pj-crear").hidden = false;
   $("[data-k=folio]", $("#pc-form")).focus();
+}
+// Cambiar de modelo solo repinta la elección: lo ya escrito se queda.
+function pintarModeloCrear() {
+  pintarSeg($("#pc-modelo"), [["1", "Usar el modelo abierto"], ["0", "Empezar con un modelo vacío"]], usarModeloActual, (v) => {
+    usarModeloActual = v; pintarModeloCrear();
+  });
 }
 
 $("#pc-crear").onclick = () => {

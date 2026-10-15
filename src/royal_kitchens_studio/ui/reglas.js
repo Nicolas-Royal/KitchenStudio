@@ -3,7 +3,8 @@
 /* RKReglas: qué combinación de frente, manija y material se puede fabricar.
    Las mismas reglas que Catalogo (catalogo.rb), leídas de opciones.json:
    tiradores[].usos (dónde se puede usar), solo_frentes y posicion.<uso>;
-   materiales MDF solo en puerta Lisa. Sin DOM: se prueba en node. */
+   materiales MDF solo en puerta Lisa; con gola, solo frentes con_gola (Lisa).
+   Sin DOM: se prueba en node. */
 window.RKReglas = (function () {
   const USOS = { puerta: "manija_puerta", cajon: "manija_cajon" };
   const NOMBRE_USO = { puerta: "puertas", cajon: "cajones" };
@@ -29,9 +30,29 @@ window.RKReglas = (function () {
     return m && f && m.familia === "MDF" && f.solo_madera ? `${m.nombre} es MDF: solo se fabrica en puerta Lisa` : "";
   }
 
+  /* Con gola solo se fabrica el frente marcado con_gola (Lisa). */
+  function frenteGola(op) {
+    const f = (op.frentes || []).find((x) => x.con_gola);
+    return f ? String(f.id) : null;
+  }
+  function gola(op, frente) {
+    const f = buscar(op.frentes, frente);
+    if (!f || f.con_gola) return "";
+    const ok = (op.frentes || []).filter((x) => x.con_gola).map((x) => x.nombre);
+    return `Con gola solo se fabrica puerta ${ok.join(" o ")} (no ${f.nombre})`;
+  }
+  /* ¿La receta +v+ lleva gola? según el mapeo +fam+ (opciones.familias.<f>.gola). */
+  function llevaGola(fam, v) {
+    const g = fam && fam.gola;
+    return !!g && String(v[g.attr]) === String(g.valor);
+  }
+
   /* Primer problema del diseño +d+ ({frente, manija_puerta, manija_cajon, material}), o "". */
-  function diseno(op, d, gola) {
-    if (!gola) {
+  function diseno(op, d, conGola) {
+    if (conGola) {
+      const e = gola(op, d.frente);
+      if (e) return e;
+    } else {
       for (const uso of Object.keys(USOS)) {
         const e = d[USOS[uso]] ? manija(op, uso, d[USOS[uso]], d.frente) : "";
         if (e) return e;
@@ -65,10 +86,13 @@ window.RKReglas = (function () {
         }
       });
     });
+    const fa = fam && fam.frente && fam.frente.attr;
+    const eg = fa && llevaGola(fam, v) && gola(op, v[fa]);
+    if (eg) out.push({ label: "Frente", msg: eg });
     const m = fam && fam.material && material(op, v[fam.material.attr], v[fam.frente && fam.frente.attr]);
     if (m) out.push({ label: "Material", msg: m });
     return out.filter((e, i) => out.findIndex((x) => x.msg === e.msg) === i);
   }
 
-  return { USOS, manija, material, diseno, posicion, receta };
+  return { USOS, manija, material, gola, frenteGola, llevaGola, diseno, posicion, receta };
 })();

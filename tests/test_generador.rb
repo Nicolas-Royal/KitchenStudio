@@ -41,3 +41,18 @@ assert G.cambios_interior(MAN, nil) == {}, "interior vacío"
 
 modelo = RoyalKitchens::Studio::Plantilla.modelo(RoyalKitchens::Studio::Familias.manifiestos.to_a)
 assert modelo.is_a?(Hash) || modelo.is_a?(Array), "modelo de columnas de la plantilla"
+
+# Con gola solo puerta Lisa, aunque la fila no haya pasado por la UI (CSV).
+v = G.aplicar_forzados(MAN, { "b01_gola_o_tirador" => "2", "l01_linea_frente" => "3", "a02_alto_zoclo" => "100mm" })
+assert v["l01_linea_frente"] == "1", "con gola el frente se fija en Lisa"
+assert v["a02_alto_zoclo"] == "100mm", "las medidas forzadas no se tocan en Ruby"
+v = G.aplicar_forzados(MAN, { "b01_gola_o_tirador" => "1", "l01_linea_frente" => "3" })
+assert v["l01_linea_frente"] == "3", "sin gola, el frente elegido"
+
+# Gola de melamina del medio: sin la pieza de arriba (Perfil L), para meter los
+# dedos; lo fija el manifiesto en cada generación y no viaja en la receta.
+vc = G.valores_componente(MAN)
+assert vc["g46_melamina_tipo_perfil_c"] == "1", "gola de melamina del medio sin pieza de arriba"
+assert !vc.key?("_doc"), "la nota del manifiesto no se inyecta"
+assert vc["g13_margen_tapa_perfil_c"].to_s.include?("(g12_alto_perfil_c-k12_sep_cajones_gola+") && vc["g13_margen_tapa_perfil_c"].start_with?("=IF(AND(g01_perfil_tipo=2"),
+       "perfil del medio (solo melamina): el espacio para los dedos se reparte igual arriba y abajo"

@@ -169,10 +169,19 @@
      (un Avento es de una sola puerta; con puerta de cajones no hay entrepaños).
      Gana la primera entrada de `forzar` cuyas condiciones se cumplan. */
   function valorForzado(field, manifest, valores) {
+    var e = entradaForzada(field, manifest, valores);
+    return e ? e.valor : null;
+  }
+  /* Por qué está fijado (el `mensaje` de esa entrada de `forzar`), o null. */
+  function mensajeForzado(field, manifest, valores) {
+    var e = entradaForzada(field, manifest, valores);
+    return (e && e.mensaje) || null;
+  }
+  function entradaForzada(field, manifest, valores) {
     var hit = null;
     (field.forzar || []).forEach(function (e) {
-      if (hit != null) return;
-      if ((e.si || []).every(function (c) { return condicionCumple(manifest, valores, c); })) hit = e.valor;
+      if (hit) return;
+      if ((e.si || []).every(function (c) { return condicionCumple(manifest, valores, c); })) hit = e;
     });
     return hit;
   }
@@ -181,12 +190,36 @@
      configuración (formulario, aplanado, validación) para que forzado y
      capturado no puedan discrepar: lo que se ve es lo que se inyecta. */
   function aplicarForzados(manifest, valores) {
+    var antes = guardadosForzado(valores);
     manifest.grupos.forEach(function (g) {
       g.campos.forEach(function (f) {
         var v = valorForzado(f, manifest, valores);
-        if (v != null && valores[f.id] !== v) valores[f.id] = v;
+        if (v != null) {
+          if (!Object.prototype.hasOwnProperty.call(antes, f.id)) antes[f.id] = valores[f.id];
+          if (valores[f.id] !== v) valores[f.id] = v;
+          return;
+        }
+        if (!Object.prototype.hasOwnProperty.call(antes, f.id)) return;
+        // Ya no está forzado (se volvió a poner el zoclo): regresa lo que tenía.
+        // Si lo que tenía era el mismo valor forzado (una receta que se guardó
+        // así), va el default: «Sin zoclo» guarda alto 0 y con zoclo no sirve.
+        var previo = antes[f.id];
+        delete antes[f.id];
+        var eraForzado = (f.forzar || []).some(function (e) {
+          return String(e.valor) === String(previo) || (f.unidad && parseMm(e.valor) === parseMm(previo));
+        });
+        if (previo == null || previo === '' || eraForzado) previo = f.default != null ? f.default : '';
+        valores[f.id] = previo;
       });
     });
+  }
+  /* Lo que tenía cada campo antes de que lo forzaran, en una propiedad oculta
+     de los valores (no viaja en JSON ni en el aplanado). */
+  function guardadosForzado(valores) {
+    if (!Object.prototype.hasOwnProperty.call(valores, '__antesForzado')) {
+      Object.defineProperty(valores, '__antesForzado', { value: {}, enumerable: false, writable: true });
+    }
+    return valores.__antesForzado;
   }
 
   /* Un campo llega al .skp si está visible y activo. Un valor forzado también
@@ -1181,6 +1214,7 @@
     groupEnabled:         groupEnabled,
     fieldInyecta:         fieldInyecta,
     valorForzado:         valorForzado,
+    mensajeForzado:       mensajeForzado,
     aplicarForzados:      aplicarForzados,
     effectiveValue:       effectiveValue,
     nombresDivisores:     nombresDivisores,

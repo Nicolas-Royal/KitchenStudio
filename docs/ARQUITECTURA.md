@@ -171,6 +171,18 @@ Reglas de manija (`opciones.json` → `tiradores[]`, aplicadas en `Catalogo` y
   (Centro-Centro: en los cantos del medio, escalonadas para no chocar;
   otras posiciones la mandan al canto de arriba).
 
+Gola (`familias.gabinete.gola` = cuándo lleva gola; `frentes[].con_gola`):
+no lleva manija y **solo puerta Lisa**. El diseño del proyecto no le pone otro
+frente (`disenoDe` y `Catalogo.cambios_receta` lo vuelven Lisa) y en la página
+del mueble el frente queda fijo («Con gola: Lisa»). En «Avanzado» lo fija el
+manifiesto (`forzar` de `l01_linea_frente`), y `Generador.aplicar_forzados`
+hace lo mismo con las filas que no pasaron por la UI (CSV, recetas viejas).
+
+Valores forzados (`forzar` del manifiesto, `RCC_CORE.aplicarForzados`): al
+dejar de aplicar, el campo regresa a lo que tenía; si tenía el valor forzado
+(una creación guardada así), al default. Así «Zoclo: Sí» vuelve a poner su
+alto aunque el mueble se haya creado sin zoclo.
+
 ## Registro de proyectos (0.3.0)
 
 Fuera de los motores: solo Studio. Tres módulos, la lógica pura separada de los archivos.
@@ -241,7 +253,17 @@ tanto Planeación no puede avanzar el estado. Entregado no acepta cambios.
   (receta + cambios, ~15 s).
 - **Generar (Avanzado / fila CSV)** → `RCC_CORE.flatten` + `nombresDivisores`
   → `generar {familia, nombre, valores, divisores, material, insertar, publicar}`
-  → `Generador.generar`.
+  → `Generador.generar`. Desde «Avanzado» siempre se inserta en la escena;
+  «Guardar en el catálogo» es lo único opcional (el CSV solo guarda).
+  `manifest.valores_componente` se inyecta además en cada generación (variables
+  del componente base que no son elecciones; no van en la receta):
+  `g46_melamina_tipo_perfil_c = 1` deja la gola de melamina del medio sin la
+  pieza de arriba en L-C (espacio para los dedos, mismo alto de gola), y
+  `g13_margen_tapa_perfil_c = (g12 − k12 + espesor) / 2` (solo melamina) reparte
+  el espacio para los dedos por igual abajo del canto del frente de abajo y
+  arriba del canto del frente de arriba (16 y 16 mm con perfil 90, hueco 40,
+  espesor 18; centrado daba 7 y 25) y no toca las correderas de un cajón arriba. En L-L la ajustan las fórmulas del
+  componente; el aluminio sigue centrado. El DC no tiene `MAX`: usar `IF`.
   El material se escribe como `c16_material_puerta` + `c22matpuertade =
   "=c16_material_puerta"` en la fila, así viaja en la receta publicada.
 - **CSV**: todo se genera desde la tabla (frentes, medidas, diseño, estado y

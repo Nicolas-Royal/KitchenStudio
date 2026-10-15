@@ -66,6 +66,26 @@ module RoyalKitchens
         "#{mat['nombre']} es MDF: solo se fabrica en puerta Lisa (no #{fr['nombre']})"
       end
 
+      # Con gola solo se fabrica el frente marcado con_gola (Lisa).
+      def frente_gola(opciones)
+        f = Array(opciones["frentes"]).find { |o| o["con_gola"] }
+        f && f["id"].to_s
+      end
+
+      def error_gola(opciones, frente)
+        fr = buscar(opciones, "frentes", frente)
+        return nil if fr.nil? || fr["con_gola"]
+        ok = Array(opciones["frentes"]).select { |o| o["con_gola"] }.map { |o| o["nombre"] }
+        "Con gola solo se fabrica puerta #{ok.join(' o ')} (no #{fr['nombre']})"
+      end
+
+      # ¿La receta (con los cambios encima) lleva gola? (familias.<f>.gola)
+      def gola?(cfg, cambios, valores)
+        g = cfg["gola"]
+        return false unless g
+        cambios.fetch(g["attr"], valores[g["attr"]]).to_s == g["valor"].to_s
+      end
+
       # Elección de la UI -> cambios de la receta (campos del manifiesto).
       #
       #   eleccion: { "ancho"=>600, "alto"=>770, "fondo"=>578, "tarja"=>true, "frente"=>"1",
@@ -85,6 +105,10 @@ module RoyalKitchens
         end
         fa = cfg.dig("frente", "attr")
         cambios[fa] = eleccion["frente"].to_s if fa && !eleccion["frente"].to_s.empty?
+        # Con gola el frente es siempre Lisa: el del proyecto no se aplica.
+        if fa && gola?(cfg, cambios, valores) && error_gola(opciones, cambios.fetch(fa, valores[fa]))
+          cambios[fa] = frente_gola(opciones).to_s
+        end
         frente = cambios.fetch(fa, valores[fa]).to_s
         USOS.each do |uso, clave|
           h = cfg[clave]

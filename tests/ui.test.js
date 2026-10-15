@@ -129,6 +129,32 @@ prueba("reglas en «Avanzado»: concha en puertas y Lateral negra fuera del cent
   assert.deepStrictEqual(R.receta(op, fam, Object.assign({}, v, { b01_gola_o_tirador: "2", d16_z1_tirador_tipo: "15" })), [], "con gola no aplica");
 });
 
+prueba("gola: solo puerta Lisa (reglas, alcance y «Avanzado» la fija)", () => {
+  const fam = op.familias.gabinete;
+  assert.strictEqual(R.frenteGola(op), "1");
+  assert.ok(/Con gola solo se fabrica puerta Lisa \(no Italiana\)/.test(R.diseno(op, { frente: "2" }, true)));
+  assert.strictEqual(R.diseno(op, { frente: "1" }, true), "");
+  assert.strictEqual(R.diseno(op, { frente: "2" }, false), "", "sin gola cualquier frente");
+  const v = rcc.flatten(man.gabinete, { familia: "gabinete", valores: rcc.defaultValores(man.gabinete) });
+  const msgs = R.receta(op, fam, Object.assign({}, v, { b01_gola_o_tirador: "2", l01_linea_frente: "3" })).map((e) => e.msg);
+  assert.ok(msgs.some((m) => /Con gola solo se fabrica puerta Lisa/.test(m)), "una fila de CSV con gola y Mitered no pasa");
+  assert.ok(MU.alcance(fam, true, false).fijo.some((x) => /frente Lisa/.test(x)));
+  assert.ok(!MU.alcance(fam, true, false).cambia.includes("frente"));
+  // En «Avanzado»: con gola el frente se fija en Lisa; al quitarla regresa el que tenía.
+  const reg = { familia: "gabinete", valores: rcc.defaultValores(man.gabinete) };
+  const f = rcc.fieldByAttr(man.gabinete, "l01_linea_frente");
+  reg.valores.l01_linea_frente = "3";
+  reg.valores.b01_gola_o_tirador = "2";
+  rcc.aplicarForzados(man.gabinete, reg.valores);
+  assert.strictEqual(reg.valores.l01_linea_frente, "1");
+  assert.strictEqual(rcc.fieldEnabled(f, man.gabinete, reg.valores), false);
+  assert.ok(/Con gola/.test(rcc.mensajeForzado(f, man.gabinete, reg.valores)));
+  assert.strictEqual(rcc.flatten(man.gabinete, reg).l01_linea_frente, "1");
+  reg.valores.b01_gola_o_tirador = "1";
+  rcc.aplicarForzados(man.gabinete, reg.valores);
+  assert.strictEqual(reg.valores.l01_linea_frente, "3");
+});
+
 new Function("window", fs.readFileSync(path.join(UI, "proyectos.js"), "utf8"))(w);
 const P = w.RKProyectos;
 const ahora = new Date("2026-10-09T18:00:00Z");
@@ -342,6 +368,30 @@ prueba("gabinete: sin zoclo va al piso (alto 0, sin sumarlo al cuerpo) y no hay 
   // Una receta vieja «sin zoclo» que aún trae su alto también se dibuja al piso.
   assert.strictEqual(RKVista.desdeValores({ j02_zoclo_activo: "2", a02_alto_zoclo: "100mm" }, { ancho: 600, alto: 770 }).zoclo, 0);
   assert.strictEqual(RKVista.desdeValores({ a02_alto_zoclo: "100mm" }, { ancho: 600, alto: 770 }).zoclo, 100);
+});
+
+prueba("gabinete: el zoclo se puede volver a poner (regresa su alto, no se queda en 0)", () => {
+  const m = man.gabinete;
+  const reg = { familia: "gabinete", valores: rcc.defaultValores(m) };
+  reg.valores.a02_alto_zoclo = "120";
+  reg.valores.j02_zoclo_activo = "2";
+  rcc.aplicarForzados(m, reg.valores);
+  assert.strictEqual(reg.valores.a02_alto_zoclo, "0");
+  assert.ok(!("__antesForzado" in JSON.parse(JSON.stringify(reg.valores))));
+  reg.valores.j02_zoclo_activo = "1";
+  rcc.aplicarForzados(m, reg.valores);
+  assert.strictEqual(reg.valores.a02_alto_zoclo, "120");
+  assert.strictEqual(RKVista.desdeValores(rcc.flatten(m, reg), { ancho: 600, alto: 770 }).zoclo, 120);
+  // Una creación guardada sin zoclo (alto 0) al reabrirla en «Avanzado»: va el default.
+  const fila = rcc.flatten(m, { familia: "gabinete", valores: Object.assign(rcc.defaultValores(m), { j02_zoclo_activo: "2" }) });
+  const vuelta = { familia: "gabinete", valores: RKAvanzado.valoresDesdeFila(m, fila, rcc) };
+  rcc.aplicarForzados(m, vuelta.valores);
+  vuelta.valores.j02_zoclo_activo = "1";
+  rcc.aplicarForzados(m, vuelta.valores);
+  const otra = rcc.flatten(m, vuelta);
+  assert.strictEqual(otra.a02_alto_zoclo, "100mm");
+  assert.strictEqual(otra.LenZ, "870mm");
+  assert.strictEqual(RKVista.desdeValores(otra, { ancho: 600, alto: 770 }).zoclo, 100);
 });
 
 console.log(`${n}/${n} pruebas OK`);

@@ -61,7 +61,7 @@ window.RKMuebles = (function () {
   function alcance(fc, gola, igualar) {
     const f = fc || {};
     const cambia = [], fijo = ["zonas, puertas y cajones", "entrepaños"];
-    if (f.frente) cambia.push("frente");
+    if (f.frente) (gola ? fijo : cambia).push(gola ? "frente Lisa (con gola)" : "frente");
     if (f.manija_puerta || f.manija_cajon) (gola ? fijo : cambia).push(gola ? "gola (no lleva manijas)" : "manijas");
     if (f.material) cambia.push("material");
     if (f.tarja) fijo.push("tarja");

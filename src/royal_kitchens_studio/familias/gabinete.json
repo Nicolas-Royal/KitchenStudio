@@ -57,6 +57,7 @@
     "b02_tipo_cajon": { "1": "", "2": "-AN", "3": "-TL" }
   },
   "reglas_frentes": { "nombre": "{pieza} {linea}", "attr_linea": "l01_linea_frente", "piezas": { "Puerta": "Puerta", "Tapa_cajon": "Tapa de cajón" } },
+  "valores_componente": { "_doc": "Variables del componente base que Studio fija en cada generación (no son elecciones: no van en la receta ni en el formulario). g46 = 1 (Perfil L): la gola de melamina del medio no lleva la pieza de arriba, así queda espacio para meter los dedos detrás del frente de arriba; el alto de la gola no cambia. En L-L el componente ya la ajusta con sus fórmulas. g13 (margen de tapa del perfil C) = (alto del perfil C g12 − hueco entre zonas k12 + espesor) / 2: reparte el espacio para los dedos por igual abajo del canto del frente de abajo y arriba del canto del frente de arriba (16 y 16 mm con 90/40/18; centrado daba 7 y 25). Solo melamina; aluminio sigue centrado.", "g46_melamina_tipo_perfil_c": "1", "g13_margen_tapa_perfil_c": "=IF(AND(g01_perfil_tipo=2,g12_alto_perfil_c+IF(g16_espesor_perfil_melamina=0,c01_espesor_estructura,g16_espesor_perfil_melamina)>k12_sep_cajones_gola),(g12_alto_perfil_c-k12_sep_cajones_gola+IF(g16_espesor_perfil_melamina=0,c01_espesor_estructura,g16_espesor_perfil_melamina))/2,0)" },
   "reglas_herrajes": [
     { "pieza": "Acc.Corredera", "nombre": "Corredera {tipo} {cm}cm", "attr_tipo": "b02_tipo_cajon", "multiplo_cm": 5 }
   ],
@@ -174,7 +175,7 @@
           { "label": "Módulo con tirador", "valor": "1" },
           { "label": "Módulo con gola", "valor": "2" }
         ] },
-        { "id": "l01_linea_frente", "attr": "l01_linea_frente", "label": "Línea de frente", "tipo": "select", "default": "1", "nota": "Para el catálogo se genera en Lisa; el estilo se cambia al insertar.", "opciones": [
+        { "id": "l01_linea_frente", "attr": "l01_linea_frente", "label": "Línea de frente", "tipo": "select", "default": "1", "nota": "Para el catálogo se genera en Lisa; el estilo se cambia al insertar.", "forzar": [{ "valor": "1", "si": [{ "attr": "b01_gola_o_tirador", "valor": "2" }], "mensaje": "Con gola solo se fabrica puerta Lisa." }], "opciones": [
           { "label": "Lisa", "valor": "1" },
           { "label": "Italiana", "valor": "2" },
           { "label": "Mitered", "valor": "3" },

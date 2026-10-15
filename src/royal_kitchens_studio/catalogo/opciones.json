@@ -1,5 +1,5 @@
 {
-  "_doc": "Catálogo de opciones de Royal Kitchens Studio (fuente propia, ya no depende de KitchenCatalog). Fotos relativas a esta carpeta: frentes/ = vista frontal del gabinete base con cada l01_linea_frente; manijas/ = cada tirador a 45°. Las tomó tools/fotos_catalogo.rb desde el gabinete base. color = tono aproximado de material; tiradores[].vista = forma/color para el alzado SVG. familias = mapeo opción -> variables del DC. Manijas: se eligen aparte para puertas (manija_puerta: d16/d36) y cajones (manija_cajon: e01). Reglas por tirador: usos = dónde se puede usar (sin usos = puerta y cajón); solo_frentes = solo con esos l01_linea_frente; posicion.<uso> = posición forzada (Lateral negra en puertas: 5 = Centro-Centro, en los cantos del medio sin chocar).",
+  "_doc": "Catálogo de opciones de Royal Kitchens Studio (fuente propia, ya no depende de KitchenCatalog). Fotos relativas a esta carpeta: frentes/ = vista frontal del gabinete base con cada l01_linea_frente; manijas/ = cada tirador a 45°. Las tomó tools/fotos_catalogo.rb desde el gabinete base. color = tono aproximado de material; tiradores[].vista = forma/color para el alzado SVG. familias = mapeo opción -> variables del DC. Manijas: se eligen aparte para puertas (manija_puerta: d16/d36) y cajones (manija_cajon: e01). Reglas por tirador: usos = dónde se puede usar (sin usos = puerta y cajón); solo_frentes = solo con esos l01_linea_frente; posicion.<uso> = posición forzada (Lateral negra en puertas: 5 = Centro-Centro, en los cantos del medio sin chocar). Gola: familias.<f>.gola = cuándo lleva gola; con gola no hay manija y el frente solo puede ser uno con frentes[].con_gola (Lisa).",
   "medidas": {
     "ancho": {
       "label": "Ancho",
@@ -43,7 +43,8 @@
       "id": "1",
       "nombre": "Lisa",
       "foto": "frentes/01_Lisa.jpg",
-      "solo_madera": false
+      "solo_madera": false,
+      "con_gola": true
     },
     {
       "id": "2",
@@ -834,6 +835,10 @@
       },
       "frente": {
         "attr": "l01_linea_frente"
+      },
+      "gola": {
+        "attr": "b01_gola_o_tirador",
+        "valor": "2"
       },
       "manija_puerta": {
         "attrs": [

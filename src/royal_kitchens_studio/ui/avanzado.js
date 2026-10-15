@@ -238,7 +238,7 @@ window.RKAvanzado = (function () {
         const forz = rcc.valorForzado(f, manifest, reg.valores);
         let txt = malos[f.id] || "";
         if (!txt && !activo && f.habilitado_si && f.habilitado_si.mensaje) txt = f.habilitado_si.mensaje;
-        if (!txt && forz != null) txt = "Valor fijado por la configuración.";
+        if (!txt && forz != null) txt = rcc.mensajeForzado(f, manifest, reg.valores) || "Valor fijado por la configuración.";
         if (!txt && f.suma) {
           const tot = RKVista.num(rcc.effectiveValue(f, reg.valores, manifest), NaN);
           if (!isNaN(tot)) txt = `Total en SketchUp: ${Math.round(tot * 10) / 10} mm`;

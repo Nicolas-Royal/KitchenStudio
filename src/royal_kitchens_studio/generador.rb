@@ -160,6 +160,28 @@ module RoyalKitchens
         nil
       end
 
+      # Opciones (select) que el manifiesto fija según otra elección (`forzar`,
+      # p. ej. con gola el frente es Lisa), como aplicarForzados de receta.js:
+      # una fila que no pasó por la UI (CSV, receta vieja) sale igual. Las
+      # medidas forzadas no se tocan aquí: la fila ya las trae con su unidad.
+      def aplicar_forzados(manifest, valores)
+        valores = valores.dup
+        campos(manifest).each do |c|
+          next unless c["tipo"] == "select" && c["forzar"] && valores.key?(c["attr"])
+          hit = Array(c["forzar"]).find { |e| todas?(valores, e["si"]) }
+          valores[c["attr"]] = hit["valor"].to_s if hit
+        end
+        valores
+      end
+
+      # Variables del componente base que se fijan en cada generación
+      # (manifest.valores_componente: { attr => valor }, p. ej. la gola de
+      # melamina del medio sin pieza de arriba). No son elecciones de nadie,
+      # así que no van en la receta; lo que traiga la fila manda.
+      def valores_componente(manifest)
+        (manifest["valores_componente"] || {}).reject { |k, _v| k.start_with?("_") }.transform_values(&:to_s)
+      end
+
       def validar(manifest, valores)
         err = validar_medidas(manifest, valores)
         return err if err
@@ -312,6 +334,7 @@ module RoyalKitchens
       # { "ok", "error", "avisos", "publicado" }.
       def generar(familia, nombre, valores, divisores: nil, insertar: true, publicar: false, transformation: nil, clase: nil, creado_por: nil)
         manifest = Familias.manifiesto(familia)
+        valores = aplicar_forzados(manifest, valores)
         err = validar(manifest, valores)
         return { "ok" => false, "error" => err } if err
         # Guardar nunca reemplaza un mueble del catálogo: se pide otro nombre.
@@ -336,7 +359,7 @@ module RoyalKitchens
           divisores:          divisores_opts(divisores),
           union:              union_opts(manifest)
         }.compact
-        res = Engine.generar_unidad(base_def, nombre, valores, opts)
+        res = Engine.generar_unidad(base_def, nombre, valores_componente(manifest).merge(valores), opts)
         quitar_definiciones_nuevas(model, antes)
         out = { "ok" => res[:ok], "error" => res[:error], "avisos" => res[:warnings] || [] }
         if publicar && res[:ok]
