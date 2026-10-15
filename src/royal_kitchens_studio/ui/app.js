@@ -1518,25 +1518,28 @@ function pintarFicha() {
     ev.appendChild(row);
   });
 
+  if (!ev.children.length) ev.innerHTML = "<p class='hint'>Sin movimientos.</p>";
+
+  // Versiones: una tarjeta por registro, igual que los movimientos.
   const vt = $("#pf-versiones");
   const hist = (r.historial || []).slice().sort((x, y) => y.v - x.v);
-  vt.innerHTML = "<thead><tr><th>Versión</th><th>Quién · cuándo</th><th>Nota</th><th></th></tr></thead>";
-  const tb = document.createElement("tbody");
+  vt.innerHTML = "";
   hist.forEach((h) => {
-    const tr = document.createElement("tr");
+    const row = document.createElement("div");
+    row.className = "mini-row";
     const marcas = [h.v === r.version_actual ? "<span class='pill ok'>Vigente</span>" : "",
       h.v === r.version_aprobada ? "<span class='pill e-aprobado'>Aprobada</span>" : "",
       h.congelada ? "<span class='pill info'>Congelada</span>" : "",
       h.conflicto ? "<span class='pill bad'>Conflicto</span>" : ""].join(" ");
-    tr.innerHTML = `<td><span class="pj-folio">v${esc(h.v)}</span> ${marcas}</td>` +
-      `<td>${esc(h.por || "")}<span class="pj-sub">${esc(P.fecha(h.fecha))}</span></td>` +
-      `<td class="msgs">${esc(h.nota || "")}</td><td><button class="key sm">Abrir</button></td>`;
-    $("button", tr).onclick = () => abrirProyecto(r.folio, true, { version: h.v });
-    $("button", tr).disabled = !editable;
-    tb.appendChild(tr);
+    row.innerHTML = `<div class="pf-ev"><b><span class="pj-folio">v${esc(h.v)}</span> ${marcas}</b>` +
+      `<span class="hint">${esc(h.por || "")} · ${esc(P.fecha(h.fecha))}${h.nota ? " · " + esc(h.nota) : ""}</span></div>` +
+      `<button class="key sm">Abrir</button>`;
+    $("button", row).onclick = () => abrirProyecto(r.folio, true, { version: h.v });
+    $("button", row).disabled = !editable;
+    vt.appendChild(row);
   });
-  if (!hist.length) tb.innerHTML = "<tr><td colspan='4' class='hint'>Aún no hay versiones.</td></tr>";
-  vt.appendChild(tb);
+  if (!hist.length) vt.innerHTML = "<p class='hint'>Aún no hay versiones.</p>";
+  [ev, vt].forEach(marcarDesborde);
 
   $("#pf-pie").textContent = `Actualizado por ${(r.actualizado || {}).nombre || "—"} · ${P.fecha((r.actualizado || {}).fecha)}`;
   $("#pf-abrir").disabled = !r.version_actual && !(r.local || {}).pendiente;
@@ -1545,6 +1548,16 @@ function pintarFicha() {
   $("#pf-consulta").textContent = r.version_congelada && esPlaneacion() ? `Abrir congelada v${r.version_congelada}` : "Abrir solo lectura";
   $("#pf-consulta").onclick = () => abrirProyecto(r.folio, true, r.version_congelada && esPlaneacion() ? { version: r.version_congelada } : {});
 }
+
+/* Marco con desplazamiento: «arriba»/«abajo» encienden el desvanecido de ese
+   borde para que se note que hay más registros sin que se vean cortados. */
+function marcarDesborde(s) {
+  const m = s.parentElement;
+  m.classList.toggle("arriba", s.scrollTop > 2);
+  m.classList.toggle("abajo", s.scrollTop + s.clientHeight < s.scrollHeight - 2);
+}
+$$(".pf-scroll").forEach((s) => s.addEventListener("scroll", () => marcarDesborde(s), { passive: true }));
+window.addEventListener("resize", () => $$(".pf-scroll").forEach(marcarDesborde));
 
 /* Cada paso se confirma en una pregunta con nota (obligatoria al regresar o
    al enviar un cambio): un clic suelto ya no mueve el proyecto. */

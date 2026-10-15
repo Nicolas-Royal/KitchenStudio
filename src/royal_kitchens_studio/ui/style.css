@@ -695,15 +695,26 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .pf-body > div > * { flex: none; }
 /* Si falta alto, la vista previa se achica (sin deformarse) en vez de recortar los datos. */
 .pf-col-proyecto > .pf-mini { flex: 0 1 auto; min-height: 120px; }
-.pf-col-estado > #pf-eventos, .pf-col-estado > .table-wrap { flex: 1 1 0; min-height: 110px; overflow-y: auto; overscroll-behavior: contain; }
-#pf-eventos { padding: 4px 6px 6px 4px; }
-.pf-col-estado thead th { position: sticky; top: 0; z-index: 1; background: var(--chassis); }
-.pf-body > div, .pf-col-estado > * { scrollbar-width: thin; scrollbar-color: var(--deep) transparent; }
-.pf-body > div::-webkit-scrollbar, .pf-col-estado > *::-webkit-scrollbar { width: 8px; }
-.pf-body > div::-webkit-scrollbar-thumb, .pf-col-estado > *::-webkit-scrollbar-thumb { border-radius: var(--radius-full); background: var(--deep); }
+/* Movimientos y Versiones: un marco hundido con las tarjetas adentro. El
+   desvanecido de arriba/abajo (clases de marcarDesborde) avisa que hay más y
+   evita que el corte se vea como un error; la flecha dice hacia dónde. */
+.pf-col-estado > .pf-marco { flex: 1 1 0; min-height: 110px; }
+.pf-marco { position: relative; display: flex; border-radius: var(--radius-md); background: var(--chassis); box-shadow: var(--shadow-recessed); overflow: hidden; }
+.pf-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 10px 14px 12px; }
+.pf-marco::before, .pf-marco::after {
+  content: ""; position: absolute; left: 0; right: 10px; height: 34px; z-index: 1;
+  pointer-events: none; opacity: 0; transition: opacity var(--dur-fast);
+}
+.pf-marco::before { top: 0; background: linear-gradient(var(--chassis) 20%, transparent); }
+.pf-marco::after { bottom: 0; background: var(--chevron) center bottom 2px / 16px no-repeat, linear-gradient(transparent, var(--chassis) 70%); }
+.pf-marco.arriba::before, .pf-marco.abajo::after { opacity: 1; }
+.pf-scroll > .hint { margin: 0; }
+.pf-body > div, .pf-scroll { scrollbar-width: thin; scrollbar-color: var(--deep) transparent; }
+.pf-body > div::-webkit-scrollbar, .pf-scroll::-webkit-scrollbar { width: 8px; }
+.pf-body > div::-webkit-scrollbar-thumb, .pf-scroll::-webkit-scrollbar-thumb { border-radius: var(--radius-full); background: var(--deep); }
+.pf-scroll::-webkit-scrollbar-track { margin: 8px 0; }
 .pf-body h3 { margin: 20px 0 10px; }
 .pf-body > div > h3:first-of-type { margin-top: 0; }
-.pf-body .table-wrap { max-height: none; }
 .pf-mini { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; border-radius: var(--radius-md); background: var(--recessed); box-shadow: var(--shadow-recessed); }
 .pf-guardar { display: flex; justify-content: flex-end; margin-top: 10px; }
 /* Línea de pasos del proyecto: hechos con LED, el actual resaltado. */
@@ -720,7 +731,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .pf-pasos span { overflow-wrap: anywhere; }
 .pf-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
 .pf-acciones:empty { display: none; }
-.pf-ev { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.pf-ev { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.pf-ev .pill { vertical-align: 1px; }
 .pf-ev b { font-weight: 600; }
 
 /* ---- Hojas flotantes, ocupado, aviso, vacío ------------------------- */
