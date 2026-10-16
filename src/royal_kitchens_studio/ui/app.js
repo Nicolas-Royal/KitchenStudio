@@ -57,7 +57,7 @@ const SPEC_LABELS = { sku: "SKU", ancho_mm: "Ancho", alto_mm: "Alto", fondo_mm: 
 const S = {
   carpetas: {}, version: "",
   // Igual a Proyecto::DEFAULT en Ruby; se reemplaza con lo que llegue de onEstado.
-  proyecto: { global: { frente: "1", manija_puerta: "9", manija_cajon: "9", material: "",
+  proyecto: { global: { frente: "1", manija_puerta: "9", manija_cajon: "9", material: "SIN_MATERIAL",
     medidas: { igualar: false, alto: 770, fondo: 600 } }, modulos: {} },
   listo: false,
   modulos: [], categorias: [],
@@ -305,8 +305,10 @@ const PICKERS = [
   { key: "frente", titulo: "Tipo de frente", lista: () => S.opciones.frentes },
   { key: "manija_puerta", titulo: "Manija de puertas", uso: "puerta", lista: () => S.opciones.tiradores },
   { key: "manija_cajon", titulo: "Manija de cajones", uso: "cajon", lista: () => S.opciones.tiradores },
-  { key: "material", titulo: "Material de frentes", lista: () => S.opciones.materiales, buscar: true, sinCambio: true },
+  { key: "material", titulo: "Material del mueble", lista: () => S.opciones.materiales, buscar: true },
 ];
+// Material por defecto: todo el mueble blanco, para que el diseñador elija uno.
+const SIN_MATERIAL = "SIN_MATERIAL";
 const esManija = (key) => key === "manija_puerta" || key === "manija_cajon";
 
 function opcion(key, id) {
@@ -322,6 +324,13 @@ function fotoDe(key, o) {
   return placeholder(o ? o.nombre : "—");
 }
 
+/* Textura base de la madera sin foto (opciones.json → textura_veta), la misma
+   que Studio tiñe en SketchUp (Acabado.tenir), o null. */
+function texturaVeta() {
+  const t = S.opciones.textura_veta;
+  return t && t.ruta ? { url: fileURL(t.ruta), ancho: t.ancho_mm, alto: t.alto_mm, luminancia: t.luminancia } : null;
+}
+
 /* Diseño -> lo que necesita RKVista.svg. */
 function disenoSvg(d, gola, golaColor) {
   const vista = (key) => { const t = opcion(key, d[key]); return gola ? null : (t && t.vista) || null; };
@@ -330,7 +339,7 @@ function disenoSvg(d, gola, golaColor) {
     frente: d.frente,
     manijaPuerta: vista("manija_puerta"),
     manijaCajon: vista("manija_cajon"),
-    material: mat ? { color: mat.color, foto: mat.foto_abs ? fileURL(mat.foto_abs) : null, veta: mat.veta } : null,
+    material: mat ? { color: mat.color, foto: mat.foto_abs ? fileURL(mat.foto_abs) : null, veta: mat.veta, textura: texturaVeta() } : null,
     gola,
     golaColor: golaColor || null,
   };
@@ -1024,9 +1033,10 @@ function pintarAvanzado(m) {
     if (csv) visor("#av-preview").mostrar(svgModulo(m, true), m.id);
     else pintarPreviewModulo(m);
   });
-  // Material de frentes: no es un campo del manifiesto (lo aplica Studio al generar).
+  // Material del mueble: no es un campo del manifiesto (lo aplica Studio al
+  // generar, a todo el mueble). Sin elegir, «Sin material» (blanco).
   const pintarMaterial = () => {
-    const d = { material: st.material || "", frente: frenteDe() };
+    const d = { material: st.material || SIN_MATERIAL, frente: frenteDe() };
     pintarTile($("#av-material"), PICKERS.find((p) => p.key === "material"), d, () => {
       st.material = d.material; pintarMaterial(); vista.refrescar();
     });
@@ -1043,7 +1053,7 @@ function payloadGenerar(st, ref, insertar, publicar) {
     ref, familia: reg.familia, nombre,
     valores: S.rcc.flatten(st.man, reg),
     divisores: S.rcc.nombresDivisores(st.man, reg),
-    material: st.material || "",
+    material: st.material || SIN_MATERIAL,
     // Origen: lo que entra por CSV es catálogo; lo generado desde «Avanzado», del usuario.
     clase: st.csv ? "catalogo" : "usuario",
     insertar, publicar,

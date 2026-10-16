@@ -151,6 +151,8 @@ src/royal_kitchens_studio/
   sincronia.rb  copia de trabajo local <-> almacén
   biblioteca.rb catálogo de muebles: recetas guardadas (.json), «Usar» las genera desde el base
   catalogo.rb   opciones (frente, manija, material) + reglas de fabricación
+  acabado.rb    cantos según la fase (diseño: del material de su pieza; desde
+                planeación: los de OpenCutList) y veta generada para la madera
   familias.rb   manifiestos de familia (familias/*.json)
   generador.rb  generar desde una receta: validación de respaldo, una sola pasada
                 para insertar y/o guardar en Creaciones, limpieza de definiciones
@@ -182,7 +184,7 @@ partida de un modelo nuevo):
 ```json
 {
   "version": 1,
-  "global": { "frente": "1", "manija_puerta": "9", "manija_cajon": "15", "material": "",
+  "global": { "frente": "1", "manija_puerta": "9", "manija_cajon": "15", "material": "SIN_MATERIAL",
               "medidas": { "igualar": false, "alto": 770, "fondo": 600 } },
   "modulos": { "<id>": { "personalizado": true, "frente": "3", "manija_puerta": "11", "manija_cajon": "11",
                          "material": "MDF_LONDON_BLUE", "tarja": true,
@@ -230,6 +232,28 @@ inyectan) y los fija su `forzar`, en JS (`aplicarForzados`) y en Ruby
 - Solo 1 o 2 puertas por zona (`d15/d35`: simple IZQ, simple DER, doble).
 - Todas las entradas de `forzar` llevan `b01 = tirador` y «tipo ≠ Sin
   tirador»: con gola o sin manija no se inyecta nada.
+
+Acabado (`acabado.rb`, 10/2026):
+
+- **Cantos.** El componente base pinta cara por cara los cantos con
+  materiales de cubrecanto de OpenCutList (`ladb_opencutlist.type = 4`:
+  «SinCanto» amarillo, «CANTO EXTERIOR» rojo). Mientras el proyecto está en
+  diseño, revisión o aprobado esas caras van **sin material** (toman el de su
+  pieza, que va en la instancia) y el canto se guarda en la cara
+  (`RK_Canto.material` / `atras`). Desde «Enviado a planeación»
+  (`Acabado::CON_CANTOS`) se devuelven. Se aplica al generar o colocar un
+  mueble (solo sus definiciones), al abrir/activar un modelo y al cambiar de
+  estado. Sin proyecto = diseño; sin conexión con el almacén no se toca.
+- **Veta.** Los materiales de madera del catálogo no traen foto: al crearlos
+  (`Catalogo.asegurar_material`) se les pone la textura de TEKA ARTICO-VESTO1
+  (`catalogo/texturas/veta_teka_artico.png`, veta recta; `opciones.json →
+  textura_veta`: 1800 × 400 mm, luminancia media 215.2) **teñida** con su
+  color: pixel = color × luminancia / media (`Acabado.tenir`, BGR para
+  `ImageRep`, respeta el relleno de fila). El promedio queda en su color. La
+  vista previa tiñe la misma imagen con la misma fórmula (`feColorMatrix` en
+  `RKVista`); la veta de la imagen es horizontal: cajones así, puertas con el
+  patrón girado (en SketchUp el componente ya gira las piezas). `VETA_VERSION`
+  regenera las que Studio ya hizo; una textura puesta a mano no se toca.
 
 Gola elegida en el diseño (`golas[]`: sin gola, melamina, aluminio claro,
 aluminio oscuro; `proyecto.global.gola` / `modulos[id].gola`, "" = la del
@@ -341,13 +365,23 @@ tanto Planeación no puede avanzar el estado. Entregado no acepta cambios.
   arriba del canto del frente de arriba (16 y 16 mm con perfil 90, hueco 40,
   espesor 18; centrado daba 7 y 25) y no toca las correderas de un cajón arriba. En L-L la ajustan las fórmulas del
   componente; el aluminio sigue centrado. El DC no tiene `MAX`: usar `IF`.
-  El material se escribe como `c16_material_puerta` + `c22matpuertade =
-  "=c16_material_puerta"` en la fila, así viaja en la receta publicada.
+  El material va a **todo el mueble** (opciones.json → familias.gabinete.material):
+  `c16_material_puerta` + `c22matpuertade = "=c16_material_puerta"` (frentes) y
+  `c15_material_estructura`, `c17_material_fondo`, `c21matestrde`,
+  `c23matfondode` = el material (`{material}` en `extra`). `c21`/`c23` van directos:
+  su fórmula vive solo en la definición y el DC no la recalcula en la raíz, así
+  que la estructura se quedaba en TEKA ARTICO-VESTO1. Los hijos (Estructura,
+  Zoclo, cajones) leen `parent!c21matestrde`. Herrajes, manijas y gola de
+  aluminio conservan el suyo. Así viaja en la receta publicada.
+- **Sin material** (`SIN_MATERIAL`, blanco liso) es el default del proyecto y de
+  «Avanzado»: el diseñador entra y elige uno. Reemplaza a «Como el módulo»
+  (material ""); un proyecto viejo con "" pasa a `SIN_MATERIAL`
+  (`Proyecto.sin_vacio`).
 - **CSV**: todo se genera desde la tabla (frentes, medidas, diseño, estado y
   avisos de cada fila). «Editar» abre «Avanzado» sobre una copia de la fila
   (`editarFilaCsv`, `S.avCsv`), sin pasar por la página del mueble: ahí solo se
   guarda (`guardarFilaCsv`, con la configuración sin errores) o se descarta al
-  cerrar. El material de frentes se elige en «Avanzado» (`st.material`; en una
+  cerrar. El material del mueble se elige en «Avanzado» (`st.material`; en una
   fila, `f.material`) y viaja en `generar.material`.
 - **Receta → formulario** (`RKAvanzado.valoresDesdeFila`): quita unidades y
   la `suma` (zoclo, puerta) y resuelve presets por fórmula/valor. Probado:

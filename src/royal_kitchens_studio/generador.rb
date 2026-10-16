@@ -2,6 +2,7 @@ require "json"
 require "fileutils"
 require_relative "familias"
 require_relative "biblioteca"
+require_relative "acabado"
 require_relative "motor/engine"
 require_relative "motor/plantilla"
 require_relative "motor/importer"
@@ -444,7 +445,9 @@ module RoyalKitchens
         fila  = valores_componente(manifest).merge(valores)
         clave = clave_mueble(base_path, fila, div)
         if (hecha = generada(model, clave))
-          return colocar(model, hecha, nombre, transformation || siguiente_x(model))
+          r = colocar(model, hecha, nombre, transformation || siguiente_x(model))
+          Acabado.mueble_nuevo(model, r["instancia"])
+          return r
         end
 
         RK::Mitered.instalar_hook
@@ -465,6 +468,8 @@ module RoyalKitchens
         res = Engine.generar_unidad(base_def, nombre, fila, opts)
         sellar(res[:instancia].definition, clave) if res[:ok] && res[:instancia]
         quitar_definiciones_nuevas(model, antes)
+        # Cantos según la fase del proyecto (en diseño, del material de su pieza).
+        Acabado.mueble_nuevo(model, res[:instancia]) if res[:ok]
         { "ok" => res[:ok], "error" => res[:error], "avisos" => res[:warnings] || [], "instancia" => res[:instancia] }
       end
 

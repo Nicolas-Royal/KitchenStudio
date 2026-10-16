@@ -9,6 +9,7 @@ require_relative "generador"
 require_relative "usuario"
 require_relative "registro"
 require_relative "sincronia"
+require_relative "acabado"
 require_relative "dialogo"
 
 module RoyalKitchens

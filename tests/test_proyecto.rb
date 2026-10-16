@@ -14,6 +14,10 @@ assert d["global"]["frente"] == "1" && d["global"]["manija_puerta"] == "9" && d[
        "sin datos: diseño por defecto"
 assert d["global"]["medidas"] == { "igualar" => false, "alto" => 770, "fondo" => 600 }, "medidas por defecto"
 assert d["modulos"] == {}, "sin personalizaciones"
+assert d["global"]["material"] == "SIN_MATERIAL", "material por defecto: «Sin material» (blanco)"
+v = P.normalizar("global" => { "material" => "" }, "modulos" => { "m" => { "personalizado" => true, "material" => "" }, "o" => { "original" => true } })
+assert v["global"]["material"] == "SIN_MATERIAL" && v["modulos"]["m"]["material"] == "SIN_MATERIAL" && !v["modulos"]["o"].key?("material"),
+       "«Como el módulo» (material vacío) de un proyecto viejo pasa a «Sin material»"
 
 d = P.normalizar("global" => { "frente" => "3", "medidas" => { "igualar" => true }, "basura" => 1 },
                  "modulos" => { "gab-1" => { "personalizado" => true, "frente" => "2" }, "x" => "no es hash" })

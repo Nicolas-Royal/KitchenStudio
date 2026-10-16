@@ -1,4 +1,5 @@
 require "json"
+require_relative "acabado"
 
 module RoyalKitchens
   module Studio
@@ -34,6 +35,7 @@ module RoyalKitchens
         GRUPOS.each do |g|
           data[g] = Array(data[g]).map { |o| o.merge("foto_abs" => foto_abs(o["foto"])) }
         end
+        data["textura_veta"] = textura_veta(data)
         data
       end
 
@@ -142,7 +144,11 @@ module RoyalKitchens
           err = error_material(opciones, eleccion["material"], frente)
           raise ArgumentError, err if err
           cambios[m["attr"]] = eleccion["material"].to_s
-          (m["extra"] || {}).each { |k, v| cambios[k] = v.to_s }
+          # {material} = el elegido. Todo el mueble: estructura y fondo además de
+          # frentes. c21matestrde/c23matfondode van directos porque el DC no
+          # recalcula su fórmula en la raíz (la tienen solo en la definición) y
+          # la estructura se quedaba con la madera del componente.
+          (m["extra"] || {}).each { |k, v| cambios[k] = v.to_s.gsub("{material}", eleccion["material"].to_s) }
         end
         cambios
       end
@@ -154,20 +160,38 @@ module RoyalKitchens
 
       # El componente aplica el material por NOMBRE (c22matpuertade =
       # c16_material_puerta), así que tiene que existir antes del redibujado.
-      # Orden: ya está en el modelo > foto del catálogo como textura > tono
-      # aproximado de opciones.json (el mismo de la vista previa).
+      # Orden: ya está en el modelo > foto del catálogo como textura > madera:
+      # textura de veta (TEKA ARTICO-VESTO1) teñida con su tono (Acabado) >
+      # tono liso de opciones.json (el mismo de la vista previa). Una madera
+      # que Studio creó antes lisa, o con una veta de otra versión, se completa.
       def asegurar_material(model, id)
         id = id.to_s
-        return if id.empty? || model.materials[id]
-        o   = buscar(cargar, "materiales", id) || {}
-        mat = model.materials.add(id)
+        return if id.empty?
+        op  = cargar
+        o   = buscar(op, "materiales", id) || {}
         foto = foto_abs(o["foto"])
+        base = textura_veta(op)
+        con_veta = !foto && base && o["veta"] && o["color"]
+        if (mat = model.materials[id])
+          Acabado.poner_veta(mat, o["color"], base) if con_veta && Acabado.falta_veta?(mat, o["color"])
+          return
+        end
+        mat = model.materials.add(id)
         if foto
           mat.texture = foto
           mat.texture.size = TEXTURA_MM.mm
+        elsif con_veta
+          Acabado.poner_veta(mat, o["color"], base)
         else
           mat.color = o["color"] ? Sketchup::Color.new(o["color"]) : Sketchup::Color.new(*(COLOR_FAMILIA[o["familia"]] || [200, 200, 200]))
         end
+      end
+
+      # opciones.json → textura_veta con su ruta absoluta, o nil si falta la imagen.
+      def textura_veta(op = cargar)
+        t = op["textura_veta"]
+        ruta = t && foto_abs(t["foto"])
+        ruta && t.merge("ruta" => ruta)
       end
 
       def numero(v)

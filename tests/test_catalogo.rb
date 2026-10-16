@@ -61,3 +61,9 @@ assert c["b01_gola_o_tirador"] == "1" && c["d16_z1_tirador_tipo"] == "9" && !c.k
 c = C.cambios_receta(CFG, { "gola" => "melamina", "gola_combinacion" => "1" }, OP, {})
 assert c.values_at("b01_gola_o_tirador", "g01_perfil_tipo", "g03_combinacion") == %w[2 2 1], "gola melamina L-C"
 assert !C.cambios_receta(CFG, { "gola" => "" }, OP, {}).key?("b01_gola_o_tirador"), "sin elección: la gola del mueble"
+
+# Material: todo el mueble (frentes, estructura y fondo) con el elegido.
+c = C.cambios_receta(CFG, { "material" => "ENCINO_COLOR_NUEVO" }, OP)
+assert c.values_at("c16_material_puerta", "c15_material_estructura", "c17_material_fondo", "c21matestrde", "c23matfondode").uniq == ["ENCINO_COLOR_NUEVO"] &&
+       c["c22matpuertade"] == "=c16_material_puerta", "el material va a frentes, estructura y fondo"
+assert OP["materiales"].first["id"] == "SIN_MATERIAL" && OP["materiales"].first["color"] == "#ffffff", "«Sin material» (blanco) encabeza la lista"

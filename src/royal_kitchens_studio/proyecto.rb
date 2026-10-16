@@ -21,7 +21,7 @@ module RoyalKitchens
           # La manija se elige aparte para puertas y para cajones.
           "manija_puerta" => "9",   # Andrea
           "manija_cajon"  => "9",
-          "material" => "",    # "" = el de la receta / el del módulo
+          "material" => "SIN_MATERIAL", # blanco: el diseñador entra y elige uno
           # Gola (opciones.json golas[].id): "" = la del módulo; "tirador" = sin
           # gola; melamina / aluminio claro / oscuro. Con gola, L-C ("1") o L-L ("2").
           "gola" => "",
@@ -45,9 +45,16 @@ module RoyalKitchens
         # Solo las claves vigentes: un proyecto viejo puede traer «ancho» o «tarja» globales.
         medidas = base["medidas"].merge((g["medidas"].is_a?(Hash) ? g["medidas"] : {}).slice(*base["medidas"].keys))
         global = base.merge(g.slice(*base.keys)).merge("medidas" => medidas)
+        global["material"] = sin_vacio(global["material"])
         modulos = (data["modulos"].is_a?(Hash) ? data["modulos"] : {}).select { |k, v| k.is_a?(String) && v.is_a?(Hash) }
-        modulos = modulos.transform_values { |v| manijas(v) }
+        modulos = modulos.transform_values { |v| m = manijas(v); m.key?("material") ? m.merge("material" => sin_vacio(m["material"])) : m }
         { "version" => VERSION_DATOS, "global" => global, "modulos" => modulos }
+      end
+
+      # Ya no hay «Como el módulo» (material ""): un proyecto viejo pasa a
+      # «Sin material» (blanco), que es el default.
+      def sin_vacio(material)
+        material.to_s.empty? ? DEFAULT["global"]["material"] : material.to_s
       end
 
       # Antes de 0.3.1 había una sola "manija" para puertas y cajones.

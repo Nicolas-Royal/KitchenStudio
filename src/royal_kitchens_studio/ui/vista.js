@@ -94,7 +94,26 @@ window.RKVista = (function () {
     return "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
   }
 
+  /* Madera sin foto con la textura base de veta (la de TEKA ARTICO-VESTO1):
+     la imagen teñida con el color del material, con la misma fórmula que usa
+     Studio en SketchUp (Acabado.tenir): pixel = color × luminancia / media.
+     Es lineal, así que va como feColorMatrix. La veta de la imagen es
+     horizontal (cajones); +id+-v la gira para las puertas, como en SketchUp. */
+  function patronVeta(id, mat) {
+    const t = mat.textura;
+    const m = (t.luminancia || 215) / 255;
+    const rgb = (/^#?([0-9a-f]{6})$/i.exec(mat.color || MADERA_BASE) || [0, "c9a26e"])[1];
+    const k = [0, 2, 4].map((i) => parseInt(rgb.substr(i, 2), 16) / 255 / m);
+    const fila = (c) => `${(c * 0.299).toFixed(4)} ${(c * 0.587).toFixed(4)} ${(c * 0.114).toFixed(4)} 0 0`;
+    const filtro = `<filter id="${id}-tinte" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${fila(k[0])} ${fila(k[1])} ${fila(k[2])} 0 0 0 1 0"/></filter>`;
+    const img = `<image href="${esc(t.url)}" width="${t.ancho}" height="${t.alto}" preserveAspectRatio="none" filter="url(#${id}-tinte)"/>`;
+    return filtro +
+      `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${t.ancho}" height="${t.alto}">${img}</pattern>` +
+      `<pattern id="${id}-v" patternUnits="userSpaceOnUse" width="${t.ancho}" height="${t.alto}" patternTransform="rotate(90)">${img}</pattern>`;
+  }
+
   function patronMaterial(id, mat) {
+    if (mat && !mat.foto && mat.veta && mat.textura) return patronVeta(id, mat);
     if (mat && mat.foto) {
       return `<pattern id="${id}" patternUnits="userSpaceOnUse" width="600" height="600">` +
         `<image href="${esc(mat.foto)}" width="600" height="600" preserveAspectRatio="xMidYMid slice"/></pattern>`;
@@ -195,7 +214,9 @@ window.RKVista = (function () {
   }
 
   function hoja(x, y, w, h, d, tipo, lado) {
-    const fill = `url(#${d._pat})`;
+    // Con la textura de veta, la puerta la lleva vertical (patrón girado).
+    const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
+    const fill = `url(#${d._pat}${conVeta && tipo === "puerta" ? "-v" : ""})`;
     const sinManija = d.gola || String(d.frente) === "9";
     return rect(x, y, w, h, `fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"`) +
       rect(x + 1.5, y + 1.5, w - 3, h - 3, 'fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"') +
@@ -227,8 +248,14 @@ window.RKVista = (function () {
     const W = layout.ancho, H = layout.alto, Z = layout.zoclo;
     const M = 40;
     let out = "";
-    // Cuerpo (costados y techo asoman alrededor de los frentes).
-    out += rect(0, 0, W, H, 'fill="#ece8e1" stroke="rgba(0,0,0,.35)" stroke-width="1.5"');
+    // Cuerpo (costados y techo asoman alrededor de los frentes): todo el
+    // mueble va del mismo material (en SketchUp: frentes, estructura y fondo).
+    // Sin material elegido, el tono neutro de siempre.
+    const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
+    out += d.material
+      ? rect(0, 0, W, H, `fill="url(#${d._pat}${conVeta ? "-v" : ""})" stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) +
+        rect(0, 0, W, H, 'fill="rgba(0,0,0,.10)"')
+      : rect(0, 0, W, H, 'fill="#ece8e1" stroke="rgba(0,0,0,.35)" stroke-width="1.5"');
     // El zoclo lleva el material de los frentes, pero metido: más angosto,
     // oscurecido y con la sombra del cuerpo encima. Sin zoclo, el cuerpo va al piso.
     if (Z > 0 && layout.zocloVisible) {

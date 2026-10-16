@@ -264,8 +264,11 @@ module RoyalKitchens
         material = req["material"].to_s
         unless material.empty?
           asegurar_material(material)
-          valores["c16_material_puerta"] = material
-          valores["c22matpuertade"]      = "=c16_material_puerta"
+          # El mismo mapeo que al insertar (opciones.json → familias.<f>.material):
+          # todo el mueble con ese material (frentes, estructura y fondo).
+          cfg = (Catalogo.cargar["familias"] || {}).dig(req["familia"].to_s, "material") || {}
+          valores[cfg["attr"] || "c16_material_puerta"] = material
+          (cfg["extra"] || { "c22matpuertade" => "=c16_material_puerta" }).each { |k, v| valores[k] = v.to_s.gsub("{material}", material) }
         end
         r = Generador.generar(req["familia"].to_s, nombre, valores, divisores: req["divisores"],
                               insertar: !!req["insertar"], publicar: !!req["publicar"], clase: req["clase"],
@@ -342,6 +345,9 @@ module RoyalKitchens
         todo_subido!(reg) if a == Registro::CONGELA
         Registro.cambiar_estado(reg, a, Usuario.firma(u), Time.now, req["nota"])
         Registro.escribir(reg)
+        # Al llegar a planeación (o regresar a diseño) cambian los cantos.
+        model = Sketchup.active_model
+        Acabado.aplicar(model, a) if Sincronia.folio_de(model) == reg["folio"]
         refrescar
         detalle(reg["folio"])
       end
@@ -469,6 +475,9 @@ module RoyalKitchens
           Dialogo.vigilar(model)
           Sincronia.modelo_cambio(model)
           Dialogo.refrescar
+          # Cantos según la fase del proyecto; diferido para no editar el
+          # modelo dentro del observador que lo está abriendo.
+          Dialogo.despues(0.2) { Acabado.sincronizar(model) if model.valid? }
         rescue => e
           warn "[Royal Kitchens Studio] #{e.message}"
         end

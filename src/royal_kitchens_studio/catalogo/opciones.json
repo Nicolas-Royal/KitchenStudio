@@ -254,6 +254,16 @@
   ],
   "materiales": [
     {
+      "id": "SIN_MATERIAL",
+      "nombre": "Sin material",
+      "familia": "Sin material",
+      "grupo": "Sin material",
+      "foto": null,
+      "color": "#ffffff",
+      "veta": false,
+      "_doc": "Default del proyecto: todo el mueble blanco liso, para que el diseñador entre y elija uno. Reemplaza a «Como el módulo»."
+    },
+    {
       "id": "MDF_NEGRO_AB",
       "nombre": "Negro Alto Brillo",
       "familia": "MDF",
@@ -862,6 +872,13 @@
       "color": "#2a2c2e"
     }
   ],
+  "textura_veta": {
+    "_doc": "Textura base de la madera sin foto: la de TEKA ARTICO-VESTO1 del gabinete base (veta recta). Studio la tiñe con el color de cada material con veta: pixel = color × luminancia / luminancia media (Acabado.tenir y el filtro de RKVista). ancho/alto = lo que cubre en SketchUp.",
+    "foto": "texturas/veta_teka_artico.png",
+    "ancho_mm": 1800,
+    "alto_mm": 400,
+    "luminancia": 215.2
+  },
   "colores_gola_aluminio": {
     "Aluminio anodizado mate": "#c4c8cc",
     "Negro mate": "#2a2c2e",
@@ -919,7 +936,11 @@
       "material": {
         "attr": "c16_material_puerta",
         "extra": {
-          "c22matpuertade": "=c16_material_puerta"
+          "c22matpuertade": "=c16_material_puerta",
+          "c15_material_estructura": "{material}",
+          "c17_material_fondo": "{material}",
+          "c21matestrde": "{material}",
+          "c23matfondode": "{material}"
         }
       }
     }
