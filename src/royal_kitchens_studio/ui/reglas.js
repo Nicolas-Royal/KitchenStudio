@@ -47,6 +47,35 @@ window.RKReglas = (function () {
     return !!g && String(v[g.attr]) === String(g.valor);
   }
 
+  // ---- Gola elegida en el diseño (golas[]: sin gola, melamina, aluminio) ----
+  /* Opción de gola +id+ (golas[].id), o null («Como el módulo»). */
+  function golaOpcion(op, id) { return id ? buscar(op.golas, id) : null; }
+  /* ¿Lleva gola? La elección del diseño manda; sin elección, la receta. */
+  function conGola(op, fam, id, deReceta) {
+    const o = golaOpcion(op, id), g = fam && fam.gola;
+    if (!o || !g) return !!deReceta;
+    return String((o.valores || {})[g.attr]) === String(g.valor);
+  }
+  /* Cambios de la receta para la elección +id+ ({ attr: valor }), con la
+     combinación L-C ("1") / L-L ("2") si lleva gola. {} sin elección. */
+  function cambiosGola(op, fam, id, combinacion) {
+    const o = golaOpcion(op, id);
+    if (!o) return {};
+    const out = Object.assign({}, o.valores);
+    if (conGola(op, fam, id) && fam.gola.combinacion && combinacion) out[fam.gola.combinacion] = String(combinacion);
+    return out;
+  }
+  /* Tono de la gola en la vista: el de la opción elegida o, sin elección, el
+     de la receta +v+ (melamina, o el color del aluminio c23). */
+  function colorGola(op, fam, id, v) {
+    const o = golaOpcion(op, id);
+    if (o && o.color) return o.color;
+    const g = (fam && fam.gola) || {};
+    const mel = (op.golas || []).find((x) => String((x.valores || {})[g.perfil]) === "2");
+    if (v && String(v[g.perfil]) === "2") return mel ? mel.color : null;
+    return (v && (op.colores_gola_aluminio || {})[v[g.color_aluminio]]) || null;
+  }
+
   /* Primer problema del diseño +d+ ({frente, manija_puerta, manija_cajon, material}), o "". */
   function diseno(op, d, conGola) {
     if (conGola) {
@@ -94,5 +123,5 @@ window.RKReglas = (function () {
     return out.filter((e, i) => out.findIndex((x) => x.msg === e.msg) === i);
   }
 
-  return { USOS, manija, material, gola, frenteGola, llevaGola, diseno, posicion, receta };
+  return { USOS, manija, material, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
 })();

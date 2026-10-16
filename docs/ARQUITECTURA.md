@@ -29,13 +29,19 @@ guardan desde «Avanzado» o un CSV (carpeta de Ajustes, por defecto
 Una cosa a la vez:
 
 1. **Login** (`#login`): correo, contraseña y rol. Prototipo: acepta todo.
-2. **Inicio** (barra superior sin pestañas): **Proyectos** (lista, filtros,
-   nuevo, ficha) y **Ajustes** (perfil y carpetas). Si hay un proyecto abierto
-   en SketchUp, arriba de la lista sale «Entrar al proyecto →».
+   Al salir el botón «Entrar» vuelve a estar activo (`mostrarLogin`).
+2. **Inicio** (barra superior sin pestañas): **Proyectos** (lista, filtros
+   —«Todos» primero y por defecto, luego «Mis proyectos»—, nuevo, ficha) y
+   **Ajustes** (perfil y carpetas). Si hay un proyecto abierto en SketchUp,
+   arriba de la lista sale «Entrar al proyecto →».
 3. **Dentro de un proyecto** (barra con «← Proyectos», folio, cliente, estado,
    sincronía y «Guardar versión…»): pestañas **Diseño** (global), **Muebles**
    (catálogo y página de cada mueble) y **Desde CSV**. Sin proyecto abierto no
    se entra (`irA` manda a la lista); al abrir o crear uno se entra solo.
+4. **Solo la escena** (`#pj-libre`, `S.libre`): las mismas pestañas sobre el
+   modelo abierto, sin proyecto ni registro. El diseño se guarda en el modelo
+   como siempre; «Guardar como proyecto…» (Diseño) abre «Nuevo proyecto» con el
+   modelo abierto. «← Proyectos» sale del modo.
 
 ## Catálogo de muebles: origen y diseño
 
@@ -55,14 +61,18 @@ parten de «Este proyecto»:
 | Modo | Guardado | Quién | Al insertar |
 |---|---|---|---|
 | Este proyecto | nada | todos | se regenera con el diseño del proyecto |
-| Original | `{ "original": true }` | solo `usuario` | el `.skp` guardado, rápido |
+| Original | `{ "original": true }` | solo `usuario` | se genera la receta tal cual |
 | Ajustar este mueble | `{ "personalizado": true, … }` | todos | se regenera con el ajuste |
 
 - En la lista todo se ve con el diseño del proyecto. Solo en el filtro
   «Creados por usuario» aparece «Ver con: Original / Este proyecto» (entra en
   Original): vale para las tarjetas de ese filtro y su «Usar», salvo los
   muebles con elección propia. El catálogo nunca va con el original.
-- El diseño del proyecto pone frente, manijas (no con gola), material y, con
+- **El catálogo son solo recetas** (0.6.3): `<nombre>.json` en la carpeta de
+  Creaciones, sin `.skp`. Todo se genera desde el componente base al insertar
+  (le llegan los arreglos del base y el diseño del proyecto); guardar desde CSV
+  no genera geometría. Un `.skp` viejo en la carpeta se ignora.
+- El diseño del proyecto pone gola (si se elige), frente, manijas (no con gola), material y, con
   «Igualar», el alto y el fondo; ancho, tarja, zonas, puertas, cajones y
   entrepaños son del mueble y no cambian
   (`RKMuebles.alcance`).
@@ -78,6 +88,31 @@ parten de «Este proyecto»:
   `Generador.generar` (`Biblioteca.existente`). Dos archivos que ya den el
   mismo id reciben sufijo (`Biblioteca.unicos`) para que ninguno tape al otro.
   Al borrar un mueble se quitan sus ajustes del proyecto abierto.
+- **Aplicar el diseño a lo ya insertado** (pestaña Diseño). Cada mueble
+  insertado lleva en la instancia `RK_Studio_Mueble` = `{ modulo: id, modo }`
+  (`Biblioteca.marcar`), con el modo con que entró. El botón pide a Ruby los
+  que entraron con «Este proyecto» (`Biblioteca.en_escena`: raíz y dentro de
+  grupos; los insertados antes de la marca se reconocen por el sku si el
+  mueble no tiene elección propia, `Biblioteca.sigue_proyecto`), la UI arma
+  la elección de cada uno con el diseño de hoy (`eleccionDe(m, disenoGlobal(m))`,
+  la misma que al insertar) y, tras confirmar, `Dialogo.aplicar_diseno` los
+  regenera en su lugar (posición, etiqueta y grupo) y borra los viejos.
+  Ajustados y originales no cambian.
+- **Reutilizar lo ya generado** (`Generador.generada`). Generar un gabinete
+  tarda ~45 s (medido: copiar el árbol del base ~14 s, limpiar definiciones
+  ~15 s, redibujado del DC ~8 s, cargar el base ~5 s). Cada definición
+  generada lleva `RK_Studio_Generado` = `{ clave, huella }`: la clave es la
+  receta completa + divisores + archivo base (nombre y fecha) + versión; la
+  huella, piezas y medidas al generarse (sin grupos vacíos). Misma clave y
+  misma huella → se coloca otra instancia de esa definición (~0.1 s). Si
+  alguien lo editó por dentro la huella cambia y se genera de nuevo. En
+  «Aplicar el diseño» el primero de cada mueble se genera, los iguales
+  reutilizan y el que ya tenía el diseño se queda.
+- Probado y descartado (10/2026): dejar el base cargado entre generaciones
+  (obliga a copiar todo el árbol para no ensuciarlo: 26 s de copia y 21 s de
+  redibujado, peor que cargarlo), copiar solo el camino a las piezas que se
+  tocan (el DC deja 4 «Tap.Tirador» de más) y limpiar con `purge_unused`
+  protegido (~2.5 s menos sobre ~3700 definiciones, no compensa).
 - Nombre de un mueble nuevo (`RKMuebles.nombreNuevo`): `GAB-600-2P-3C-014` =
   familia, ancho, frentes de arriba abajo y un consecutivo (el siguiente al
   mayor del catálogo), para que no se repita. Las filas de CSV conservan su
@@ -114,7 +149,7 @@ src/royal_kitchens_studio/
                 pierde las comillas)
   registro.rb   registro de proyectos en el almacén
   sincronia.rb  copia de trabajo local <-> almacén
-  biblioteca.rb catálogo de muebles: recetas guardadas (.json + .skp), «Usar» tal cual
+  biblioteca.rb catálogo de muebles: recetas guardadas (.json), «Usar» las genera desde el base
   catalogo.rb   opciones (frente, manija, material) + reglas de fabricación
   familias.rb   manifiestos de familia (familias/*.json)
   generador.rb  generar desde una receta: validación de respaldo, una sola pasada
@@ -170,6 +205,40 @@ Reglas de manija (`opciones.json` → `tiradores[]`, aplicadas en `Catalogo` y
 - `posicion.<uso>`: posición forzada. Lateral negra en puertas = 5
   (Centro-Centro: en los cantos del medio, escalonadas para no chocar;
   otras posiciones la mandan al canto de arriba).
+
+Posición, orientación y largo de la manija no se eligen (10/2026): los campos
+`d17/d18/d19` (zona 1), `d37/d38/d39` (zona 2) y `e02/e03/e04` (cajones) son
+`oculto` en el manifiesto (no salen en «Avanzado» ni en la plantilla CSV, sí se
+inyectan) y los fija su `forzar`, en JS (`aplicarForzados`) y en Ruby
+(`Generador.aplicar_forzados`, que los pone aunque la fila no los traiga):
+
+| Dónde | Posición | Orientación |
+|---|---|---|
+| Puertas | 3 Arriba-Derecha = arriba del lado que abre | vertical |
+| Lateral negra en puertas | 5 Centro-Centro | vertical |
+| Berlín (puerta o cajón) | 2 Arriba-Centro | horizontal |
+| Cajones | 5 Centro-Centro | horizontal |
+
+- Probado en el componente: «Puerta simple - IZQ» = bisagra a la izquierda;
+  el componente **refleja** la posición en la hoja con bisagra a la derecha
+  (simple DER con «Arriba-Izquierda» la puso junto a la bisagra) y en la
+  puerta doble cada hoja la lleva al centro. Por eso es 3 en todos los casos.
+- Berlín: el componente lo pone en el canto de arriba a todo el ancho (38 mm)
+  y acorta la hoja; la posición no cambia eso.
+- El largo queda en el default (300/120/140 mm): las manijas se compran de una
+  medida y el modelo de cada una ya la trae (Andrea mide 170 aunque diga 300).
+- Solo 1 o 2 puertas por zona (`d15/d35`: simple IZQ, simple DER, doble).
+- Todas las entradas de `forzar` llevan `b01 = tirador` y «tipo ≠ Sin
+  tirador»: con gola o sin manija no se inyecta nada.
+
+Gola elegida en el diseño (`golas[]`: sin gola, melamina, aluminio claro,
+aluminio oscuro; `proyecto.global.gola` / `modulos[id].gola`, "" = la del
+mueble) con su combinación L-C / L-L (`gola_combinacion` → `g03_combinacion`)
+en el mismo selector. `RKReglas.cambiosGola` / `Catalogo.cambios_gola` la
+ponen en la receta antes de frente y manijas; con gola van máximo 2 cajones por
+zona (`erroresConGola` avisa antes de insertar). En la vista la gola lleva su
+tono (`golas[].color`, `colores_gola_aluminio` por c23) con degradado más
+oscuro hacia adentro (`RKVista`).
 
 Gola (`familias.gabinete.gola` = cuándo lleva gola; `frentes[].con_gola`):
 no lleva manija y **solo puerta Lisa**. El diseño del proyecto no le pone otro
@@ -248,13 +317,21 @@ tanto Planeación no puede avanzar el estado. Entregado no acepta cambios.
 
 - **Insertar (catálogo)** → `insertar {id, eleccion}`. Sin elección (mueble
   de usuario con su diseño original):
-  `Biblioteca.insertar_tal_cual` (el .skp guardado, ~1 s). Con elección:
+  `Biblioteca.insertar_tal_cual` (la receta tal cual, ~15 s). Con elección:
   `Catalogo.cambios_receta` (reglas incluidas) + `Generador.instanciar_receta`
   (receta + cambios, ~15 s).
 - **Generar (Avanzado / fila CSV)** → `RCC_CORE.flatten` + `nombresDivisores`
   → `generar {familia, nombre, valores, divisores, material, insertar, publicar}`
   → `Generador.generar`. Desde «Avanzado» siempre se inserta en la escena;
   «Guardar en el catálogo» es lo único opcional (el CSV solo guarda).
+  `manifest.formulas_piezas` reescribe fórmulas de piezas internas antes del
+  redibujado (`Engine.formulas_piezas`, independizando el camino): la holgura
+  lateral h33/h34 solo va en los entrepaños; los divisores (retiro 0) quedan
+  pegados a las laterales. `manifest.piezas_unicas` deja un contenedor como UNA
+  pieza para OpenCutList sin fusionar la geometría (`Engine.piezas_unicas`: las
+  piezas internas con «cortar abertura», como los frentes con marco): la
+  lateral con gola (cuerpo + dos tiras al frente) sale como «Lateral» con la
+  medida total; las dos iguales, en un renglón.
   `manifest.valores_componente` se inyecta además en cada generación (variables
   del componente base que no son elecciones; no van en la receta):
   `g46_melamina_tipo_perfil_c = 1` deja la gola de melamina del medio sin la

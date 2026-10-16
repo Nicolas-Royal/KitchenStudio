@@ -155,6 +155,26 @@ prueba("gola: solo puerta Lisa (reglas, alcance y «Avanzado» la fija)", () => 
   assert.strictEqual(reg.valores.l01_linea_frente, "3");
 });
 
+prueba("gola en el diseño: selector único (sin gola, melamina, aluminio claro/oscuro) y L-C / L-L", () => {
+  const fam = op.familias.gabinete;
+  assert.deepStrictEqual(op.golas.map((g) => g.id), ["tirador", "melamina", "aluminio_claro", "aluminio_oscuro"]);
+  assert.strictEqual(R.conGola(op, fam, "", true), true, "sin elección: la del mueble");
+  assert.strictEqual(R.conGola(op, fam, "tirador", true), false);
+  assert.strictEqual(R.conGola(op, fam, "melamina", false), true);
+  assert.deepStrictEqual(R.cambiosGola(op, fam, "aluminio_oscuro", "2"),
+    { b01_gola_o_tirador: "2", g01_perfil_tipo: "1", c23_material_gola_aluminio: "Negro mate", g03_combinacion: "2" });
+  assert.deepStrictEqual(R.cambiosGola(op, fam, "tirador", "2"), { b01_gola_o_tirador: "1" }, "sin gola no hay combinación");
+  assert.deepStrictEqual(R.cambiosGola(op, fam, "", "2"), {});
+  // Color en la vista: la opción elegida, o el de la receta.
+  assert.strictEqual(R.colorGola(op, fam, "aluminio_claro"), "#c4c8cc");
+  assert.strictEqual(R.colorGola(op, fam, "", { g01_perfil_tipo: "2" }), op.golas[1].color);
+  assert.strictEqual(R.colorGola(op, fam, "", { g01_perfil_tipo: "1", c23_material_gola_aluminio: "Champagne mate" }), "#cdb991");
+  const lay = RKVista.desdeValores({ b01_gola_o_tirador: "2" }, { ancho: 600, alto: 770 });
+  const svg = RKVista.svg(lay, { golaColor: "#2a2c2e" });
+  assert.ok(svg.includes("-gola)") && svg.includes(`stop-color="#131415"`), "canal con degradado del tono elegido");
+  assert.ok(MU.alcance(fam, true, false, true).cambia.includes("gola"), "la gola del proyecto se aplica");
+});
+
 new Function("window", fs.readFileSync(path.join(UI, "proyectos.js"), "utf8"))(w);
 const P = w.RKProyectos;
 const ahora = new Date("2026-10-09T18:00:00Z");

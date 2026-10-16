@@ -164,12 +164,17 @@ module RoyalKitchens
       # p. ej. con gola el frente es Lisa), como aplicarForzados de receta.js:
       # una fila que no pasó por la UI (CSV, receta vieja) sale igual. Las
       # medidas forzadas no se tocan aquí: la fila ya las trae con su unidad.
+      # Un campo `oculto` (lo decide el manifiesto: posición y orientación de
+      # manijas) se pone aunque la fila no lo traiga, si está activo.
       def aplicar_forzados(manifest, valores)
         valores = valores.dup
-        campos(manifest).each do |c|
-          next unless c["tipo"] == "select" && c["forzar"] && valores.key?(c["attr"])
-          hit = Array(c["forzar"]).find { |e| todas?(valores, e["si"]) }
-          valores[c["attr"]] = hit["valor"].to_s if hit
+        Array(manifest["grupos"]).each do |g|
+          Array(g["campos"]).each do |c|
+            next unless c["tipo"] == "select" && c["forzar"]
+            next unless valores.key?(c["attr"]) || (c["oculto"] && campo_activo?(g, c, valores))
+            hit = Array(c["forzar"]).find { |e| todas?(valores, e["si"]) }
+            valores[c["attr"]] = hit["valor"].to_s if hit
+          end
         end
         valores
       end
@@ -178,6 +183,21 @@ module RoyalKitchens
       # (manifest.valores_componente: { attr => valor }, p. ej. la gola de
       # melamina del medio sin pieza de arriba). No son elecciones de nadie,
       # así que no van en la receta; lo que traiga la fila manda.
+      # Fórmulas de piezas internas que se corrigen al generar
+      # (manifest.formulas_piezas, Engine.formulas_piezas).
+      def formulas_piezas_opts(manifest)
+        lista = Array(manifest["formulas_piezas"]).select { |r| r.is_a?(Hash) && r["pieza"] && r["formulas"].is_a?(Hash) }
+        return nil if lista.empty?
+        lista.map { |r| { pieza: r["pieza"].to_s, hijos: r["hijos"], formulas: r["formulas"] }.compact }
+      end
+
+      # manifest.piezas_unicas: [{ grupo, nombre }] (Engine.piezas_unicas).
+      def piezas_unicas_opts(manifest)
+        lista = Array(manifest["piezas_unicas"]).select { |r| r.is_a?(Hash) && r["grupo"] }
+        return nil if lista.empty?
+        lista.map { |r| { grupo: r["grupo"].to_s, nombre: r["nombre"].to_s } }
+      end
+
       def valores_componente(manifest)
         (manifest["valores_componente"] || {}).reject { |k, _v| k.start_with?("_") }.transform_values(&:to_s)
       end
@@ -215,9 +235,12 @@ module RoyalKitchens
       # Receta + cambios (campos del manifiesto, medida CAPTURADA) -> fila plana.
       # La `suma` se recalcula con los cambios puestos y solo en lo que se tocó.
       def aplicar_cambios(manifest, valores, cambios)
+        original = valores
         valores = valores.dup
         (cambios || {}).each { |attr, v| valores[attr] = v.to_s }
-        (cambios || {}).each_key do |attr|
+        encendidos = completar_encendidos(manifest, original, valores)
+        quitar_apagados(manifest, original, valores, cambios || {})
+        ((cambios || {}).keys + encendidos).each do |attr|
           campo = campo_por_attr(manifest, attr)
           next unless campo && campo["suma"]
           base = medida_in(valores, attr)
@@ -225,6 +248,56 @@ module RoyalKitchens
           valores[attr] = "#{a_mm(base + suma_in(manifest, campo, valores))}mm"
         end
         valores
+      end
+
+      # Campos que los cambios encienden y la receta no trae (una receta guarda
+      # solo lo que estaba activo): van con su default, como los pondría el
+      # formulario. Si no, el componente usa su propio valor. Ej.: un mueble de
+      # tirador pasado a gola no traía k05_margen_sup_gola ni
+      # k12_sep_cajones_gola y el frente salía sin los 40 mm de la gola,
+      # aunque la UI lo validó con ellos (RKAvanzado.valoresDesdeFila parte de
+      # los defaults). Devuelve los attrs que puso.
+      def completar_encendidos(manifest, antes, valores)
+        puestos = []
+        Array(manifest["grupos"]).each do |g|
+          Array(g["campos"]).each do |c|
+            attr = c["attr"]
+            next if attr.nil? || valores.key?(attr) || c["default"].to_s.empty?
+            next unless campo_activo?(g, c, valores) && !campo_activo?(g, c, antes)
+            numero = c["tipo"].nil? || c["tipo"] == "numero"
+            valores[attr] = numero ? "#{c['default']}#{c['unidad']}" : c["default"].to_s
+            puestos << attr
+          end
+        end
+        puestos
+      end
+
+      # Lo contrario: campos que estaban activos y los cambios apagan salen de la
+      # fila, porque el formulario no los inyectaría. Ej.: un mueble de tirador
+      # Berlín (d16_z1_tirador_tipo = 21, manija de perfil) pasado a gola seguía
+      # mandando el 21 y el componente acortaba la puerta 38 mm para el perfil.
+      # Lo que los cambios ponen a propósito y lo forzado se quedan.
+      def quitar_apagados(manifest, antes, valores, cambios)
+        ahora = valores.dup
+        Array(manifest["grupos"]).each do |g|
+          Array(g["campos"]).each do |c|
+            attr = c["attr"]
+            next if attr.nil? || !valores.key?(attr) || cambios.key?(attr)
+            # Forzado que aplica ahora (zoclo en 0 sin zoclo): se queda.
+            next if Array(c["forzar"]).any? { |e| todas?(ahora, e["si"]) }
+            valores.delete(attr) if campo_activo?(g, c, antes) && !campo_activo?(g, c, ahora)
+          end
+        end
+      end
+
+      # Grupo con su condición, campo visible y habilitado (fieldInyecta de
+      # ui/receta.js, sin los forzados).
+      def campo_activo?(grupo, campo, valores)
+        [grupo["condicion"], campo["visible_si"], campo["habilitado_si"]].compact.all? do |cond|
+          next condicion_cumple?(valores, cond) if cond["min"].nil?
+          n = valores[cond["attr"]]
+          n.nil? || n.to_s.to_f >= cond["min"].to_f
+        end
       end
 
       # Entrepaños y divisores ajustados en un proyecto ({ attr => valor de fila },
@@ -327,11 +400,14 @@ module RoyalKitchens
 
       # Genera un mueble desde la fila plana +valores+.
       #   insertar: queda en la escena (a la derecha de lo que hay)
-      #   publicar: se guarda en Creaciones (.skp + receta), con su origen:
-      #             +clase+ («catalogo» o «usuario», ver Biblioteca::CLASES) y,
-      #             si es de usuario, +creado_por+ { "usuario", "nombre" }
-      # Una sola generación para las dos cosas. Devuelve
-      # { "ok", "error", "avisos", "publicado" }.
+      #   publicar: se guarda en Creaciones SOLO la receta (<nombre>.json), con
+      #             su origen: +clase+ («catalogo» o «usuario», ver
+      #             Biblioteca::CLASES) y, si es de usuario, +creado_por+
+      #             { "usuario", "nombre" }. No se guarda .skp: el catálogo
+      #             siempre se vuelve a generar desde el componente base, así
+      #             le llegan los arreglos del base y el diseño del proyecto.
+      # Sin insertar (CSV) no se genera geometría: se valida y se guarda la
+      # receta. Devuelve { "ok", "error", "avisos", "publicado" }.
       def generar(familia, nombre, valores, divisores: nil, insertar: true, publicar: false, transformation: nil, clase: nil, creado_por: nil)
         manifest = Familias.manifiesto(familia)
         valores = aplicar_forzados(manifest, valores)
@@ -341,30 +417,12 @@ module RoyalKitchens
         if publicar && (ya = Biblioteca.existente(creaciones_dir, nombre))
           return { "ok" => false, "error" => "Ya existe «#{ya}» en el catálogo. Usa otro nombre para no reemplazarlo." }
         end
-        base_path = componente(manifest)
-        return { "ok" => false, "error" => "No está el componente base de #{manifest['titulo']}:\n#{base_path}" } unless File.exist?(base_path)
-
-        RK::Mitered.instalar_hook
-        model = Sketchup.active_model
-        antes = sueltas(model)
-        base_def = model.definitions.load(base_path)
-        opts = {
-          insertar_en_escena: insertar,
-          limpiar_ocultos:    true,
-          unificar_frentes:   frentes_opts(manifest, valores),
-          herrajes:           herrajes_opts(manifest, valores),
-          purgar:             false, # purge_unused borraría definiciones de la diseñadora
-          transformation:     transformation || siguiente_x(model),
-          output_dir:         publicar ? creaciones_dir : nil,
-          divisores:          divisores_opts(divisores),
-          union:              union_opts(manifest)
-        }.compact
-        res = Engine.generar_unidad(base_def, nombre, valores_componente(manifest).merge(valores), opts)
-        quitar_definiciones_nuevas(model, antes)
-        out = { "ok" => res[:ok], "error" => res[:error], "avisos" => res[:warnings] || [] }
-        if publicar && res[:ok]
+        div = divisores_opts(divisores)
+        out = insertar ? insertar_en_escena(manifest, nombre, valores, div, transformation) : { "ok" => true, "error" => nil, "avisos" => [] }
+        if publicar && out["ok"]
           receta = { "valores" => valores }
-          receta["divisores"] = divisores if opts[:divisores]
+          receta["divisores"] = divisores if div
+          FileUtils.mkdir_p(creaciones_dir)
           File.write(File.join(creaciones_dir, "#{nombre}.json"),
                      JSON.pretty_generate(ficha_creacion(familia, manifest, nombre, receta, clase: clase, creado_por: creado_por)))
           # Una foto vieja con el mismo nombre ya no corresponde.
@@ -372,6 +430,98 @@ module RoyalKitchens
           out["publicado"] = true
         end
         out
+      end
+
+      # La pieza en la escena, desde el componente base y el motor. Si en el
+      # modelo ya hay un mueble generado con la misma receta (misma clave) y
+      # nadie lo cambió por dentro, se coloca otra instancia de él: es lo
+      # mismo que saldría y no tarda nada.
+      def insertar_en_escena(manifest, nombre, valores, div, transformation)
+        base_path = componente(manifest)
+        return { "ok" => false, "error" => "No está el componente base de #{manifest['titulo']}:\n#{base_path}" } unless File.exist?(base_path)
+
+        model = Sketchup.active_model
+        fila  = valores_componente(manifest).merge(valores)
+        clave = clave_mueble(base_path, fila, div)
+        if (hecha = generada(model, clave))
+          return colocar(model, hecha, nombre, transformation || siguiente_x(model))
+        end
+
+        RK::Mitered.instalar_hook
+        antes = sueltas(model)
+        base_def = model.definitions.load(base_path)
+        opts = {
+          insertar_en_escena: true,
+          limpiar_ocultos:    true,
+          unificar_frentes:   frentes_opts(manifest, valores),
+          herrajes:           herrajes_opts(manifest, valores),
+          purgar:             false, # purge_unused borraría definiciones de la diseñadora
+          transformation:     transformation || siguiente_x(model),
+          divisores:          div,
+          union:              union_opts(manifest),
+          formulas_piezas:    formulas_piezas_opts(manifest),
+          piezas_unicas:      piezas_unicas_opts(manifest)
+        }.compact
+        res = Engine.generar_unidad(base_def, nombre, fila, opts)
+        sellar(res[:instancia].definition, clave) if res[:ok] && res[:instancia]
+        quitar_definiciones_nuevas(model, antes)
+        { "ok" => res[:ok], "error" => res[:error], "avisos" => res[:warnings] || [], "instancia" => res[:instancia] }
+      end
+
+      # ---- Reutilizar lo ya generado -------------------------------------------
+      #
+      # Cada mueble generado lleva en su definición la clave de lo que lo
+      # produjo (receta completa, divisores, componente base y versión) y una
+      # huella de cómo quedó (piezas y medidas). Con la misma clave se reutiliza,
+      # salvo que la huella ya no coincida: alguien lo editó por dentro.
+
+      DICT_GENERADO = "RK_Studio_Generado".freeze
+
+      def clave_mueble(base_path, fila, div)
+        firma = [VERSION, File.basename(base_path), File.mtime(base_path).to_i, fila.sort, div]
+        require "digest"
+        Digest::MD5.hexdigest(JSON.generate(firma))
+      end
+
+      def huella(defn)
+        n = 0
+        pila = [defn]
+        until pila.empty?
+          d = pila.pop
+          d.entities.each do |e|
+            next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+            # Los grupos vacíos los borra SketchUp al cerrar la operación: no
+            # cuentan, o la huella recién sellada ya no coincidiría.
+            next if e.definition.entities.size.zero?
+            n += 1
+            pila << e.definition
+          end
+        end
+        b = defn.bounds
+        "#{n}:#{b.width.to_mm.round}x#{b.height.to_mm.round}x#{b.depth.to_mm.round}"
+      end
+
+      def sellar(defn, clave)
+        model = defn.model
+        model.start_operation("Generar mueble", true, false, true)
+        defn.set_attribute(DICT_GENERADO, "clave", clave)
+        defn.set_attribute(DICT_GENERADO, "huella", huella(defn))
+        model.commit_operation
+      end
+
+      def generada(model, clave)
+        model.definitions.find do |d|
+          d.get_attribute(DICT_GENERADO, "clave") == clave && !d.image? &&
+            d.get_attribute(DICT_GENERADO, "huella") == huella(d)
+        end
+      end
+
+      def colocar(model, defn, nombre, transformation)
+        model.start_operation("Insertar #{nombre}", true)
+        inst = model.entities.add_instance(defn, transformation)
+        inst.name = nombre
+        model.commit_operation
+        { "ok" => true, "error" => nil, "avisos" => [], "instancia" => inst }
       end
 
       # Una creación con otros cambios (medidas, frente, manija, material…).

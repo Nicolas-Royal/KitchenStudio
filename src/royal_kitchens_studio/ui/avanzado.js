@@ -229,7 +229,9 @@ window.RKAvanzado = (function () {
       filas.forEach(({ f, wrap, ctrl, hint }) => {
         const visible = rcc.fieldVisible(f, manifest, reg.valores);
         const activo = rcc.fieldEnabled(f, manifest, reg.valores);
-        wrap.hidden = !visible;
+        // `oculto`: lo decide el manifiesto (posición, orientación y largo de
+        // manijas); se inyecta igual, pero no se muestra.
+        wrap.hidden = !visible || !!f.oculto;
         wrap.classList.toggle("is-off", !activo);
         wrap.classList.toggle("is-bad", !!malos[f.id]);
         if (ctrl.__set) ctrl.__set(reg.valores[f.id]);

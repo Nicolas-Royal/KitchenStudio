@@ -58,11 +58,12 @@ window.RKMuebles = (function () {
   }
 
   /* Qué pone el diseño del proyecto en un mueble y qué se queda como está. */
-  function alcance(fc, gola, igualar) {
+  function alcance(fc, gola, igualar, golaProyecto) {
     const f = fc || {};
     const cambia = [], fijo = ["zonas, puertas y cajones", "entrepaños"];
+    if (f.gola && golaProyecto) cambia.push("gola");
     if (f.frente) (gola ? fijo : cambia).push(gola ? "frente Lisa (con gola)" : "frente");
-    if (f.manija_puerta || f.manija_cajon) (gola ? fijo : cambia).push(gola ? "gola (no lleva manijas)" : "manijas");
+    if (f.manija_puerta || f.manija_cajon) (gola ? fijo : cambia).push(gola ? "sin manijas (gola)" : "manijas");
     if (f.material) cambia.push("material");
     if (f.tarja) fijo.push("tarja");
     if (igualar) { cambia.push("alto y fondo"); fijo.push("ancho"); } else fijo.push("medidas");

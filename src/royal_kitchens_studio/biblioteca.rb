@@ -3,8 +3,9 @@ require "json"
 module RoyalKitchens
   module Studio
     # Catálogo de muebles de Studio: las recetas guardadas en la carpeta de
-    # creaciones (<nombre>.json con la receta + <nombre>.skp ya generado).
-    # Se llena con lo que se genera desde «Avanzado» o desde un CSV.
+    # creaciones (<nombre>.json). Se llena con lo que se guarda desde
+    # «Avanzado» o desde un CSV. Desde 0.6.3 no se guarda .skp: todo se
+    # vuelve a generar desde el componente base (un .skp viejo se ignora).
     #
     # Origen del formato: KitchenCatalog::Catalog.scan_creaciones (las fichas
     # que ya existan siguen sirviendo). Desde Studio 0.5.0 no hay catálogo
@@ -34,7 +35,6 @@ module RoyalKitchens
       # Ficha (<stem>.json) -> card para la UI, o nil si no trae receta.
       def card(info, json_path)
         return nil unless info.is_a?(Hash) && info["receta"].is_a?(Hash)
-        dir     = File.dirname(json_path)
         stem    = File.basename(json_path, ".json")
         feats   = info["caracteristicas"].is_a?(Hash) ? info["caracteristicas"] : {}
         medidas = info["medidas_mm"].is_a?(Hash) ? info["medidas_mm"] : {}
@@ -48,7 +48,6 @@ module RoyalKitchens
           "creado_por"     => (info["creado_por"] if info["creado_por"].is_a?(Hash)),
           "features"       => GRUPOS.each_with_object({}) { |g, h| h[g] = Array(feats[g]) },
           "ubicacion"      => info["ubicacion"],
-          "skp"            => File.join(dir, "#{stem}.skp"),
           "specs"          => specs,
           "receta_familia" => info["familia"],
           "receta"         => info["receta"],
@@ -102,22 +101,63 @@ module RoyalKitchens
 
       # ---- SketchUp ----------------------------------------------------------
 
-      # «Usar»: el .skp ya generado, tal cual (sin los 15 s de generar). Si no
-      # está, se vuelve a generar desde la receta.
-      def insertar_tal_cual(m)
-        model = Sketchup.active_model
-        unless File.exist?(m["skp"].to_s)
-          return Generador.instanciar_receta(m["receta_familia"], m["receta"], {}, nombre: m["specs"]["sku"])
-        end
-        model.start_operation("Insertar #{m['name']}", true)
-        defn = model.definitions.load(m["skp"])
-        inst = model.active_entities.add_instance(defn, Generador.siguiente_x(model))
-        inst.name = m["specs"]["sku"].to_s
+      # «Usar» con su diseño original: la receta tal cual, generada desde el
+      # componente base (sin .skp guardado).
+      def insertar_tal_cual(m, transformation: nil)
+        Generador.instanciar_receta(m["receta_familia"], m["receta"], {}, nombre: m["specs"]["sku"],
+                                    transformation: transformation)
+      end
+
+      # ---- Muebles en la escena ----------------------------------------------
+      #
+      # Cada mueble insertado recuerda de qué mueble del catálogo salió y con
+      # qué diseño entró: «global» (el del proyecto), «personal» (ajustado) u
+      # «original». «Aplicar el diseño» regenera solo los «global».
+
+      DICT_ESCENA = "RK_Studio_Mueble".freeze
+
+      def marcar(inst, id, modo)
+        return unless inst && inst.valid?
+        model = inst.model
+        model.start_operation("Marcar mueble", true, false, true)
+        inst.set_attribute(DICT_ESCENA, "modulo", id.to_s)
+        inst.set_attribute(DICT_ESCENA, "modo", modo.to_s)
         model.commit_operation
-        { "ok" => true, "avisos" => [] }
-      rescue => e
-        model&.abort_operation
-        raise e
+      end
+
+      # Id del mueble del catálogo que sigue el diseño del proyecto, o nil.
+      # Con marca: si entró con el del proyecto. Sin marca (insertado antes de
+      # 0.7): por el nombre de la instancia (el sku), si es de un solo mueble
+      # y ese mueble no tiene elección propia en el proyecto.
+      def sigue_proyecto(marca, nombre, modulos, proyecto)
+        if marca["modulo"]
+          return marca["modo"].to_s == "global" ? marca["modulo"].to_s : nil
+        end
+        return nil if nombre.to_s.empty?
+        cands = modulos.select { |m| (m["specs"] || {})["sku"].to_s == nombre.to_s }
+        return nil unless cands.size == 1
+        id = cands.first["id"]
+        (proyecto["modulos"] || {})[id] ? nil : id
+      end
+
+      # Muebles de la escena que siguen el diseño del proyecto: id => [instancias].
+      # Busca en la raíz y dentro de grupos, no dentro de otros componentes.
+      def en_escena(model, modulos, proyecto)
+        out = Hash.new { |h, k| h[k] = [] }
+        pila = [model.entities]
+        until pila.empty?
+          pila.pop.each do |e|
+            if e.is_a?(Sketchup::Group)
+              pila << e.entities
+            elsif e.is_a?(Sketchup::ComponentInstance)
+              d = e.attribute_dictionary(DICT_ESCENA)
+              marca = d ? { "modulo" => d["modulo"], "modo" => d["modo"] } : {}
+              id = sigue_proyecto(marca, e.name, modulos, proyecto)
+              out[id] << e if id
+            end
+          end
+        end
+        out
       end
     end
   end

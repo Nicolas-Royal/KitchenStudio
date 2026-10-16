@@ -14,7 +14,7 @@ ficha = { "nombre" => "GAB-600", "familia" => "gabinete", "categoria" => "Gabine
           "caracteristicas" => { "puerta" => ["Lisa"], "otra" => ["x"] },
           "medidas_mm" => { "ancho" => 600, "alto" => 770 }, "receta" => { "valores" => { "LenX" => "600mm" } } }
 c = B.card(ficha, "C:/cat/GAB-600.json")
-assert c["id"] == "cr-gab-600" && c["skp"] == "C:/cat/GAB-600.skp", "id y .skp desde el nombre del archivo"
+assert c["id"] == "cr-gab-600" && !c.key?("skp"), "id desde el nombre del archivo; sin .skp (se genera desde el base)"
 assert c["specs"] == { "sku" => "GAB-600", "ancho_mm" => 600, "alto_mm" => 770 }, "medidas de la ficha"
 assert c["features"] == { "tipo" => [], "puerta" => ["Lisa"], "configuracion" => [] }, "solo los grupos conocidos"
 assert c["receta_familia"] == "gabinete" && c["_source"] == "creaciones", "familia de la receta"
@@ -50,3 +50,16 @@ Dir.mktmpdir do |dir|
   assert err =~ /No encontré/, "buscar algo que no está"
 end
 assert B.modulos(nil) == [] && B.modulos("C:/no/existe") == [], "sin carpeta: catálogo vacío"
+
+mods = [{ "id" => "cr-a", "specs" => { "sku" => "A" } }, { "id" => "cr-b", "specs" => { "sku" => "B" } },
+        { "id" => "cr-b2", "specs" => { "sku" => "B" } }]
+pr = { "modulos" => { "cr-x" => { "personalizado" => true } } }
+assert B.sigue_proyecto({ "modulo" => "cr-x", "modo" => "global" }, "A", mods, pr) == "cr-x",
+       "marcado con el diseño del proyecto: se aplica aunque hoy tenga ajuste"
+assert B.sigue_proyecto({ "modulo" => "cr-a", "modo" => "personal" }, "A", mods, pr).nil? &&
+       B.sigue_proyecto({ "modulo" => "cr-a", "modo" => "original" }, "A", mods, pr).nil?, "ajustado u original: no cambia"
+assert B.sigue_proyecto({}, "A", mods, pr) == "cr-a", "sin marca: por el sku"
+assert B.sigue_proyecto({}, "B", mods, pr).nil? && B.sigue_proyecto({}, "", mods, pr).nil? &&
+       B.sigue_proyecto({}, "Z", mods, pr).nil?, "sin marca: sku repetido, vacío o ajeno no se toca"
+assert B.sigue_proyecto({}, "A", mods, { "modulos" => { "cr-a" => { "original" => true } } }).nil?,
+       "sin marca y con elección propia en el proyecto: no se toca"

@@ -43,6 +43,8 @@ module RoyalKitchens
         cb(dlg, "recargar")          { |_| enviar_estado(dlg) }
         cb(dlg, "guardar_proyecto")  { |json| Proyecto.guardar(JSON.parse(json)); nil }
         cb(dlg, "insertar")          { |json| en_segundo_plano(dlg, "onInsertado") { insertar(JSON.parse(json)) } }
+        cb(dlg, "insertados")        { |_| responder(dlg, "onInsertados", insertados) }
+        cb(dlg, "aplicar_diseno")    { |json| en_segundo_plano(dlg, "onAplicado") { aplicar_diseno(JSON.parse(json)) } }
         cb(dlg, "generar")           { |json| en_segundo_plano(dlg, "onGenerado") { generar(JSON.parse(json)) } }
         cb(dlg, "importar_csv")      { |_| responder(dlg, "onImportado", Generador.importar_archivo) }
         cb(dlg, "plantilla")         { |_| responder(dlg, "onPlantilla", Generador.exportar_plantilla) }
@@ -151,26 +153,101 @@ module RoyalKitchens
 
       # ---- Insertar un mueble del catálogo ------------------------------------
       #
-      # { id, eleccion }. Sin elección (mueble «como se hizo»): el .skp guardado tal cual. Con
+      # { id, eleccion }. Sin elección (mueble «como se hizo»): su receta tal cual. Con
       # elección: se regenera desde la receta con los cambios que calcula
       # Catalogo.cambios_receta (medidas, frente, manija por uso, material y sus
       # reglas) más los entrepaños ajustados en el proyecto (eleccion["interior"]).
       def insertar(req)
-        m  = Biblioteca.buscar(Generador.creaciones_dir, req["id"])
-        el = req["eleccion"]
-        res = if el.is_a?(Hash) && !el.empty?
-          op  = Catalogo.cargar
-          cfg = (op["familias"] || {})[m["receta_familia"]] || {}
-          cambios = Catalogo.cambios_receta(cfg, el, op, m["receta"]["valores"] || {})
-          asegurar_material(el["material"]) if cambios.key?(cfg.dig("material", "attr"))
-          cambios.merge!(Generador.cambios_interior(Familias.manifiesto(m["receta_familia"]), el["interior"]))
-          Generador.instanciar_receta(m["receta_familia"], m["receta"], cambios, nombre: m["specs"]["sku"],
-                                      divisores: el["divisores"])
-        else
-          Biblioteca.insertar_tal_cual(m)
-        end
+        m   = Biblioteca.buscar(Generador.creaciones_dir, req["id"])
+        res = instanciar(m, req["eleccion"])
         raise res["error"].to_s unless res["ok"]
+        Biblioteca.marcar(res["instancia"], m["id"], req["modo"] || "global")
         { "ok" => true, "id" => m["id"], "avisos" => res["avisos"] }
+      end
+
+      def instanciar(m, el, transformation: nil)
+        return Biblioteca.insertar_tal_cual(m, transformation: transformation) unless el.is_a?(Hash) && !el.empty?
+        op  = Catalogo.cargar
+        cfg = (op["familias"] || {})[m["receta_familia"]] || {}
+        cambios = Catalogo.cambios_receta(cfg, el, op, m["receta"]["valores"] || {})
+        asegurar_material(el["material"]) if cambios.key?(cfg.dig("material", "attr"))
+        cambios.merge!(Generador.cambios_interior(Familias.manifiesto(m["receta_familia"]), el["interior"]))
+        Generador.instanciar_receta(m["receta_familia"], m["receta"], cambios, nombre: m["specs"]["sku"],
+                                    divisores: el["divisores"], transformation: transformation)
+      end
+
+      # ---- Aplicar el diseño del proyecto a lo ya insertado -------------------
+      #
+      # Paso 1 (insertados): qué muebles de la escena siguen el diseño del
+      # proyecto, { muebles: [{ id, n }] }. La UI arma la elección de cada uno
+      # (la misma que al insertar) y pide confirmación.
+      # Paso 2 (aplicar_diseno): [{ id, eleccion }] -> cada instancia se vuelve
+      # a generar con su posición, etiqueta y contenedor, y se borra la vieja.
+      def insertados
+        { "ok" => true, "muebles" => escena.map { |id, insts| { "id" => id, "n" => insts.size } } }
+      end
+
+      def escena
+        model = Sketchup.active_model
+        Biblioteca.en_escena(model, Biblioteca.modulos(Generador.creaciones_dir), Proyecto.leer(model))
+      end
+
+      # El primero de cada mueble se genera; los demás iguales reutilizan esa
+      # definición (Generador.generada), y uno que ya tenía este diseño se deja
+      # como está.
+      def aplicar_diseno(lista)
+        model = Sketchup.active_model
+        por_id = escena
+        antes = Generador.sueltas(model)
+        hechos = 0
+        errores = []
+        Array(lista).each do |t|
+          m = Biblioteca.buscar(Generador.creaciones_dir, t["id"])
+          por_id[t["id"]].each do |viejo|
+            next unless viejo.valid?
+            res = instanciar(m, t["eleccion"], transformation: viejo.transformation)
+            next errores << "#{m['name']}: #{res['error']}" unless res["ok"] && res["instancia"]
+            nuevo = res["instancia"]
+            if nuevo.definition == viejo.definition
+              quitar_copia(nuevo)
+            else
+              reemplazar(viejo, nuevo, m["id"])
+            end
+            hechos += 1
+          end
+        end
+        # Lo que los muebles viejos dejaron fuera de la escena.
+        Generador.quitar_definiciones_nuevas(model, antes)
+        { "ok" => true, "hechos" => hechos, "errores" => errores }
+      end
+
+      def quitar_copia(inst)
+        model = inst.model
+        model.start_operation("Aplicar diseño", true, false, true)
+        inst.erase!
+        model.commit_operation
+      end
+
+      # El nuevo nace en la raíz con la transformación del viejo; si el viejo
+      # estaba dentro de un grupo, se pasa ahí.
+      def reemplazar(viejo, nuevo, id)
+        model = viejo.model
+        model.start_operation("Aplicar diseño", true, false, true)
+        padre = viejo.parent
+        unless padre.is_a?(Sketchup::Model)
+          movido = padre.entities.add_instance(nuevo.definition, viejo.transformation)
+          movido.name = nuevo.name
+          # Los atributos dinámicos van también en la instancia.
+          (nuevo.attribute_dictionaries || []).each do |dic|
+            dic.each_pair { |k, v| movido.set_attribute(dic.name, k, v) }
+          end
+          nuevo.erase!
+          nuevo = movido
+        end
+        nuevo.layer = viejo.layer
+        viejo.erase!
+        model.commit_operation
+        Biblioteca.marcar(nuevo, id, "global")
       end
 
       # ---- Generar desde «Avanzado» o desde una fila del CSV -------------------
@@ -205,7 +282,7 @@ module RoyalKitchens
 
       def borrar_creacion(dlg, id)
         mod = Biblioteca.buscar(Generador.creaciones_dir, id)
-        ok = UI.messagebox("¿Eliminar la creación «#{mod['name']}»?\nSe borran su receta, su .skp y su foto.", MB_YESNO)
+        ok = UI.messagebox("¿Eliminar la creación «#{mod['name']}»?\nSe borra su receta.", MB_YESNO)
         return unless ok == IDYES
         base = mod["_file"].sub(/\.json\z/i, "")
         %w[.json .skp .png].each { |ext| FileUtils.rm_f(base + ext) }

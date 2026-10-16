@@ -22,6 +22,10 @@ module RoyalKitchens
           "manija_puerta" => "9",   # Andrea
           "manija_cajon"  => "9",
           "material" => "",    # "" = el de la receta / el del módulo
+          # Gola (opciones.json golas[].id): "" = la del módulo; "tirador" = sin
+          # gola; melamina / aluminio claro / oscuro. Con gola, L-C ("1") o L-L ("2").
+          "gola" => "",
+          "gola_combinacion" => "1",
           # Medidas comunes: si «igualar» está activo, los gabinetes toman este
           # alto y fondo de cuerpo. El ancho y la tarja son siempre de cada mueble.
           "medidas"  => { "igualar" => false, "alto" => 770, "fondo" => 600 }

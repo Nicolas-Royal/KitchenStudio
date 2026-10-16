@@ -30,33 +30,24 @@
     "d15_z1_cant_puertas": {
       "1": "1I",
       "2": "1D",
-      "3": "2",
-      "4": "3",
-      "5": "4",
-      "6": "5",
-      "7": "6",
-      "8": "7",
-      "9": "8",
-      "10": "9",
-      "11": "10"
+      "3": "2"
     },
     "d35_z2_cant_puertas": {
       "1": "1I",
       "2": "1D",
-      "3": "2",
-      "4": "3",
-      "5": "4",
-      "6": "5",
-      "7": "6",
-      "8": "7",
-      "9": "8",
-      "10": "9",
-      "11": "10"
+      "3": "2"
     },
     "h01_entrepano": { "0": "-E", "1": "" },
     "b02_tipo_cajon": { "1": "", "2": "-AN", "3": "-TL" }
   },
   "reglas_frentes": { "nombre": "{pieza} {linea}", "attr_linea": "l01_linea_frente", "piezas": { "Puerta": "Puerta", "Tapa_cajon": "Tapa de cajón" } },
+  "piezas_unicas": [
+    { "_doc": "La lateral con gola sale del componente en 3 piezas (cuerpo y dos tiras al frente alrededor de la muesca). En la escena se quedan así; en OpenCutList sale como UNA pieza «Lateral» con la medida total (se corta el tablero completo y luego la muesca).", "grupo": "CEGolaLat", "nombre": "Lateral" }
+  ],
+  "formulas_piezas": [
+    { "_doc": "Holgura lateral (h33/h34 → e33_marg3/e34_marg4) solo en entrepaños: el contenedor de repisas ya no la aplica a todas y cada repisa la toma si no es divisor (margenfrontal = 0: llega al frente). Los divisores quedan pegados a las laterales.", "pieza": "DivisorHorizontal", "formulas": { "x": "parent!v41posxrep1", "lenx": "parent!v41tamlenxrep1" } },
+    { "pieza": "DivisorHorizontal", "hijos": "PanelXY", "formulas": { "x": "IF(margenfrontal=0,0,parent!e33_marg3)", "lenx": "parent!LenX-IF(margenfrontal=0,0,parent!e33_marg3+parent!e34_marg4)" } }
+  ],
   "valores_componente": { "_doc": "Variables del componente base que Studio fija en cada generación (no son elecciones: no van en la receta ni en el formulario). g46 = 1 (Perfil L): la gola de melamina del medio no lleva la pieza de arriba, así queda espacio para meter los dedos detrás del frente de arriba; el alto de la gola no cambia. En L-L el componente ya la ajusta con sus fórmulas. g13 (margen de tapa del perfil C) = (alto del perfil C g12 − hueco entre zonas k12 + espesor) / 2: reparte el espacio para los dedos por igual abajo del canto del frente de abajo y arriba del canto del frente de arriba (16 y 16 mm con 90/40/18; centrado daba 7 y 25). Solo melamina; aluminio sigue centrado.", "g46_melamina_tipo_perfil_c": "1", "g13_margen_tapa_perfil_c": "=IF(AND(g01_perfil_tipo=2,g12_alto_perfil_c+IF(g16_espesor_perfil_melamina=0,c01_espesor_estructura,g16_espesor_perfil_melamina)>k12_sep_cajones_gola),(g12_alto_perfil_c-k12_sep_cajones_gola+IF(g16_espesor_perfil_melamina=0,c01_espesor_estructura,g16_espesor_perfil_melamina))/2,0)" },
   "reglas_herrajes": [
     { "pieza": "Acc.Corredera", "nombre": "Corredera {tipo} {cm}cm", "attr_tipo": "b02_tipo_cajon", "multiplo_cm": 5 }
@@ -161,8 +152,8 @@
       "id": "dimensiones",
       "titulo": "Dimensiones",
       "campos": [
-        { "id": "LenX", "attr": "LenX", "label": "Ancho", "tipo": "numero", "unidad": "mm", "default": "600", "placeholder": "600", "positivo": true, "requerido": true },
-        { "id": "LenY", "attr": "LenY", "label": "Profundidad del cuerpo", "tipo": "numero", "unidad": "mm", "default": "578", "placeholder": "578", "positivo": true, "requerido": true, "nota": "Sin la puerta: el componente mide la profundidad total, así que se le suma el espesor de puerta.", "suma": [{ "attr": "c02_espesor_puerta" }] },
+        { "id": "LenX", "attr": "LenX", "label": "Ancho", "tipo": "numero", "unidad": "mm", "default": "700", "placeholder": "700", "positivo": true, "requerido": true },
+        { "id": "LenY", "attr": "LenY", "label": "Profundidad del cuerpo", "tipo": "numero", "unidad": "mm", "default": "600", "placeholder": "600", "positivo": true, "requerido": true, "nota": "Sin la puerta: el componente mide la profundidad total, así que se le suma el espesor de puerta.", "suma": [{ "attr": "c02_espesor_puerta" }] },
         { "id": "LenZ", "attr": "LenZ", "label": "Alto del cuerpo", "tipo": "numero", "unidad": "mm", "default": "770", "placeholder": "770", "positivo": true, "requerido": true, "nota": "Sin el zoclo: se le suma el alto del zoclo, que eleva la estructura.", "suma": [{ "attr": "a02_alto_zoclo" }] },
         { "id": "a02_alto_zoclo", "attr": "a02_alto_zoclo", "label": "Alto del zoclo", "tipo": "numero", "unidad": "mm", "default": "100", "placeholder": "100", "nota": "Lo que el zoclo eleva la estructura.", "habilitado_si": { "attr": "j02_zoclo_activo", "valor": "1", "mensaje": "Sin zoclo el gabinete va al piso." }, "forzar": [{ "valor": "0", "si": [{ "attr": "j02_zoclo_activo", "valor": "2" }], "mensaje": "Sin zoclo: el gabinete va apoyado en el piso." }] }
       ]
@@ -251,15 +242,7 @@
         { "id": "d15_z1_cant_puertas", "attr": "d15_z1_cant_puertas", "label": "Zona 1: cantidad de puertas", "tipo": "select", "default": "3", "opciones": [
           { "label": "Puerta simple - IZQ", "valor": "1" },
           { "label": "Puerta simple - DER", "valor": "2" },
-          { "label": "Puerta doble", "valor": "3" },
-          { "label": "Puerta - 3", "valor": "4" },
-          { "label": "Puerta - 4", "valor": "5" },
-          { "label": "Puerta - 5", "valor": "6" },
-          { "label": "Puerta - 6", "valor": "7" },
-          { "label": "Puerta - 7", "valor": "8" },
-          { "label": "Puerta - 8", "valor": "9" },
-          { "label": "Puerta - 9", "valor": "10" },
-          { "label": "Puerta - 10", "valor": "11" }
+          { "label": "Puerta doble", "valor": "3" }
         ] },
         { "id": "d16_z1_tirador_tipo", "attr": "d16_z1_tirador_tipo", "label": "Zona 1: tirador", "tipo": "select", "default": "9", "habilitado_si": { "attr": "b01_gola_o_tirador", "valor": "1", "mensaje": "Con gola no lleva tirador." }, "opciones": [
           { "label": "Sin tirador", "valor": "1" },
@@ -279,7 +262,7 @@
           { "label": "Botón cilíndrico plateado", "valor": "20" },
           { "label": "Berlín", "valor": "21" }
         ] },
-        { "id": "d17_z1_tirador_posicion", "attr": "d17_z1_tirador_posicion", "label": "Zona 1: posición del tirador", "tipo": "select", "default": "6", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que posicionar." }, "opciones": [
+        { "id": "d17_z1_tirador_posicion", "attr": "d17_z1_tirador_posicion", "label": "Zona 1: posición del tirador", "tipo": "select", "oculto": true, "forzar": [{ "valor": "5", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d16_z1_tirador_tipo", "excepto": ["1"] },{ "attr": "d16_z1_tirador_tipo", "valor": "7" }], "mensaje": "Lateral negra: va en el canto, a media altura." },{ "valor": "2", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d16_z1_tirador_tipo", "excepto": ["1"] },{ "attr": "d16_z1_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de arriba, a todo el ancho." },{ "valor": "3", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Arriba, del lado que abre. El componente la refleja en la puerta con bisagra a la derecha y en la doble las lleva al centro." }], "default": "6", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que posicionar." }, "opciones": [
           { "label": "Arriba - Izquierda", "valor": "1" },
           { "label": "Arriba - Centro", "valor": "2" },
           { "label": "Arriba - Derecha", "valor": "3" },
@@ -290,11 +273,11 @@
           { "label": "Abajo - Centro", "valor": "8" },
           { "label": "Abajo - Derecha", "valor": "9" }
         ] },
-        { "id": "d18_z1_tirador_orientacion", "attr": "d18_z1_tirador_orientacion", "label": "Zona 1: orientación del tirador", "tipo": "select", "default": "2", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que orientar." }, "opciones": [
+        { "id": "d18_z1_tirador_orientacion", "attr": "d18_z1_tirador_orientacion", "label": "Zona 1: orientación del tirador", "tipo": "select", "oculto": true, "forzar": [{ "valor": "1", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d16_z1_tirador_tipo", "excepto": ["1"] },{ "attr": "d16_z1_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va horizontal en el canto." },{ "valor": "2", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "En puertas la manija va vertical." }], "default": "2", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que orientar." }, "opciones": [
           { "label": "Horizontal", "valor": "1" },
           { "label": "Vertical", "valor": "2" }
         ] },
-        { "id": "d19_z1_tirador_largo", "attr": "d19_z1_tirador_largo", "label": "Zona 1: largo del tirador", "tipo": "numero", "unidad": "mm", "default": "300", "placeholder": "300", "positivo": true, "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay largo." } }
+        { "id": "d19_z1_tirador_largo", "attr": "d19_z1_tirador_largo", "label": "Zona 1: largo del tirador", "tipo": "numero", "oculto": true, "unidad": "mm", "default": "300", "placeholder": "300", "positivo": true, "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d16_z1_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay largo." } }
       ]
     },
     {
@@ -326,15 +309,7 @@
         { "id": "d35_z2_cant_puertas", "attr": "d35_z2_cant_puertas", "label": "Zona 2: cantidad de puertas", "tipo": "select", "default": "3", "opciones": [
           { "label": "Puerta simple - IZQ", "valor": "1" },
           { "label": "Puerta simple - DER", "valor": "2" },
-          { "label": "Puerta doble", "valor": "3" },
-          { "label": "Puerta - 3", "valor": "4" },
-          { "label": "Puerta - 4", "valor": "5" },
-          { "label": "Puerta - 5", "valor": "6" },
-          { "label": "Puerta - 6", "valor": "7" },
-          { "label": "Puerta - 7", "valor": "8" },
-          { "label": "Puerta - 8", "valor": "9" },
-          { "label": "Puerta - 9", "valor": "10" },
-          { "label": "Puerta - 10", "valor": "11" }
+          { "label": "Puerta doble", "valor": "3" }
         ] },
         { "id": "d36_z2_tirador_tipo", "attr": "d36_z2_tirador_tipo", "label": "Zona 2: tirador", "tipo": "select", "default": "9", "habilitado_si": { "attr": "b01_gola_o_tirador", "valor": "1", "mensaje": "Con gola no lleva tirador." }, "opciones": [
           { "label": "Sin tirador", "valor": "1" },
@@ -354,7 +329,7 @@
           { "label": "Botón cilíndrico plateado", "valor": "20" },
           { "label": "Berlín", "valor": "21" }
         ] },
-        { "id": "d37_z2_tirador_posicion", "attr": "d37_z2_tirador_posicion", "label": "Zona 2: posición del tirador", "tipo": "select", "default": "5", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que posicionar." }, "opciones": [
+        { "id": "d37_z2_tirador_posicion", "attr": "d37_z2_tirador_posicion", "label": "Zona 2: posición del tirador", "tipo": "select", "oculto": true, "forzar": [{ "valor": "5", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] },{ "attr": "d36_z2_tirador_tipo", "valor": "7" }], "mensaje": "Lateral negra: va en el canto, a media altura." },{ "valor": "2", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] },{ "attr": "d36_z2_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de arriba, a todo el ancho." },{ "valor": "3", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Arriba, del lado que abre. El componente la refleja en la puerta con bisagra a la derecha y en la doble las lleva al centro." }], "default": "5", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que posicionar." }, "opciones": [
           { "label": "Arriba - Izquierda", "valor": "1" },
           { "label": "Arriba - Centro", "valor": "2" },
           { "label": "Arriba - Derecha", "valor": "3" },
@@ -365,11 +340,11 @@
           { "label": "Abajo - Centro", "valor": "8" },
           { "label": "Abajo - Derecha", "valor": "9" }
         ] },
-        { "id": "d38_z2_tirador_orientacion", "attr": "d38_z2_tirador_orientacion", "label": "Zona 2: orientación del tirador", "tipo": "select", "default": "2", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que orientar." }, "opciones": [
+        { "id": "d38_z2_tirador_orientacion", "attr": "d38_z2_tirador_orientacion", "label": "Zona 2: orientación del tirador", "tipo": "select", "oculto": true, "forzar": [{ "valor": "1", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] },{ "attr": "d36_z2_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va horizontal en el canto." },{ "valor": "2", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "En puertas la manija va vertical." }], "default": "2", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que orientar." }, "opciones": [
           { "label": "Horizontal", "valor": "1" },
           { "label": "Vertical", "valor": "2" }
         ] },
-        { "id": "d39_z2_tirador_largo", "attr": "d39_z2_tirador_largo", "label": "Zona 2: largo del tirador", "tipo": "numero", "unidad": "mm", "default": "120", "placeholder": "120", "positivo": true, "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay largo." } }
+        { "id": "d39_z2_tirador_largo", "attr": "d39_z2_tirador_largo", "label": "Zona 2: largo del tirador", "tipo": "numero", "oculto": true, "unidad": "mm", "default": "120", "placeholder": "120", "positivo": true, "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay largo." } }
       ]
     },
     {
@@ -437,7 +412,7 @@
           { "label": "Botón cilíndrico plateado", "valor": "20" },
           { "label": "Berlín", "valor": "21" }
         ] },
-        { "id": "e02_tirador_posicion", "attr": "e02_tirador_posicion", "label": "Posición del tirador de cajones", "tipo": "select", "default": "5", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que posicionar." }, "opciones": [
+        { "id": "e02_tirador_posicion", "attr": "e02_tirador_posicion", "label": "Posición del tirador de cajones", "tipo": "select", "oculto": true, "forzar": [{ "valor": "2", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "e01_tirador_tipo", "excepto": ["1"] },{ "attr": "e01_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de arriba, a todo el ancho." },{ "valor": "5", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "En cajones la manija va al centro." }], "default": "5", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que posicionar." }, "opciones": [
           { "label": "Arriba - Izquierda", "valor": "1" },
           { "label": "Arriba - Centro", "valor": "2" },
           { "label": "Arriba - Derecha", "valor": "3" },
@@ -448,11 +423,11 @@
           { "label": "Abajo - Centro", "valor": "8" },
           { "label": "Abajo - Derecha", "valor": "9" }
         ] },
-        { "id": "e03_tirador_orientacion", "attr": "e03_tirador_orientacion", "label": "Orientación del tirador de cajones", "tipo": "select", "default": "1", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que orientar." }, "opciones": [
+        { "id": "e03_tirador_orientacion", "attr": "e03_tirador_orientacion", "label": "Orientación del tirador de cajones", "tipo": "select", "oculto": true, "forzar": [{ "valor": "1", "si": [{ "attr": "b01_gola_o_tirador", "valor": "1" },{ "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "En cajones la manija va horizontal." }], "default": "1", "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay pieza que orientar." }, "opciones": [
           { "label": "Horizontal", "valor": "1" },
           { "label": "Vertical", "valor": "2" }
         ] },
-        { "id": "e04_tirador_largo", "attr": "e04_tirador_largo", "label": "Largo del tirador de cajones", "tipo": "numero", "unidad": "mm", "default": "140", "placeholder": "140", "positivo": true, "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay largo." } }
+        { "id": "e04_tirador_largo", "attr": "e04_tirador_largo", "label": "Largo del tirador de cajones", "tipo": "numero", "oculto": true, "unidad": "mm", "default": "140", "placeholder": "140", "positivo": true, "habilitado_si": { "todas": [{ "attr": "b01_gola_o_tirador", "valor": "1" }, { "attr": "e01_tirador_tipo", "excepto": ["1"] }], "mensaje": "Sin tirador no hay largo." } }
       ]
     },
     {
@@ -589,7 +564,7 @@
         ] },
         { "id": "h16_espacio6_alto", "attr": "h16_espacio6_alto", "label": "Espacio 6 · bajo la repisa 6", "columna": 2, "tipo": "numero", "unidad": "mm", "default": "", "placeholder": "auto", "auto": true, "vacio": "0mm", "visible_si": { "attr": "h02_cantidad", "min": 5 }, "habilitado_si": { "todas": [{ "attr": "h01_entrepano", "valor": "0" }, { "attr": "h03_tipo_medida", "valor": "2" }], "mensaje": "Solo con separación «Personalizado»." } },
         { "id": "h17_espacio7_alto", "attr": "h17_espacio7_alto", "label": "Espacio 7 · arriba de la repisa 6", "columna": 2, "tipo": "numero", "unidad": "mm", "default": "", "placeholder": "auto", "auto": true, "vacio": "0mm", "visible_si": { "attr": "h02_cantidad", "min": 6 }, "habilitado_si": { "todas": [{ "attr": "h01_entrepano", "valor": "0" }, { "attr": "h03_tipo_medida", "valor": "2" }], "mensaje": "Solo con separación «Personalizado»." } },
-        { "id": "h33_margen_izquierdo", "attr": "h33_margen_izquierdo", "label": "Holgura lateral izquierda de entrepaños", "columna": 1, "tipo": "numero", "unidad": "mm", "default": "1.5", "placeholder": "1.5", "nota": "El componente aplica la misma holgura a todas las repisas, divisores incluidos; si todas son divisores va en 0.", "habilitado_si": { "attr": "h01_entrepano", "valor": "0", "mensaje": "Se activa con «Entrepaño: Sí»." }, "forzar": [{ "valor": "0", "si": [{ "todas": [{ "attr": "h21_entrepano1_retiro_fondo", "valor": "0mm" }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1"] }, { "attr": "h22_entrepano2_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2"] }, { "attr": "h23_entrepano3_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3"] }, { "attr": "h24_entrepano4_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3", "4"] }, { "attr": "h25_entrepano5_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3", "4", "5"] }, { "attr": "h26_entrepano6_retiro_fondo", "valor": "0mm" }] }] }], "mensaje": "Solo divisores: sin holgura lateral." }] },
+        { "id": "h33_margen_izquierdo", "attr": "h33_margen_izquierdo", "label": "Holgura lateral izquierda de entrepaños", "columna": 1, "tipo": "numero", "unidad": "mm", "default": "1.5", "placeholder": "1.5", "nota": "Solo en entrepaños: los divisores van pegados a las laterales.", "habilitado_si": { "attr": "h01_entrepano", "valor": "0", "mensaje": "Se activa con «Entrepaño: Sí»." }, "forzar": [{ "valor": "0", "si": [{ "todas": [{ "attr": "h21_entrepano1_retiro_fondo", "valor": "0mm" }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1"] }, { "attr": "h22_entrepano2_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2"] }, { "attr": "h23_entrepano3_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3"] }, { "attr": "h24_entrepano4_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3", "4"] }, { "attr": "h25_entrepano5_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3", "4", "5"] }, { "attr": "h26_entrepano6_retiro_fondo", "valor": "0mm" }] }] }], "mensaje": "Solo divisores: sin holgura lateral." }] },
         { "id": "h34_margen_derecho", "attr": "h34_margen_derecho", "label": "Holgura lateral derecha de entrepaños", "columna": 2, "tipo": "numero", "unidad": "mm", "default": "1.5", "placeholder": "1.5", "habilitado_si": { "attr": "h01_entrepano", "valor": "0", "mensaje": "Se activa con «Entrepaño: Sí»." }, "forzar": [{ "valor": "0", "si": [{ "todas": [{ "attr": "h21_entrepano1_retiro_fondo", "valor": "0mm" }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1"] }, { "attr": "h22_entrepano2_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2"] }, { "attr": "h23_entrepano3_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3"] }, { "attr": "h24_entrepano4_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3", "4"] }, { "attr": "h25_entrepano5_retiro_fondo", "valor": "0mm" }] }, { "alguna": [{ "attr": "h02_cantidad", "valores": ["1", "2", "3", "4", "5"] }, { "attr": "h26_entrepano6_retiro_fondo", "valor": "0mm" }] }] }], "mensaje": "Solo divisores: sin holgura lateral." }] }
       ]
     },

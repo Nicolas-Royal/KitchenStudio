@@ -22,7 +22,7 @@ module RoyalKitchens
       cmd = UI::Command.new(PLUGIN_NAME) { Dialogo.mostrar }
       cmd.tooltip         = PLUGIN_NAME
       cmd.status_bar_text = "Diseñar la cocina con el catálogo de módulos de Royal Kitchens"
-      icono = File.join(__dir__, "ui", "icon.svg")
+      icono = File.join(__dir__, "ui", "icon.png")
       if File.exist?(icono)
         cmd.small_icon = icono
         cmd.large_icon = icono

@@ -24,8 +24,12 @@ var man = {};
 });
 
 // ---- utilidades del arnés --------------------------------------------------
+// Las medidas de referencia se tomaron en SketchUp con un gabinete de
+// 600 × 578 (cuerpo); los defaults de hoy (700 × 600) se prueban aparte.
+var REFERENCIA = { gabinete: { LenX: '600', LenY: '578' } };
 function registro(familia, cambios) {
   var v = T.defaultValores(man[familia]);
+  Object.assign(v, REFERENCIA[familia] || {});
   Object.keys(cambios || {}).forEach(function (k) { v[k] = cambios[k]; });
   return { id: 'r1', familia: familia, titulo: familia, valores: v, nombre_salida: 'X' };
 }
@@ -99,6 +103,25 @@ prueba('Z-05 · «Sin tirador» apaga posición, orientación y largo', function
     .forEach(function (a) { assert.ok(!(a in f), a + ' no debería inyectarse'); });
 });
 
+prueba('Z-05b · manijas: posición y orientación las decide el manifiesto', function () {
+  // Puerta: arriba del lado que abre (IZQ = bisagra izquierda), vertical.
+  var izq = plano('gabinete', { d15_z1_cant_puertas: '1', d17_z1_tirador_posicion: '9', d18_z1_tirador_orientacion: '1' });
+  assert.strictEqual(izq.d17_z1_tirador_posicion, '3', 'simple IZQ: arriba a la derecha');
+  assert.strictEqual(izq.d18_z1_tirador_orientacion, '2', 'puertas: vertical');
+  assert.strictEqual(plano('gabinete', { d15_z1_cant_puertas: '2' }).d17_z1_tirador_posicion, '3', 'simple DER: también 3; el componente la refleja al lado que abre');
+  assert.strictEqual(plano('gabinete', { d15_z1_cant_puertas: '3' }).d17_z1_tirador_posicion, '3', 'doble: el componente las lleva al centro');
+  assert.strictEqual(plano('gabinete', { d16_z1_tirador_tipo: '7' }).d17_z1_tirador_posicion, '5', 'Lateral negra: centro-centro');
+  var ber = plano('gabinete', { d16_z1_tirador_tipo: '21' });
+  assert.ok(ber.d17_z1_tirador_posicion === '2' && ber.d18_z1_tirador_orientacion === '1', 'Berlín: canto de arriba, horizontal');
+  // Cajones: centro-centro, horizontal.
+  var caj = plano('gabinete', { e02_tirador_posicion: '1', e03_tirador_orientacion: '2' });
+  assert.ok(caj.e02_tirador_posicion === '5' && caj.e03_tirador_orientacion === '1', 'cajones: centro, horizontal');
+  // Solo 1 o 2 puertas por zona; los campos de manija no se muestran.
+  assert.deepStrictEqual(campo('gabinete', 'd15_z1_cant_puertas').opciones.map(function (o) { return o.valor; }), ['1', '2', '3']);
+  ['d17_z1_tirador_posicion', 'd18_z1_tirador_orientacion', 'd19_z1_tirador_largo', 'e02_tirador_posicion', 'e03_tirador_orientacion', 'e04_tirador_largo']
+    .forEach(function (id) { assert.ok(campo('gabinete', id).oculto, id + ' oculto'); });
+});
+
 prueba('Z-06 · herraje de cajones solo si alguna zona lleva cajones', function () {
   var f = plano('gabinete', { d31_z2_contenido: '1' });            // puerta y puerta
   ['b02_tipo_cajon', 'e05_corredera_largo', 'e01_tirador_tipo']
@@ -121,6 +144,13 @@ prueba('Z-08 · LenZ y LenY llevan sumados el zoclo y el espesor de puerta', fun
   var f = plano('gabinete', {});
   assert.strictEqual(f.LenZ, '870mm');
   assert.strictEqual(f.LenY, '600mm');
+});
+
+prueba('Z-09 · defaults del gabinete: ancho 700, profundidad 600, alto 770 (cuerpo)', function () {
+  var v = T.defaultValores(man.gabinete);
+  assert.deepStrictEqual([v.LenX, v.LenY, v.LenZ], ['700', '600', '770']);
+  var f = T.flatten(man.gabinete, { familia: 'gabinete', valores: v });
+  assert.deepStrictEqual([f.LenX, f.LenY, f.LenZ], ['700mm', '622mm', '870mm']);
 });
 
 prueba('R-06 · cada diseño de puerta de alacena trae sus propios campos', function () {
@@ -396,6 +426,16 @@ prueba('E-04 · la fórmula da 26 mm (5 cm − ranura − fondo) y cambia con el
   assert.strictEqual(tarja.prof, 578);
   var sinCeja = geom({ h01_entrepano: '0', h02_cantidad: '1', i05_ceja_trasera: '1' });
   assert.strictEqual(sinCeja.retiroFormula, 38);
+});
+
+prueba('E-07 · la holgura lateral es solo de los entrepaños: el divisor va pegado', function () {
+  var G = geom({ h01_entrepano: '0', h02_cantidad: '2', h22_entrepano2_retiro_fondo: '0mm' });
+  assert.strictEqual(G.repisas[0].lateralIzq, 1.5);
+  assert.strictEqual(G.repisas[0].lateralDer, 1.5);
+  assert.strictEqual(G.repisas[1].lateralIzq, 0, 'divisor sin holgura');
+  assert.strictEqual(G.repisas[1].lateralDer, 0);
+  var fp = man.gabinete.formulas_piezas;
+  assert.ok(fp.some(function (r) { return r.hijos === 'PanelXY' && /margenfrontal=0,0/.test(r.formulas.x); }), 'el componente recibe la regla por repisa');
 });
 
 prueba('E-05 · con n repisas se inyectan los n + 1 espacios; vacío = 0 (reparto)', function () {

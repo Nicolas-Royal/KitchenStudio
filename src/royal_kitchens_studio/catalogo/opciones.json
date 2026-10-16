@@ -1,5 +1,5 @@
 {
-  "_doc": "Catálogo de opciones de Royal Kitchens Studio (fuente propia, ya no depende de KitchenCatalog). Fotos relativas a esta carpeta: frentes/ = vista frontal del gabinete base con cada l01_linea_frente; manijas/ = cada tirador a 45°. Las tomó tools/fotos_catalogo.rb desde el gabinete base. color = tono aproximado de material; tiradores[].vista = forma/color para el alzado SVG. familias = mapeo opción -> variables del DC. Manijas: se eligen aparte para puertas (manija_puerta: d16/d36) y cajones (manija_cajon: e01). Reglas por tirador: usos = dónde se puede usar (sin usos = puerta y cajón); solo_frentes = solo con esos l01_linea_frente; posicion.<uso> = posición forzada (Lateral negra en puertas: 5 = Centro-Centro, en los cantos del medio sin chocar). Gola: familias.<f>.gola = cuándo lleva gola; con gola no hay manija y el frente solo puede ser uno con frentes[].con_gola (Lisa).",
+  "_doc": "Catálogo de opciones de Royal Kitchens Studio (fuente propia, ya no depende de KitchenCatalog). Fotos relativas a esta carpeta: frentes/ = vista frontal del gabinete base con cada l01_linea_frente; manijas/ = cada tirador a 45°. Las tomó tools/fotos_catalogo.rb desde el gabinete base. color = tono aproximado de material; tiradores[].vista = forma/color para el alzado SVG. familias = mapeo opción -> variables del DC. Manijas: se eligen aparte para puertas (manija_puerta: d16/d36) y cajones (manija_cajon: e01). Reglas por tirador: usos = dónde se puede usar (sin usos = puerta y cajón); solo_frentes = solo con esos l01_linea_frente; posicion.<uso> = posición forzada (Lateral negra en puertas: 5 = Centro-Centro, en los cantos del medio sin chocar). Gola: golas[] = opciones del selector (diseño global y por mueble: sin gola, melamina, aluminio claro/oscuro) con los valores que ponen en la receta y su color en la vista; familias.<f>.gola = cuándo lleva gola y dónde va la combinación L-C/L-L; colores_gola_aluminio = tono de cada c23 en la vista; con gola no hay manija y el frente solo puede ser uno con frentes[].con_gola (Lisa).",
   "medidas": {
     "ancho": {
       "label": "Ancho",
@@ -821,6 +821,53 @@
       "veta": true
     }
   ],
+  "golas": [
+    {
+      "id": "tirador",
+      "nombre": "Sin gola (con tirador)",
+      "valores": {
+        "b01_gola_o_tirador": "1"
+      }
+    },
+    {
+      "id": "melamina",
+      "nombre": "Gola melamina",
+      "grupo": "Gola",
+      "valores": {
+        "b01_gola_o_tirador": "2",
+        "g01_perfil_tipo": "2"
+      },
+      "color": "#e2dccf"
+    },
+    {
+      "id": "aluminio_claro",
+      "nombre": "Gola aluminio claro",
+      "grupo": "Gola",
+      "valores": {
+        "b01_gola_o_tirador": "2",
+        "g01_perfil_tipo": "1",
+        "c23_material_gola_aluminio": "Aluminio anodizado mate"
+      },
+      "color": "#c4c8cc"
+    },
+    {
+      "id": "aluminio_oscuro",
+      "nombre": "Gola aluminio oscuro",
+      "grupo": "Gola",
+      "valores": {
+        "b01_gola_o_tirador": "2",
+        "g01_perfil_tipo": "1",
+        "c23_material_gola_aluminio": "Negro mate"
+      },
+      "color": "#2a2c2e"
+    }
+  ],
+  "colores_gola_aluminio": {
+    "Aluminio anodizado mate": "#c4c8cc",
+    "Negro mate": "#2a2c2e",
+    "Champagne mate": "#cdb991",
+    "Gris mate": "#8d9396"
+  },
   "familias": {
     "gabinete": {
       "medidas": {
@@ -838,7 +885,10 @@
       },
       "gola": {
         "attr": "b01_gola_o_tirador",
-        "valor": "2"
+        "valor": "2",
+        "combinacion": "g03_combinacion",
+        "perfil": "g01_perfil_tipo",
+        "color_aluminio": "c23_material_gola_aluminio"
       },
       "manija_puerta": {
         "attrs": [

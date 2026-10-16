@@ -148,23 +148,36 @@ window.RKVista = (function () {
     const borde = `stroke="${shade(c, -0.35)}" stroke-width="1"`;
     const brillo = (bx, by, bw, bh) => rect(bx, by, bw, bh, `fill="${shade(c, 0.45)}" opacity=".7"`);
     const cajon = tipo === "cajon";
-    // Puerta: del lado que abre (bisagra del otro lado), arriba; cajón: centrado.
-    let cx = x + w / 2, cy = cajon ? y + Math.min(h * 0.32, 70) : y + Math.min(h * 0.2, 150);
-    if (!cajon) cx = lado === "izq" ? x + w - 42 : x + 42;
+    // Las mismas reglas que fija el manifiesto (forzar de d17/d18 y e02/e03),
+    // con las medidas del componente (Andrea en un gabinete de 600):
+    //   puerta: arriba del lado que abre (bisagra del otro lado), vertical, la
+    //           barra empieza 30 mm abajo del canto y su eje a 25 mm del canto;
+    //   cajón:  al centro del frente, horizontal.
+    const TOPE = 30, CANTO = 25;
+    const cx = cajon ? x + w / 2 : (lado === "izq" ? x + w - CANTO : x + CANTO);
     switch (v.forma) {
       case "barra": {
-        const L = Math.min(cajon ? 160 : 180, (cajon ? w : h) * 0.55);
+        // Las manijas se compran de una medida: barra de 170 mm (menos si no cabe).
+        const L = Math.min(170, (cajon ? w : h) * 0.6);
         return cajon
-          ? rect(cx - L / 2, cy - 5, L, 10, `rx="5" fill="${c}" ${borde}`) + brillo(cx - L / 2 + 4, cy - 3.5, L - 8, 2.5)
-          : rect(cx - 5, cy, 10, L, `rx="5" fill="${c}" ${borde}`) + brillo(cx - 3.5, cy + 4, 2.5, L - 8);
+          ? rect(cx - L / 2, y + h / 2 - 5, L, 10, `rx="5" fill="${c}" ${borde}`) + brillo(cx - L / 2 + 4, y + h / 2 - 3.5, L - 8, 2.5)
+          : rect(cx - 5, y + TOPE, 10, L, `rx="5" fill="${c}" ${borde}`) + brillo(cx - 3.5, y + TOPE + 4, 2.5, L - 8);
       }
-      case "boton":
+      case "boton": {
+        const cy = cajon ? y + h / 2 : y + TOPE + 13;
         return `<circle cx="${cx}" cy="${cy}" r="13" fill="${c}" ${borde}/><circle cx="${cx - 4}" cy="${cy - 4}" r="4" fill="${shade(c, 0.5)}" opacity=".8"/>`;
-      case "cristal":
+      }
+      case "cristal": {
+        const cy = cajon ? y + h / 2 : y + TOPE + 15;
         return `<circle cx="${cx}" cy="${cy}" r="15" fill="${c}" stroke="#8fa6b8" stroke-width="1.5"/>` +
           `<path d="M${cx - 15} ${cy}H${cx + 15}M${cx} ${cy - 15}V${cy + 15}M${cx - 10} ${cy - 10}L${cx + 10} ${cy + 10}M${cx + 10} ${cy - 10}L${cx - 10} ${cy + 10}" stroke="#a9bccb" stroke-width=".8"/>`;
-      case "concha":
-        return `<path d="M${cx - 46} ${cy - 8} H${cx + 46} A46 30 0 0 1 ${cx - 46} ${cy - 8}Z" fill="${c}" ${borde}/>` + brillo(cx - 40, cy - 6, 80, 2.5);
+      }
+      case "concha": {
+        // Concha: el hueco hacia abajo (se jala desde abajo): canto recto abajo
+        // y la panza arriba, centrada en el frente.
+        const cy = y + h / 2 + 15;
+        return `<path d="M${cx - 46} ${cy} H${cx + 46} A46 30 0 0 0 ${cx - 46} ${cy}Z" fill="${c}" ${borde}/>` + brillo(cx - 40, cy - 4.5, 80, 2.5);
+      }
       case "lateral": {
         // Cajón: en el canto de arriba, al centro. Puerta: siempre Centro-Centro,
         // en el canto del lado que abre; en doble, escalonadas para no chocar.
@@ -174,7 +187,9 @@ window.RKVista = (function () {
         return rect(lado === "izq" ? x + w - 4 : x - 12, ly, 16, L, `rx="2" fill="${c}" ${borde}`);
       }
       case "perfil":
-        return rect(x, y - 2, w, 14, `fill="${c}" ${borde}`) + brillo(x, y - 1, w, 2);
+        // Berlín: perfil de 38 mm en el canto de arriba, a todo el ancho (el
+        // componente acorta la hoja para dejarle lugar).
+        return rect(x, y, w, Math.min(38, h * 0.3), `fill="${c}" ${borde}`) + brillo(x, y + 2, w, 2);
       default: return "";
     }
   }
@@ -188,8 +203,25 @@ window.RKVista = (function () {
       (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado));
   }
 
+  /* "#rrggbb" mezclado con negro: f = 0 igual, 1 negro. */
+  function oscurecer(hex, f) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    const c = [n >> 16, (n >> 8) & 255, n & 255].map((x) => Math.round(x * (1 - f)));
+    return "#" + c.map((x) => x.toString(16).padStart(2, "0")).join("");
+  }
+  /* Canal de la gola con su tono (melamina, aluminio claro u oscuro): más
+     oscuro arriba, que es lo hondo, y el canto de abajo con brillo. */
+  function gradienteGola(id, color) {
+    const c = color || "#2f3436";
+    return `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="${oscurecer(c, 0.55)}"/><stop offset=".45" stop-color="${oscurecer(c, 0.3)}"/>` +
+      `<stop offset="1" stop-color="${oscurecer(c, 0.08)}"/></linearGradient>`;
+  }
+
   /* layout: de desdeValores/desdeEtiquetas. d: { frente, manijaPuerta, manijaCajon:
-     {forma,color}|null, material: {color, foto, veta}|null, gola }. */
+     {forma,color}|null, material: {color, foto, veta}|null, gola, golaColor }. */
   function svg(layout, d) {
     d = Object.assign({ gola: layout.gola }, d, { _pat: "rk-mat-" + (++serie) });
     const W = layout.ancho, H = layout.alto, Z = layout.zoclo;
@@ -207,8 +239,8 @@ window.RKVista = (function () {
     layout.zonas.forEach((z) => {
       let zy = y + GAP, zh = z.h - 2 * GAP;
       if (d.gola) {
-        out += rect(GAP, y + GAP, W - 2 * GAP, GOLA - GAP, 'fill="#2f3436"') +
-          rect(GAP, y + GAP + GOLA - 8, W - 2 * GAP, 3, 'fill="#8d9396"');
+        out += rect(GAP, y + GAP, W - 2 * GAP, GOLA - GAP, `fill="url(#${d._pat}-gola)"`) +
+          rect(GAP, y + GAP + GOLA - 8, W - 2 * GAP, 3, 'fill="rgba(255,255,255,.35)"');
         zy += GOLA; zh -= GOLA;
       }
       if (z.tipo === "puerta") {
@@ -231,7 +263,7 @@ window.RKVista = (function () {
     });
     const vb = `${-M} ${-M} ${W + 2 * M} ${H + Z + 2 * M}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vista previa del frente">` +
-      `<defs>${patronMaterial(d._pat, d.material)}` +
+      `<defs>${patronMaterial(d._pat, d.material)}${gradienteGola(d._pat + "-gola", d.golaColor)}` +
       `<linearGradient id="${d._pat}-hueco" x1="0" y1="0" x2="0" y2="1">` +
       `<stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity=".3"/>` +
       `<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>` +

@@ -31,6 +31,14 @@ function muestra(color, veta) {
   return "data:image/svg+xml;utf8," + encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect width='100%' height='100%' fill='${color || "#ccc"}'/>${vetas}</svg>`);
 }
+// Muestra de una gola: el canal con su tono, más oscuro hacia adentro.
+function muestraGola(color) {
+  return "data:image/svg+xml;utf8," + encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect y='0' width='200' height='55' fill='#c9b79a'/>` +
+    `<rect y='55' width='200' height='40' fill='${color}'/>` +
+    `<rect y='55' width='200' height='16' fill='rgba(0,0,0,.35)'/><rect y='71' width='200' height='10' fill='rgba(0,0,0,.18)'/>` +
+    `<rect y='91' width='200' height='4' fill='rgba(255,255,255,.35)'/><rect y='95' width='200' height='55' fill='#c9b79a'/></svg>`);
+}
 const THUMB_FALLBACK = placeholder("sin imagen", "#ccc");
 function setImg(img, url, fallback) {
   img.src = url || fallback || THUMB_FALLBACK;
@@ -67,6 +75,8 @@ const S = {
   pj: { lista: [], disponible: true, q: "", alcance: null, estado: null, detalle: null },
   iniciado: false,
   sesion: false, loginRol: null,
+  // «Solo la escena»: dentro de Diseño / Muebles / CSV sin proyecto abierto.
+  libre: false,
 };
 
 // ==== Datos desde Ruby =======================================================
@@ -89,11 +99,12 @@ window.RKS = {
     $("#ver").textContent = $("#login-ver").textContent = "v" + S.version;
     contadores();
     // 1. Sin sesión: solo el login.
-    if (!S.sesion) { S.iniciado = false; return mostrarLogin(); }
+    if (!S.sesion) { S.iniciado = false; S.libre = false; return mostrarLogin(); }
     $("#login").hidden = true;
     $("#app").hidden = false;
     // 2/3. Al entrar o al cambiar de modelo: con proyecto abierto se va
     // adentro del proyecto; sin proyecto, a la lista.
+    if (S.actual.folio) S.libre = false;
     if (!S.iniciado || folioAntes !== S.actual.folio) {
       const primera = !S.iniciado;
       S.iniciado = true;
@@ -111,6 +122,14 @@ window.RKS = {
     ocupado(false);
     if (r && r.ok === false) return aviso("Error: " + r.error);
     aviso("Módulo insertado en la escena");
+  },
+  onInsertados(r) { aplicarDiseno(r); },
+  onAplicado(r) {
+    ocupado(false);
+    if (!r || r.ok === false) return aviso("Error: " + ((r && r.error) || "no se pudo aplicar"));
+    const errores = r.errores || [];
+    if (errores.length) return preguntar("Aplicar el diseño", `${r.hechos} actualizados. No se pudieron generar: ${errores.join(" · ")}`, [["use", "Entendido", null]]);
+    aviso(`Diseño aplicado a ${r.hechos} ${r.hechos === 1 ? "mueble" : "muebles"}`);
   },
   onGenerado(r) {
     if (S.csv && S.csv.cola) return csvSiguiente(r);
@@ -178,12 +197,14 @@ window.RKS = {
 // ==== Navegación =============================================================
 // Tres pantallas: login → inicio (proyectos, ajustes) → dentro de un proyecto
 // (diseño, muebles, CSV, página de un mueble). Lo de adentro pide un proyecto
-// abierto en SketchUp.
+// abierto en SketchUp, o «Solo la escena» (S.libre): las mismas herramientas
+// sobre el modelo abierto, sin registro; guardarlo como proyecto es opcional.
 const SECS_PROYECTO = ["proyecto", "lista", "modulo", "csv"];
 const dentro = () => SECS_PROYECTO.includes(S.sec);
 
 function irA(sec) {
-  if (SECS_PROYECTO.includes(sec === "catalogo" ? "lista" : sec) && !S.actual.folio) sec = "proyectos";
+  if (sec === "proyectos") S.libre = false;
+  if (SECS_PROYECTO.includes(sec === "catalogo" ? "lista" : sec) && !S.actual.folio && !S.libre) sec = "proyectos";
   if (sec === "catalogo") { S.sec = "lista"; S.cat = null; }
   else S.sec = sec;
   if (sec !== "modulo") S.mod = null;
@@ -222,7 +243,7 @@ function guardarProyecto() {
 
 function pintarProyecto() {
   const g = S.proyecto.global;
-  pintarPickers($("#pr-pickers"), g, true, () => { guardarProyecto(); pintarProyecto(); }, {});
+  pintarPickers($("#pr-pickers"), g, true, () => { guardarProyecto(); pintarProyecto(); }, { gola: RKReglas.conGola(S.opciones, golaFam(), g.gola) });
   $("#pr-igualar").checked = !!g.medidas.igualar;
   $("#pr-igualar").onchange = (e) => { g.medidas.igualar = e.target.checked; guardarProyecto(); pintarProyecto(); };
   const md = $("#pr-medidas");
@@ -232,42 +253,55 @@ function pintarProyecto() {
     g.medidas[k] = v; guardarProyecto(); pintarPreviewProyecto();
   }, !g.medidas.igualar)));
   pintarPreviewProyecto();
-  pintarPersonalizados();
+  $("#pr-aplicar").onclick = () => { ocupado(true, "Buscando los muebles insertados…"); bridge("insertados"); };
 }
 
 function pintarPreviewProyecto() {
   const g = S.proyecto.global;
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
+  const conGola = RKReglas.conGola(S.opciones, golaFam(), g.gola);
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
-    d31_z2_contenido: "2", d32_z2_cant_cajones: "3", b01_gola_o_tirador: "1", a02_alto_zoclo: "100mm" }, { ancho: 600, alto });
-  visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto");
-  $("#pr-preview-note").textContent = "Ejemplo: gabinete de 600 mm con puerta doble y 3 cajones.";
+    d31_z2_contenido: "2", d32_z2_cant_cajones: conGola ? "2" : "3", b01_gola_o_tirador: conGola ? "2" : "1", a02_alto_zoclo: "100mm" }, { ancho: 700, alto });
+  // Con gola el frente es Lisa, como lo va a insertar.
+  const d = conGola ? Object.assign({}, g, { frente: RKReglas.frenteGola(S.opciones) }) : g;
+  visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(d, conGola, RKReglas.colorGola(S.opciones, golaFam(), g.gola))), "proyecto");
+  $("#pr-preview-note").textContent = `Ejemplo: gabinete de 700 mm con puerta doble y ${conGola ? "2 cajones, con gola" : "3 cajones"}.`;
 }
 
-function pintarPersonalizados() {
-  const box = $("#pr-personalizados");
-  // Lo que en este proyecto no sigue el diseño del proyecto: un mueble ajustado
-  // o uno creado por usuario que va con su diseño original.
-  const ids = Object.keys(S.proyecto.modulos).filter((id) => S.proyecto.modulos[id].personalizado || S.proyecto.modulos[id].original);
-  if (!ids.length) { box.innerHTML = "<p class='hint'>Ninguno: todos siguen el diseño del proyecto.</p>"; return; }
-  box.innerHTML = "";
-  ids.forEach((id) => {
+/* «Aplicar el diseño a los muebles insertados»: Ruby dice qué muebles de la
+   escena se insertaron con el diseño del proyecto ({ id, n } por mueble del
+   catálogo); aquí se arma la elección de cada uno con el diseño de hoy y, tras
+   confirmar, Ruby los vuelve a generar en su lugar. */
+function aplicarDiseno(r) {
+  ocupado(false);
+  if (!r || r.ok === false) return aviso("Error: " + ((r && r.error) || "no se pudo leer la escena"));
+  const trabajos = [], fallas = [];
+  let total = 0;
+  (r.muebles || []).forEach(({ id, n }) => {
     const m = S.modulos.find((x) => x.id === id);
-    const row = document.createElement("div");
-    row.className = "mini-row";
-    const que = S.proyecto.modulos[id].personalizado ? "ajustado" : "con su diseño original";
-    row.innerHTML = `<span>${esc(m ? m.name : id)} <i class="pj-sub">${que}</i></span><button class="key sm">Abrir</button><button class="key sm">Quitar ajuste</button>`;
-    const [abrir, quitar] = $$("button", row);
-    abrir.disabled = !m;
-    abrir.onclick = () => abrirModulo(m);
-    quitar.onclick = () => { delete S.proyecto.modulos[id]; guardarProyecto(); pintarProyecto(); };
-    box.appendChild(row);
+    if (!m) return fallas.push(`${id}: ya no está en el catálogo`);
+    const e = eleccionDe(m, disenoGlobal(m));
+    if (e.aviso) return fallas.push(e.aviso);
+    trabajos.push({ id, eleccion: e.eleccion });
+    total += n;
   });
+  const sin = fallas.length ? `\n\nNo se pueden cambiar: ${fallas.join(" · ")}` : "";
+  if (!total) return preguntar("Aplicar el diseño", "No hay muebles en la escena que se hayan insertado con el diseño del proyecto." + sin, [["use", "Entendido", null]]);
+  preguntar("Aplicar el diseño",
+    `Se volverán a generar ${total} ${total === 1 ? "mueble" : "muebles"} en su mismo lugar con el diseño del proyecto. ` +
+    "Los insertados ajustados o con su diseño original no cambian. Se puede deshacer con Ctrl+Z." + sin, [
+      ["key", "Cancelar", null],
+      ["use", "Aplicar", () => {
+        ocupado(true, `Aplicando el diseño a ${total} ${total === 1 ? "mueble" : "muebles"}… (puede tardar)`);
+        bridge("aplicar_diseno", JSON.stringify(trabajos));
+      }],
+    ]);
 }
 
 // ==== Selectores con foto (frente / manija / material) =======================
 // Manija aparte para puertas y para cajones (reglas en reglas.js / opciones.json).
 const PICKERS = [
+  { key: "gola", titulo: "Gola", lista: () => S.opciones.golas, sinCambio: true },
   { key: "frente", titulo: "Tipo de frente", lista: () => S.opciones.frentes },
   { key: "manija_puerta", titulo: "Manija de puertas", uso: "puerta", lista: () => S.opciones.tiradores },
   { key: "manija_cajon", titulo: "Manija de cajones", uso: "cajon", lista: () => S.opciones.tiradores },
@@ -283,12 +317,13 @@ function opcion(key, id) {
 function fotoDe(key, o) {
   if (o && o.foto_abs) return fileURL(o.foto_abs);
   if (key === "material") return o ? muestra(o.color, o.veta) : placeholder("Como el módulo", "#ece8e1");
+  if (key === "gola") return o && o.color ? muestraGola(o.color) : placeholder(o ? "Con tirador" : "Como el módulo", "#ece8e1");
   if (esManija(key) && o && o.id === "1") return placeholder("Sin manija");
   return placeholder(o ? o.nombre : "—");
 }
 
 /* Diseño -> lo que necesita RKVista.svg. */
-function disenoSvg(d, gola) {
+function disenoSvg(d, gola, golaColor) {
   const vista = (key) => { const t = opcion(key, d[key]); return gola ? null : (t && t.vista) || null; };
   const mat = opcion("material", d.material);
   return {
@@ -297,6 +332,7 @@ function disenoSvg(d, gola) {
     manijaCajon: vista("manija_cajon"),
     material: mat ? { color: mat.color, foto: mat.foto_abs ? fileURL(mat.foto_abs) : null, veta: mat.veta } : null,
     gola,
+    golaColor: golaColor || null,
   };
 }
 
@@ -343,7 +379,19 @@ function pintarPickers(box, d, editable, onCambio, extra) {
       (editable && !fijo ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
     setImg($("img", t), sinManija ? placeholder("Gola") : fotoDe(p.key, o));
     if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio);
-    box.appendChild(t);
+    // Con una gola elegida, en la misma tarjeta: L-C o L-L.
+    if (p.key === "gola" && o && RKReglas.conGola(S.opciones, golaFam(), o.id)) {
+      const caja = document.createElement("div");
+      caja.className = "pick-con-seg";
+      const seg = document.createElement("div");
+      seg.className = "seg pick-seg";
+      seg.title = "L - L cierra el hueco entre zonas";
+      caja.append(t, seg);
+      box.appendChild(caja);
+      pintarSeg(seg, [["1", "L - C"], ["2", "L - L"]], d.gola_combinacion || "1", (v) => {
+        d.gola_combinacion = v; onCambio();
+      }, !editable);
+    } else box.appendChild(t);
   });
   // Diseños guardados antes de una regla (p. ej. concha en puertas).
   if (error) box.insertAdjacentHTML("beforeend", `<p class="cf-error pick-error">${esc(error)}: cámbialo antes de insertar.</p>`);
@@ -613,6 +661,14 @@ function esGola(m) {
   if (m.receta) return recetaValor(m, "b01_gola_o_tirador") === "2";
   return Object.values(m.features || {}).flat().some((t) => /gola/i.test(t));
 }
+// La gola elegida en el diseño manda; sin elección, la del mueble.
+const golaFam = () => (S.opciones.familias || {}).gabinete || null;
+function golaDe(m, d) {
+  return RKReglas.conGola(S.opciones, cfgFamilia(m) || golaFam(), d && d.gola, esGola(m));
+}
+function colorGolaDe(m, d) {
+  return RKReglas.colorGola(S.opciones, cfgFamilia(m) || golaFam(), d && d.gola, m.receta && m.receta.valores);
+}
 /* De dónde sale el diseño del mueble en este proyecto (ui/muebles.js):
    "global", "original" (como se creó) o "personal" (ajustado aquí). +enLista+:
    la tarjeta también obedece a «Ver con» del filtro de creados por usuario. */
@@ -627,21 +683,34 @@ const TITULO_USAR = { global: "Insertar con el diseño del proyecto", personal: 
    salvo «igualar» en gabinetes, que pone el alto y fondo comunes). El ancho y
    la tarja son siempre del mueble: no hay un valor de proyecto para ellos. */
 function disenoDe(m, enLista) {
-  const g = S.proyecto.global;
   const o = S.proyecto.modulos[m.id];
-  const s = m.specs || {};
-  const base = { ancho: s.ancho_mm || 600, alto: s.alto_mm || 770, fondo: s.fondo_mm || 578 };
   const modo = modoDe(m, enLista);
-  let d;
-  if (modo === "original") d = Object.assign({ modo }, base, M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores));
-  else if (modo === "personal") d = Object.assign({ modo: "personal" }, base, o, o.medidas || {});
-  else {
-    const tarja = M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores).tarja;
-    d = Object.assign({ modo: "global" }, base, { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja });
-    if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
-  }
-  // Con gola el frente es siempre Lisa: ni el proyecto ni un ajuste lo cambian.
-  if (esGola(m) && RKReglas.gola(S.opciones, d.frente)) d.frente = RKReglas.frenteGola(S.opciones);
+  if (modo === "global") return disenoGlobal(m);
+  const d = modo === "original"
+    ? Object.assign({ modo }, medidasBase(m), M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores))
+    : Object.assign({ modo: "personal" }, medidasBase(m), o, o.medidas || {});
+  return frenteConGola(m, d);
+}
+
+/* El diseño del proyecto sobre +m+, tenga o no elección propia (es el que
+   reciben los muebles insertados con «Aplicar el diseño»). */
+function disenoGlobal(m) {
+  const g = S.proyecto.global;
+  const tarja = M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores).tarja;
+  const d = Object.assign({ modo: "global" }, medidasBase(m), { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja,
+    gola: g.gola || "", gola_combinacion: g.gola_combinacion || "1" });
+  if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
+  return frenteConGola(m, d);
+}
+
+function medidasBase(m) {
+  const s = m.specs || {};
+  return { ancho: s.ancho_mm || 700, alto: s.alto_mm || 770, fondo: s.fondo_mm || 600 };
+}
+
+// Con gola el frente es siempre Lisa: ni el proyecto ni un ajuste lo cambian.
+function frenteConGola(m, d) {
+  if (golaDe(m, d) && RKReglas.gola(S.opciones, d.frente)) d.frente = RKReglas.frenteGola(S.opciones);
   return d;
 }
 
@@ -699,7 +768,7 @@ function pintarModulo() {
 function pintarDiseno(m, d, real) {
   const personal = d.modo === "personal";
   const fc = cfgFamilia(m);
-  const gola = esGola(m);
+  const gola = golaDe(m, d);
   const esUsuario = M.clase(m) === "usuario";
   // Todos parten del diseño del proyecto. Los creados por usuario pueden ir
   // también con su diseño original; cualquiera se puede ajustar aquí.
@@ -707,7 +776,7 @@ function pintarDiseno(m, d, real) {
     if (v === "personal") {
       const g = disenoDe(m);
       S.proyecto.modulos[m.id] = { personalizado: true, frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja: g.tarja,
-        medidas: { ancho: g.ancho, alto: g.alto, fondo: g.fondo } };
+        gola: g.gola || "", gola_combinacion: g.gola_combinacion || "1", medidas: { ancho: g.ancho, alto: g.alto, fondo: g.fondo } };
     } else if (v === "original") S.proyecto.modulos[m.id] = { original: true };
     else delete S.proyecto.modulos[m.id];
     cambioDiseno(m);
@@ -719,7 +788,7 @@ function pintarDiseno(m, d, real) {
     global: esUsuario ? "Toma el diseño del proyecto (sección Diseño). «Original» lo deja como se creó; «Ajustar este mueble» cambia solo este."
       : "Mueble de catálogo: toma el diseño del proyecto (sección Diseño). Para cambiar solo este, elige «Ajustar este mueble».",
   }[d.modo];
-  const al = M.alcance(fc, gola, !!S.proyecto.global.medidas.igualar && familiaDe(m) === "gabinete");
+  const al = M.alcance(fc, gola, !!S.proyecto.global.medidas.igualar && familiaDe(m) === "gabinete", !!S.proyecto.global.gola);
   $("#md-alcance").hidden = d.modo !== "global";
   $("#md-alcance").innerHTML = `<b>Del proyecto:</b> ${esc(al.cambia.join(", ") || "nada")}. <b>Se queda como está:</b> ${esc(al.fijo.join(", "))}.`;
   $("#md-origen").textContent = M.etiqueta(m);
@@ -836,13 +905,16 @@ function svgModulo(m, avanzado, enLista) {
     const v = st.reg.valores;
     const lay = RKVista.desdeValores(v, { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
     return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: v.d16_z1_tirador_tipo, manija_cajon: v.e01_tirador_tipo,
-      material: st.material }, v.b01_gola_o_tirador === "2"));
+      material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
   }
   const d = disenoDe(m, enLista);
   const lay = m.receta && familiaDe(m) === "gabinete"
     ? RKVista.desdeValores(m.receta.valores, { ancho: d.ancho, alto: d.alto })
     : RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
-  return RKVista.svg(lay, disenoSvg(d, esGola(m)));
+  // La gola elegida en el diseño cambia el dibujo aunque la receta no la traiga.
+  const gola = golaDe(m, d);
+  lay.gola = gola;
+  return RKVista.svg(lay, disenoSvg(d, gola, colorGolaDe(m, d)));
 }
 
 function pintarPreviewModulo(m) {
@@ -885,6 +957,9 @@ function estadoAvanzado(m) {
     RKAvanzado.poner(man, valores, "LenX", d.ancho, S.rcc);
     if (m.receta) { RKAvanzado.poner(man, valores, "LenZ", d.alto, S.rcc); RKAvanzado.poner(man, valores, "LenY", d.fondo, S.rcc); }
     if (fc) {
+      // La gola elegida (antes que frente y manijas: decide si llevan).
+      Object.entries(RKReglas.cambiosGola(S.opciones, fc, d.gola, d.gola_combinacion || "1"))
+        .forEach(([a, v]) => RKAvanzado.poner(man, valores, a, v, S.rcc));
       if (fc.frente && d.frente) RKAvanzado.poner(man, valores, fc.frente.attr, d.frente, S.rcc);
       if (fc.tarja && m.receta) RKAvanzado.poner(man, valores, fc.tarja.attr, d.tarja ? fc.tarja.si : fc.tarja.no, S.rcc);
       // Manija de puertas y de cajones, con su posición forzada si la tiene.
@@ -989,45 +1064,73 @@ function generarAvanzado(m, st) {
 }
 
 // ---- Insertar ------------------------------------------------------------------
-/* «Usar»: lo que muestra la tarjeta. El diseño original es el .skp guardado
-   (rápido); con diseño del proyecto o ajustado, se regenera la pieza. */
+/* «Usar»: lo que muestra la tarjeta. Siempre se genera desde el componente
+   base: el diseño original es la receta tal cual; con el del proyecto o
+   ajustado, la receta con esos cambios. */
 function usarModulo(m, enLista) {
   const d = disenoDe(m, enLista);
   insertar(m, d.modo === "original" ? null : d);
 }
 
+/* La receta del mueble con la gola elegida, contra las reglas del manifiesto
+   (con gola van máximo 2 cajones por zona). Primer error, o "". */
+function erroresConGola(m, d) {
+  const man = S.manifiestos[familiaDe(m)];
+  if (!man || !S.rcc || !m.receta) return "";
+  const valores = RKAvanzado.valoresDesdeFila(man, m.receta.valores, S.rcc);
+  Object.entries(RKReglas.cambiosGola(S.opciones, cfgFamilia(m), d.gola, d.gola_combinacion || "1"))
+    .forEach(([a, v]) => RKAvanzado.poner(man, valores, a, v, S.rcc));
+  const e = S.rcc.erroresConfig(man, valores)[0];
+  return e ? `${e.label ? e.label + ": " : ""}${e.msg}` : "";
+}
+
+/* Lo que se manda a Ruby para generar +m+ con el diseño +d+: { eleccion }, o
+   si el diseño no le cabe { aviso } (para la barra de avisos) y, cuando se
+   corrige en la página del mueble, { error } (para mostrarlo ahí). */
+function eleccionDe(m, d) {
+  const eleccion = { ancho: d.ancho, alto: d.alto, fondo: d.fondo };
+  if (!tieneReceta(m)) return { eleccion };
+  const fc = cfgFamilia(m) || {};
+  if (fc.tarja) eleccion.tarja = !!d.tarja;
+  if (fc.frente && d.frente) eleccion.frente = d.frente;
+  if (fc.gola && d.gola) { eleccion.gola = d.gola; eleccion.gola_combinacion = d.gola_combinacion || "1"; }
+  const gola = golaDe(m, d);
+  // Con gola: máximo 2 cajones por zona (y lo demás del manifiesto).
+  const errGola = d.gola ? erroresConGola(m, d) : "";
+  if (errGola) return { aviso: `${m.name}: ${errGola}`, error: errGola };
+  Object.values(RKReglas.USOS).forEach((k) => { if (fc[k] && d[k] && !gola) eleccion[k] = d[k]; });
+  if (fc.material && d.material) eleccion.material = d.material;
+  if (d.modo === "personal" && d.interior) {
+    const man = S.manifiestos[familiaDe(m)], g = grupoInterior(man);
+    const reg = g && regInterior(m, d);
+    const errs = g ? erroresInterior(man, g, reg) : [];
+    if (errs.length) return { aviso: "entrepaños de " + m.name + ": " + errs.map((e) => e.msg).join(" ") };
+    eleccion.interior = d.interior;
+    const div = reg && S.rcc.nombresDivisores(man, reg);
+    if (div) eleccion.divisores = div;
+  }
+  const error = RKReglas.diseno(S.opciones, d, gola);
+  if (error) return { aviso: `${m.name}: ${error}. Revísalo en «Configurar».`, error: error + "." };
+  return { eleccion };
+}
+
+/* +d+ = null: la receta tal cual (diseño original). La escena recuerda con
+   qué diseño entró cada mueble (+modo+) para «Aplicar el diseño». */
 function insertar(m, d) {
   let eleccion = null;
   if (d) {
-    eleccion = { ancho: d.ancho, alto: d.alto, fondo: d.fondo };
-    if (tieneReceta(m)) {
-      const fc = cfgFamilia(m) || {};
-      if (fc.tarja) eleccion.tarja = !!d.tarja;
-      if (fc.frente && d.frente) eleccion.frente = d.frente;
-      const gola = esGola(m);
-      Object.values(RKReglas.USOS).forEach((k) => { if (fc[k] && d[k] && !gola) eleccion[k] = d[k]; });
-      if (fc.material && d.material) eleccion.material = d.material;
-      if (d.modo === "personal" && d.interior) {
-        const man = S.manifiestos[familiaDe(m)], g = grupoInterior(man);
-        const reg = g && regInterior(m, d);
-        const errs = g ? erroresInterior(man, g, reg) : [];
-        if (errs.length) return aviso("Error: entrepaños de " + m.name + ": " + errs.map((e) => e.msg).join(" "));
-        eleccion.interior = d.interior;
-        const div = reg && S.rcc.nombresDivisores(man, reg);
-        if (div) eleccion.divisores = div;
-      }
-      const error = RKReglas.diseno(S.opciones, d, gola);
-      if (error) {
-        if (S.sec !== "modulo") return aviso(`Error: ${m.name}: ${error}. Revísalo en «Configurar».`);
-        const e = $("#md-error");
-        e.textContent = error + ".";
-        e.hidden = false;
-        return;
-      }
+    const r = eleccionDe(m, d);
+    if (r.error && S.sec === "modulo") {
+      const e = $("#md-error");
+      e.textContent = r.error;
+      e.hidden = false;
+      return;
     }
+    if (r.aviso) return aviso("Error: " + r.aviso);
+    eleccion = r.eleccion;
   }
   ocupado(true, eleccion && tieneReceta(m) ? `Insertando ${m.name} con su diseño… (puede tardar unos segundos)` : `Insertando ${m.name}…`);
-  bridge("insertar", JSON.stringify({ id: m.id, eleccion }));
+  bridge("insertar", JSON.stringify({ id: m.id, eleccion, modo: d ? d.modo : "original" }));
 }
 
 // Por ahora solo se generan las filas de familias activas (gabinete).
@@ -1226,9 +1329,9 @@ const pillEstado = (id) => `<span class="pill e-${esc(id)}">${esc(nombreEstado(i
 function pintarProyectos() {
   pintarActual();
   $("#pj-stamp").textContent = esPlaneacion() ? "Registro · Planeación" : "Registro · Diseño";
-  // Planeación revisa todo; diseño empieza con lo suyo.
-  if (!S.pj.alcance) S.pj.alcance = esPlaneacion() ? "todos" : "mios";
-  pintarSeg($("#pj-alcance"), [["mios", "Mis proyectos"], ["todos", "Todos"]], S.pj.alcance, (v) => {
+  // Todos ven primero todos los proyectos; «Mis proyectos» filtra los propios.
+  if (!S.pj.alcance) S.pj.alcance = "todos";
+  pintarSeg($("#pj-alcance"), [["todos", "Todos"], ["mios", "Mis proyectos"]], S.pj.alcance, (v) => {
     S.pj.alcance = v; pintarProyectos();
   });
   const chips = $("#pj-estados");
@@ -1321,9 +1424,16 @@ function pintarActual() {
    lista + folio, cliente, estado y sincronía. Siempre: quién entró. */
 function pintarBarra() {
   const a = S.actual, en = dentro() && a.folio;
-  $("#tb-tabs").hidden = !en;
+  const libre = dentro() && !a.folio && S.libre;
+  $("#tb-tabs").hidden = !(en || libre);
   const ctx = $("#tb-ctx");
-  if (en) {
+  if (libre) {
+    ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button>` +
+      `<div class="tb-pj"><strong>Solo la escena</strong><span class="hint">Sin proyecto: nada se registra</span></div>` +
+      (esPlaneacion() ? "" : `<button class="key sm" id="tb-como-proyecto">Guardar como proyecto…</button>`);
+    $("#tb-volver").onclick = () => irA("proyectos");
+    if (!esPlaneacion()) $("#tb-como-proyecto").onclick = () => { usarModeloActual = "1"; abrirCrear(); };
+  } else if (en) {
     const reg = a.registro || {}, s = P.sincronia(a);
     ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button>` +
       `<div class="tb-pj"><strong>${esc(a.folio)}</strong><span class="hint">${esc(reg.cliente || "Sin cliente")}</span></div>` +
@@ -1347,6 +1457,9 @@ function mostrarLogin() {
   ["#avanzado", "#picker"].forEach((s) => { $(s).hidden = true; });
   $("#app").hidden = true;
   $("#login").hidden = false;
+  // Al entrar bien Ruby no responde onLogin (manda el estado): sin esto,
+  // después de «Salir» el botón seguiría apagado.
+  $("#login-entrar").disabled = false;
   if (!S.loginRol) S.loginRol = S.usuario.rol || "diseno";
   pintarSeg($("#login-rol"), [["diseno", "Diseño"], ["planeacion", "Planeación"]], S.loginRol, (v) => {
     S.loginRol = v; mostrarLogin();
@@ -1664,7 +1777,7 @@ function pintarAjustes() {
   pintarFormUsuario();
   const filas = [
     ["proyectos", "Carpeta de proyectos", "Registro compartido. Hoy local; para trabajar entre sedes, apunta aquí a la carpeta del servidor u OneDrive."],
-    ["creaciones", "Catálogo de muebles", "Recetas guardadas (.json + .skp). Para compartirlo entre sedes, apunta aquí a una carpeta del servidor u OneDrive."],
+    ["creaciones", "Catálogo de muebles", "Recetas guardadas (.json); cada mueble se genera desde el componente base. Para compartirlo entre sedes, apunta aquí a una carpeta del servidor u OneDrive."],
   ];
   $("#aj-carpetas").innerHTML = "";
   filas.forEach(([k, t, d]) => {
@@ -1721,6 +1834,7 @@ $("#csv-quitar").onclick = csvQuitar;
 $("#pj-q").addEventListener("input", (e) => { S.pj.q = e.target.value; pintarTablaProyectos(); });
 $("#pj-recargar").onclick = () => bridge("recargar");
 $("#pj-nuevo").onclick = abrirCrear;
+$("#pj-libre").onclick = () => { S.libre = true; irA("proyecto"); };
 $$("[data-cerrar]").forEach((b) => { b.onclick = () => { b.closest(".overlay").hidden = true; }; });
 ["#pj-ficha", "#pj-crear"].forEach((s) => $(s).addEventListener("click", (e) => { if (e.target === $(s)) $(s).hidden = true; }));
 $("#pq-input").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#pq-botones .use").click(); });

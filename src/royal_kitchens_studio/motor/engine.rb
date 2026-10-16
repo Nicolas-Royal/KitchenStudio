@@ -513,6 +513,47 @@ module RoyalKitchens
         [pieza, pieza.definition].each { |e| e.set_attribute(DICT, 'name', nombre) }
       end
 
+      # ---------------------------------------------------------------------
+      # Deja cada contenedor como UNA pieza para OpenCutList, con su medida
+      # total, sin tocar la geometría:  [{ grupo:, nombre: }]
+      #
+      # Caso: la lateral con gola (PanelYZ_CEGolaLat), que el componente arma
+      # con el cuerpo y dos tiras al frente (PInt1) alrededor de la muesca; en
+      # el despiece salían 3 piezas. Se corta como un tablero completo
+      # (770 × 600) y luego se le hace la muesca de la gola. Mismo método que
+      # unificar_frentes: las piezas internas quedan con «cortar abertura» y
+      # OpenCutList cuenta sus caras para el contenedor, que lleva el nombre.
+      # Las iguales del mueble comparten definición (un renglón con cantidad).
+      #
+      # Devuelve la cantidad de contenedores unificados.
+      # ---------------------------------------------------------------------
+      def piezas_unicas(inst, lista)
+        n = 0
+        nombrados = {}
+        Array(lista).each do |r|
+          buscar_para_modificar(inst, r[:grupo].to_s).reject { |e| e == inst || oculto?(e) }.each do |grupo|
+            next if piezas_con_caras(grupo.definition) < 2
+            piezas_como_grupo(grupo.definition)
+            nombrar_unica(grupo, r[:nombre].to_s, nombrados) unless r[:nombre].to_s.empty?
+            n += 1
+          end
+        end
+        n
+      end
+
+      def nombrar_unica(grupo, nombre, nombrados)
+        firma  = firma_pieza(grupo.definition)
+        gemela = (nombrados[nombre] ||= []).find { |d, f| d.valid? && f == firma }
+        if gemela
+          grupo.definition = gemela[0]
+        else
+          grupo.definition.name = nombre
+          grupo.definition.set_attribute(DICT_STUDIO, 'compartida', true)
+          nombrados[nombre] << [grupo.definition, firma]
+        end
+        [grupo, grupo.definition].each { |e| e.set_attribute(DICT, 'name', nombre) }
+      end
+
       # Componentes con caras propias debajo de una definición (lo que
       # OpenCutList contaría como piezas).
       def piezas_con_caras(defn)
@@ -602,6 +643,50 @@ module RoyalKitchens
         ent.make_unique if ent.definition.instances.size > 1
       end
 
+      # ---------------------------------------------------------------------
+      # Reescribe fórmulas de piezas internas del componente:
+      #   [{ pieza:, hijos: (opcional), formulas: { "x" => "...", "lenx" => "..." } }]
+      # +pieza+ se busca por nombre (instancia o definición) e independizando el
+      # camino, para no tocar el componente base ni otras unidades. Con +hijos+
+      # las fórmulas van a las instancias directas de la pieza cuya definición
+      # contiene ese texto (todas las copias). Va antes del redibujado.
+      # x/y/z se escriben también como _inst__x_formula en la definición, que
+      # es de donde el DC las toma al volver a crear las copias.
+      # Devuelve la lista de warnings.
+      # ---------------------------------------------------------------------
+      def formulas_piezas(inst, lista)
+        warnings = []
+        Array(lista).each do |r|
+          piezas = buscar_para_modificar(inst, r[:pieza].to_s).reject { |e| e == inst }
+          if piezas.empty?
+            warnings << "Fórmulas: no se encontró la pieza '#{r[:pieza]}'."
+            next
+          end
+          piezas.each do |pieza|
+            independizar(pieza)
+            blancos = if r[:hijos]
+                        pieza.definition.entities.grep(Sketchup::ComponentInstance)
+                             .select { |h| h.definition.name.include?(r[:hijos].to_s) }
+                             .each { |h| independizar(h) }
+                      else
+                        [pieza]
+                      end
+            warnings << "Fórmulas: '#{r[:pieza]}' no tiene piezas '#{r[:hijos]}'." if blancos.empty?
+            blancos.each { |b| escribir_formulas(b, r[:formulas]) }
+          end
+        end
+        warnings
+      end
+
+      def escribir_formulas(ent, formulas)
+        (formulas || {}).each do |key, formula|
+          key = key.to_s.downcase
+          ent.set_attribute(DICT, "_#{key}_formula", formula.to_s)
+          ent.definition.set_attribute(DICT, "_#{key}_formula", formula.to_s)
+          ent.definition.set_attribute(DICT, "_inst__#{key}_formula", formula.to_s) if %w[x y z].include?(key)
+        end
+      end
+
       # Oculto = la bandera de SketchUp o el atributo dinámico `hidden` en 1.
       # Se revisa el atributo porque el redibujado del DC no siempre alcanza a
       # propagar la bandera a las piezas más anidadas.
@@ -629,6 +714,8 @@ module RoyalKitchens
       #                             true, o { nombre:, piezas: } para además nombrarla
       #     :herrajes            -> [{ pieza:, nombre:, multiplo_cm: }] herrajes como una pieza con nombre
       #     :purgar              -> purge_unused al final si se limpió (default true)
+      #     :formulas_piezas     -> [{ pieza:, hijos:, formulas: {} }] antes del redibujado
+      #     :piezas_unicas       -> [{ grupo:, nombre: }] contenedores que OpenCutList lista como una pieza
       #
       # Devuelve { ok:, ruta:, instancia:, warnings: [] }.
       # ---------------------------------------------------------------------
@@ -649,6 +736,16 @@ module RoyalKitchens
           fila_plana.each do |col, valor_raw|
             w = inyectar_atributo(inst, col, valor_raw)
             warnings << w if w
+          end
+
+          # Antes del redibujado: fórmulas de piezas internas que Studio
+          # corrige (p. ej. la holgura de repisas, que no va en los divisores).
+          if opts[:formulas_piezas]
+            begin
+              warnings.concat(formulas_piezas(inst, opts[:formulas_piezas]))
+            rescue => e
+              warnings << "Fórmulas de piezas: #{e.message}"
+            end
           end
 
           # Fuerza el redibujado del componente dinámico.
@@ -680,6 +777,7 @@ module RoyalKitchens
             end
           end
 
+
           # Después del redibujado (ya se sabe qué quedó oculto) y antes de
           # guardar. Deja el .skp como pieza final: el DC ya no puede volver a
           # mostrar lo borrado, por eso la UI lo expone como interruptor.
@@ -700,6 +798,15 @@ module RoyalKitchens
               unificar_frentes(inst, spec.is_a?(Hash) ? spec : nil)
             rescue => e
               warnings << "Unificación de frentes: #{e.message}"
+            end
+          end
+
+          # Contenedores que OpenCutList lista como UNA pieza (laterales con gola).
+          if opts[:piezas_unicas]
+            begin
+              piezas_unicas(inst, opts[:piezas_unicas])
+            rescue => e
+              warnings << "Piezas para el despiece: #{e.message}"
             end
           end
 

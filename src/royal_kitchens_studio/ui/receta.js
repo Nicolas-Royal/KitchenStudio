@@ -507,12 +507,13 @@
       z += espacios[i];
       var retiro = retiroRepisa(manifest, valores, V, V.retiros[i]);
       var f = fieldByAttr(manifest, V.retiros[i]);
-      repisas.push({ i: i, z: z, zCuerpo: esp + z, divisor: retiro < 0.5, retiro: retiro,
+      var divisor = retiro < 0.5;
+      repisas.push({ i: i, z: z, zCuerpo: esp + z, divisor: divisor, retiro: retiro,
                      formula: !!f && valorCapturado(f, valores) === '',
                      profundidad: prof - retiro,
-                     // La holgura lateral es UNA para todas las repisas en el
-                     // componente: un divisor junto a entrepaños también la lleva.
-                     lateralIzq: latIzq, lateralDer: latDer });
+                     // La holgura lateral es solo de los entrepaños: los
+                     // divisores van pegados a las laterales (formulas_piezas).
+                     lateralIzq: divisor ? 0 : latIzq, lateralDer: divisor ? 0 : latDer });
       z += esp;
     }
     var usado = espacios.reduce(function (s, v) { return s + v; }, 0) + n * esp;

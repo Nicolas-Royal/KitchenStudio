@@ -51,3 +51,13 @@ c = C.cambios_receta(CFG, { "frente" => "3" }, OP, { "b01_gola_o_tirador" => "1"
 assert c["l01_linea_frente"] == "3", "sin gola, el frente del proyecto"
 c = C.cambios_receta(CFG, { "ancho" => 600 }, OP, { "b01_gola_o_tirador" => "2", "l01_linea_frente" => "7" })
 assert c["l01_linea_frente"] == "1", "una receta con gola y otro frente se corrige al insertar"
+
+# Gola elegida en el diseño: sin gola, melamina, aluminio claro/oscuro, L-C/L-L.
+c = C.cambios_receta(CFG, { "gola" => "aluminio_oscuro", "gola_combinacion" => "2", "frente" => "3", "manija_puerta" => "9" }, OP, { "b01_gola_o_tirador" => "1" })
+assert c.values_at("b01_gola_o_tirador", "g01_perfil_tipo", "c23_material_gola_aluminio", "g03_combinacion") == ["2", "1", "Negro mate", "2"], "gola aluminio oscuro L-L"
+assert c["l01_linea_frente"] == "1" && !c.key?("d16_z1_tirador_tipo"), "con la gola elegida: frente Lisa y sin manija"
+c = C.cambios_receta(CFG, { "gola" => "tirador", "manija_puerta" => "9" }, OP, { "b01_gola_o_tirador" => "2" })
+assert c["b01_gola_o_tirador"] == "1" && c["d16_z1_tirador_tipo"] == "9" && !c.key?("g03_combinacion"), "sin gola: vuelve el tirador"
+c = C.cambios_receta(CFG, { "gola" => "melamina", "gola_combinacion" => "1" }, OP, {})
+assert c.values_at("b01_gola_o_tirador", "g01_perfil_tipo", "g03_combinacion") == %w[2 2 1], "gola melamina L-C"
+assert !C.cambios_receta(CFG, { "gola" => "" }, OP, {}).key?("b01_gola_o_tirador"), "sin elección: la gola del mueble"

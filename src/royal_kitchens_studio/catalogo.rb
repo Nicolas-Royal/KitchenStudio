@@ -79,6 +79,19 @@ module RoyalKitchens
         "Con gola solo se fabrica puerta #{ok.join(' o ')} (no #{fr['nombre']})"
       end
 
+      # Cambios de la receta para la gola +id+ (golas[].id; vacío = la del
+      # mueble), con la combinación L-C/L-L si lleva gola. Igual a
+      # RKReglas.cambiosGola.
+      def cambios_gola(cfg, opciones, id, combinacion)
+        o = id.to_s.empty? ? nil : buscar(opciones, "golas", id)
+        g = cfg["gola"]
+        return {} unless o && g
+        out = (o["valores"] || {}).transform_values(&:to_s)
+        lleva = out[g["attr"]].to_s == g["valor"].to_s
+        out[g["combinacion"]] = combinacion.to_s if lleva && g["combinacion"] && !combinacion.to_s.empty?
+        out
+      end
+
       # ¿La receta (con los cambios encima) lleva gola? (familias.<f>.gola)
       def gola?(cfg, cambios, valores)
         g = cfg["gola"]
@@ -103,6 +116,8 @@ module RoyalKitchens
         if (t = cfg["tarja"]) && eleccion.key?("tarja")
           cambios[t["attr"]] = [true, "1", "true"].include?(eleccion["tarja"]) ? t["si"].to_s : t["no"].to_s
         end
+        # Gola elegida en el diseño (antes que frente y manijas: decide si llevan).
+        cambios.merge!(cambios_gola(cfg, opciones, eleccion["gola"], eleccion["gola_combinacion"]))
         fa = cfg.dig("frente", "attr")
         cambios[fa] = eleccion["frente"].to_s if fa && !eleccion["frente"].to_s.empty?
         # Con gola el frente es siempre Lisa: el del proyecto no se aplica.

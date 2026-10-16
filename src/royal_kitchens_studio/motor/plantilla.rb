@@ -48,6 +48,8 @@ module RoyalKitchens
         manifiestos.each do |fam, man|
           (man['grupos'] || []).each do |g|
             (g['campos'] || []).each do |c|
+              # Lo que el manifiesto decide solo (`oculto`) no es columna.
+              next if c['oculto']
               f = firma(c)
               unless mapa.key?(f)
                 mapa[f] = { 'campo' => c, 'familias' => [], 'ids' => {}, 'defaults' => {} }

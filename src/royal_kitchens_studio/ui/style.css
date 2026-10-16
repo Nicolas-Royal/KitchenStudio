@@ -447,6 +447,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-radius: var(--radius-md); box-shadow: var(--shadow-key);
   transition: transform var(--dur-fast) var(--ease-mech), box-shadow var(--dur-fast) ease-out;
 }
+.pick-con-seg { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pick-con-seg .pick-tile { flex: 1; }
+.pick-seg { flex-wrap: nowrap; gap: 6px; }
+.pick-seg .chip { flex: 1; min-height: 30px; padding: 0 8px; }
 .pick-tile:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-floating); }
 .pick-tile.off, .pick-tile:disabled { opacity: 0.85; cursor: default; box-shadow: var(--shadow-raised); }
 .pick-photo { aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-sm); background: var(--highlight); box-shadow: var(--shadow-recessed); }
@@ -456,7 +460,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .pick-sub { font-size: 11px; color: var(--text-muted); }
 .pick-change { font-size: 11px; color: var(--accent-dark); font-weight: 700; text-decoration: underline; }
 
-/* Lista mini (personalizados) */
+/* Lista mini (movimientos, versiones) */
 .mini-list { display: flex; flex-direction: column; gap: 8px; }
 .mini-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: var(--radius-md); box-shadow: var(--shadow-raised); }
 .mini-row span { flex: 1; font-size: 13px; }
