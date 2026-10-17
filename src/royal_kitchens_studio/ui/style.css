@@ -807,3 +807,62 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Madera sin foto: la textura de veta teñida (filtro SVG): que llene la foto. */
+.pick-photo img.veta, .pk-photo img.veta { object-fit: cover; }
+
+/* ---- Diseño del proyecto: todo en una pantalla ----------------------- */
+/* Como la página del módulo: la sección ocupa el alto del escenario y la
+   vista previa se estira; nada pide desplazarse a 1240 × 800. */
+.sec-fit { height: 100%; gap: 12px; }
+.pr-head { padding: 0 2px; gap: 6px 24px; align-items: flex-end; }
+.pr-head h1 { font-size: 22px; }
+.pr-lead { margin: 0 0 3px; max-width: 52ch; }
+.pr-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; }
+.pr-panel { overflow: auto; padding: 16px 18px; }
+.pr-panel > h3:first-child { margin: 0 0 10px; }
+.pr-medidas-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 4px; }
+.pr-medidas-head h3 { margin: 0; }
+.pr-vista { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 16px 18px; }
+.pr-vista-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pr-vista-head h3, .pr-vista-head .hint { margin: 0; }
+#pr-preview { flex: 1; min-height: 200px; height: auto; aspect-ratio: auto; }
+.pr-aplicar { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: var(--radius-md); box-shadow: var(--shadow-raised); }
+.pr-aplicar-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.pr-aplicar-txt .hint { margin: 0; }
+.pr-aplicar .use { flex: none; }
+
+/* Selectores en renglón: foto chica a la izquierda, dos columnas. */
+.pickers-fila { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pickers-fila .pick-tile { flex-direction: row; align-items: center; gap: 12px; padding: 8px; }
+.pickers-fila .pick-photo { width: 84px; flex: none; }
+.pickers-fila .pick-text { padding-top: 0; min-width: 0; }
+.pickers-fila .pick-text strong { font-size: 13px; }
+.pickers-fila .pick-con-seg { gap: 6px; }
+.pickers-fila .pick-seg .chip { min-height: 26px; font-size: 11px; }
+
+/* ---- Barra: volver a proyectos y guardar versión ---------------------- */
+/* Volver: tecla con la flecha en su propio botón de acento, que se lea como
+   navegación y no como un texto más. */
+.tb-volver {
+  display: inline-flex; align-items: center; gap: 10px;
+  min-height: 42px; padding: 0 14px 0 6px;
+  border-radius: var(--radius-md); box-shadow: var(--shadow-key);
+  font: 700 13px/1.1 var(--font-sans); text-align: left;
+  transition: transform var(--dur-fast) var(--ease-mech), box-shadow var(--dur-fast) ease-out;
+}
+.tb-volver .ico {
+  width: 30px; height: 30px; padding: 6px; flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--text);
+  box-shadow: var(--shadow-accent);
+  stroke-width: 2.6;
+}
+.tb-volver span { display: flex; flex-direction: column; }
+.tb-volver small { font: 600 10px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.tb-volver:hover { transform: translateY(-1px); box-shadow: var(--shadow-floating); }
+.tb-volver:hover .ico { transform: translateX(-2px); }
+.tb-volver:active { transform: translateY(2px); box-shadow: var(--shadow-key-pressed); }
+/* Guardar versión: la acción principal del proyecto abierto. */
+.tb-guardar { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; font-size: 13px; }
+.tb-guardar .ico { width: 18px; height: 18px; }

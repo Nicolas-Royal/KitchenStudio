@@ -16,9 +16,10 @@ module RoyalKitchens
       CATEGORIAS     = %w[Gabinetes Alacenas Esquineros Torres Decoraciones].freeze
       SIN_CLASIFICAR = "Sin clasificar".freeze
       GRUPOS         = %w[tipo puerta configuracion].freeze
-      # Origen del mueble (ficha["clase"]): «catalogo» entró por CSV (el catálogo
-      # de la empresa); «usuario» lo creó o alteró alguien desde «Avanzado»
-      # (ficha["creado_por"]). Las fichas sin clase son de catálogo.
+      # Origen del mueble (ficha["clase"]): «catalogo» es el catálogo de la
+      # empresa, lo que agrega el equipo de desarrollo (fichas sin clase);
+      # «usuario» lo creó alguien desde Studio, en «Avanzado» o desde un CSV
+      # (ficha["creado_por"]).
       CLASES         = %w[catalogo usuario].freeze
 
       # ---- Lógica pura -----------------------------------------------------

@@ -4,9 +4,10 @@
    filtros de la lista. Puro (sin DOM): se prueba en node.
 
    Origen (ficha.clase, lo pone Studio al guardar; no cambia cómo se comporta):
-     · catalogo — entró por CSV: el catálogo de la empresa. Siempre toma el
-                  diseño del proyecto.
-     · usuario  — lo creó o alteró alguien desde «Avanzado» (ficha.creado_por).
+     · catalogo — el catálogo de la empresa: lo agrega el equipo de desarrollo
+                  (fichas sin clase). Siempre toma el diseño del proyecto.
+     · usuario  — lo creó alguien desde Studio, en «Avanzado» o desde un CSV
+                  (ficha.creado_por).
                   Puede ir con el diseño del proyecto o con el original.
 
    Diseño en un proyecto (proyecto.modulos[id]): nada = «Este proyecto»;

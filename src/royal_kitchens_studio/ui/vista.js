@@ -99,13 +99,19 @@ window.RKVista = (function () {
      Studio en SketchUp (Acabado.tenir): pixel = color × luminancia / media.
      Es lineal, así que va como feColorMatrix. La veta de la imagen es
      horizontal (cajones); +id+-v la gira para las puertas, como en SketchUp. */
-  function patronVeta(id, mat) {
-    const t = mat.textura;
-    const m = (t.luminancia || 215) / 255;
-    const rgb = (/^#?([0-9a-f]{6})$/i.exec(mat.color || MADERA_BASE) || [0, "c9a26e"])[1];
+  /* <filter> que tiñe la textura de veta con +color+ (la misma fórmula que
+     Acabado.tenir). También lo usan las miniaturas del selector de material. */
+  function filtroVeta(id, color, luminancia) {
+    const m = (luminancia || 215) / 255;
+    const rgb = (/^#?([0-9a-f]{6})$/i.exec(color || MADERA_BASE) || [0, "c9a26e"])[1];
     const k = [0, 2, 4].map((i) => parseInt(rgb.substr(i, 2), 16) / 255 / m);
     const fila = (c) => `${(c * 0.299).toFixed(4)} ${(c * 0.587).toFixed(4)} ${(c * 0.114).toFixed(4)} 0 0`;
-    const filtro = `<filter id="${id}-tinte" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${fila(k[0])} ${fila(k[1])} ${fila(k[2])} 0 0 0 1 0"/></filter>`;
+    return `<filter id="${id}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${fila(k[0])} ${fila(k[1])} ${fila(k[2])} 0 0 0 1 0"/></filter>`;
+  }
+
+  function patronVeta(id, mat) {
+    const t = mat.textura;
+    const filtro = filtroVeta(`${id}-tinte`, mat.color, t.luminancia);
     const img = `<image href="${esc(t.url)}" width="${t.ancho}" height="${t.alto}" preserveAspectRatio="none" filter="url(#${id}-tinte)"/>`;
     return filtro +
       `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${t.ancho}" height="${t.alto}">${img}</pattern>` +
@@ -300,5 +306,5 @@ window.RKVista = (function () {
       `</svg>`;
   }
 
-  return { desdeValores, desdeEtiquetas, svg, num };
+  return { desdeValores, desdeEtiquetas, svg, num, filtroVeta };
 })();

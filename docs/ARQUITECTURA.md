@@ -52,8 +52,11 @@ y solo sirve de etiqueta y filtro):
 
 | Clase | Cómo nace | Etiqueta |
 |---|---|---|
-| `catalogo` | Entra por CSV (y las fichas sin clase) | «Catálogo» |
-| `usuario` | Se genera desde «Avanzado», nuevo o alterando otro | «Creado por <nombre>» (`ficha["creado_por"]`) |
+| `catalogo` | Lo agrega el equipo de desarrollo (fichas sin clase en Creaciones) | «Catálogo» |
+| `usuario` | Se genera desde Studio: «Avanzado» (nuevo o alterando otro) o un CSV | «Creado por <nombre>» (`ficha["creado_por"]`) |
+
+Desde CSV (10/2026) cada fila se **inserta siempre en la escena**; «Guardar
+también en el catálogo» la guarda además como receta, con clase `usuario`.
 
 **Diseño** en un proyecto (`proyecto.modulos[id]`, `RKMuebles.modo`). Todos
 parten de «Este proyecto»:

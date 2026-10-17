@@ -318,10 +318,37 @@ function opcion(key, id) {
 
 function fotoDe(key, o) {
   if (o && o.foto_abs) return fileURL(o.foto_abs);
-  if (key === "material") return o ? muestra(o.color, o.veta) : placeholder("Como el módulo", "#ece8e1");
+  if (key === "material") return o ? muestra(o.color, o.veta) : placeholder("Sin material", "#ffffff");
   if (key === "gola") return o && o.color ? muestraGola(o.color) : placeholder(o ? "Con tirador" : "Como el módulo", "#ece8e1");
   if (esManija(key) && o && o.id === "1") return placeholder("Sin manija");
   return placeholder(o ? o.nombre : "—");
+}
+
+/* Foto de una opción en +img+. La madera sin foto se ve con la textura de
+   veta teñida de su color (la misma que en SketchUp y en «Así se verá»): la
+   imagen base con un filtro SVG del documento (RKVista.filtroVeta). */
+function fotoEn(img, key, o) {
+  const t = key === "material" && o && !o.foto_abs && o.veta ? texturaVeta() : null;
+  img.classList.toggle("veta", !!t);
+  img.style.filter = t ? `url(#${filtroMaterial(o, t)})` : "";
+  setImg(img, t ? t.url : fotoDe(key, o));
+}
+
+/* Id del <filter> de +o+ en un <svg> oculto del documento (se crea una vez). */
+function filtroMaterial(o, t) {
+  const id = "rk-tinte-" + String(o.id).replace(/[^\w-]/g, "_");
+  if (document.getElementById(id)) return id;
+  let defs = document.getElementById("rk-filtros");
+  if (!defs) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "0"); svg.setAttribute("height", "0");
+    svg.style.position = "absolute";
+    svg.innerHTML = '<defs id="rk-filtros"></defs>';
+    document.body.appendChild(svg);
+    defs = document.getElementById("rk-filtros");
+  }
+  defs.insertAdjacentHTML("beforeend", RKVista.filtroVeta(id, o.color, t.luminancia));
+  return id;
 }
 
 /* Textura base de la madera sin foto (opciones.json → textura_veta), la misma
@@ -386,7 +413,7 @@ function pintarPickers(box, d, editable, onCambio, extra) {
     t.innerHTML = `<div class="pick-photo"><img alt=""></div><div class="pick-text"><span class="stamp">${p.titulo}</span>` +
       `<strong>${esc(nombre)}</strong><span class="pick-sub">${esc(o && o.grupo ? o.grupo : notaManija(p, o))}</span>` +
       (editable && !fijo ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
-    setImg($("img", t), sinManija ? placeholder("Gola") : fotoDe(p.key, o));
+    if (sinManija) setImg($("img", t), placeholder("Gola")); else fotoEn($("img", t), p.key, o);
     if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio);
     // Con una gola elegida, en la misma tarjeta: L-C o L-L.
     if (p.key === "gola" && o && RKReglas.conGola(S.opciones, golaFam(), o.id)) {
@@ -410,9 +437,9 @@ function pintarPickers(box, d, editable, onCambio, extra) {
 function pintarTile(box, p, d, onCambio) {
   const o = opcion(p.key, d[p.key]);
   box.innerHTML = `<button type="button" class="pick-tile"><div class="pick-photo"><img alt=""></div><div class="pick-text">` +
-    `<span class="stamp">${p.titulo}</span><strong>${esc(o ? o.nombre : "Como el módulo")}</strong>` +
+    `<span class="stamp">${p.titulo}</span><strong>${esc(o ? o.nombre : "Sin material")}</strong>` +
     `<span class="pick-sub">${esc(o && o.grupo ? o.grupo : "")}</span><span class="pick-change">Cambiar…</span></div></button>`;
-  setImg($("img", box), fotoDe(p.key, o));
+  fotoEn($("img", box), p.key, o);
   $("button", box).onclick = () => abrirPicker(p, d, onCambio);
 }
 
@@ -451,10 +478,10 @@ function pintarPicker() {
       b.className = "pk-item" + (String(d[p.key] || "") === id ? " active" : "");
       const motivo = o ? bloqueo(p.key, o, d) : "";
       b.disabled = !!motivo;
-      b.title = motivo || (o && o.color && !o.foto_abs ? "Tono aproximado: falta la foto" : "");
+      b.title = motivo || (o && o.color && !o.foto_abs && !(p.key === "material" && o.veta && texturaVeta()) ? "Tono aproximado: falta la foto" : "");
       b.innerHTML = `<div class="pk-photo"><img alt="" loading="lazy"></div><span class="pk-name">${esc(o ? o.nombre : "Como el módulo")}</span>` +
         (motivo ? `<span class="pk-why">${esc(motivo)}</span>` : "");
-      setImg($("img", b), fotoDe(p.key, o));
+      fotoEn($("img", b), p.key, o);
       b.onclick = () => { d[p.key] = id; $("#picker").hidden = true; pk.onCambio(); };
       wrap.appendChild(b);
     });
@@ -1054,8 +1081,9 @@ function payloadGenerar(st, ref, insertar, publicar) {
     valores: S.rcc.flatten(st.man, reg),
     divisores: S.rcc.nombresDivisores(st.man, reg),
     material: st.material || SIN_MATERIAL,
-    // Origen: lo que entra por CSV es catálogo; lo generado desde «Avanzado», del usuario.
-    clase: st.csv ? "catalogo" : "usuario",
+    // Origen: todo lo que se genera desde Studio (Avanzado o CSV) es del usuario.
+    // «Catálogo» es solo lo que agrega el equipo de desarrollo (fichas sin clase).
+    clase: "usuario",
     insertar, publicar,
   };
 }
@@ -1295,7 +1323,7 @@ function csvGenerar() {
   if (!c || !c.sel.size || !S.rcc) return;
   c.cola = [...c.sel].sort((a, b) => a - b);
   c.total = c.cola.length;
-  c.escena = $("#csv-escena").checked;
+  c.guardar = $("#csv-guardar").checked;
   csvSiguiente(null);
 }
 
@@ -1310,7 +1338,7 @@ function csvSiguiente(res) {
     pr.hidden = true;
     ocupado(false);
     const n = Object.values(c.hechos).filter((h) => h.estado === "generado").length;
-    aviso(`CSV: ${n} muebles guardados en el catálogo`);
+    aviso(`CSV: ${n} ${n === 1 ? "mueble insertado" : "muebles insertados"} en la escena${c.guardar ? " y guardados en el catálogo" : ""}`);
     bridge("recargar");
     pintarCsv();
     return;
@@ -1323,7 +1351,8 @@ function csvSiguiente(res) {
   $("i", pr).style.width = `${Math.round((hechos / c.total) * 100)}%`;
   $("span", pr).textContent = `${hechos + 1} de ${c.total} · ${f.nombre}`;
   const st = { man: S.manifiestos[f.familia], reg: { familia: f.familia, valores: f.valores, nombre_salida: f.nombre }, material: f.material || "", csv: true };
-  const p = payloadGenerar(st, "csv-" + i, c.escena, true);
+  // Siempre a la escena; al catálogo solo si se pidió (como creado por el usuario).
+  const p = payloadGenerar(st, "csv-" + i, true, !!c.guardar);
   if (p.error) return csvSiguiente({ ok: false, error: p.error });
   ocupado(true, `Generando ${hechos + 1} de ${c.total}: ${f.nombre}`);
   pintarCsv();
@@ -1430,6 +1459,11 @@ function pintarActual() {
   if (a.sincronia !== "conflicto") boton("use sm", "Entrar al proyecto →", () => irA("proyecto"));
 }
 
+/* Volver a la lista de proyectos: flecha y texto, que se lea como navegación. */
+const BOTON_VOLVER = '<button class="tb-volver" id="tb-volver" title="Volver a la lista de proyectos">' +
+  '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>' +
+  '<span><small>Volver a</small>Proyectos</span></button>';
+
 /* Barra superior: en el inicio, el título; dentro de un proyecto, volver a la
    lista + folio, cliente, estado y sincronía. Siempre: quién entró. */
 function pintarBarra() {
@@ -1438,19 +1472,19 @@ function pintarBarra() {
   $("#tb-tabs").hidden = !(en || libre);
   const ctx = $("#tb-ctx");
   if (libre) {
-    ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button>` +
+    ctx.innerHTML = `${BOTON_VOLVER}` +
       `<div class="tb-pj"><strong>Solo la escena</strong><span class="hint">Sin proyecto: nada se registra</span></div>` +
       (esPlaneacion() ? "" : `<button class="key sm" id="tb-como-proyecto">Guardar como proyecto…</button>`);
     $("#tb-volver").onclick = () => irA("proyectos");
     if (!esPlaneacion()) $("#tb-como-proyecto").onclick = () => { usarModeloActual = "1"; abrirCrear(); };
   } else if (en) {
     const reg = a.registro || {}, s = P.sincronia(a);
-    ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button>` +
+    ctx.innerHTML = `${BOTON_VOLVER}` +
       `<div class="tb-pj"><strong>${esc(a.folio)}</strong><span class="hint">${esc(reg.cliente || "Sin cliente")}</span></div>` +
       (reg.estado ? pillEstado(reg.estado) : "") + (s ? `<span class="pill ${s.clase}">${esc(s.texto)}</span>` : "");
     $("#tb-volver").onclick = () => irA("proyectos");
   } else if (S.sec === "ajustes") {
-    ctx.innerHTML = `<button class="key sm" id="tb-volver">← Proyectos</button><span class="tb-titulo">Ajustes</span>`;
+    ctx.innerHTML = `${BOTON_VOLVER}<span class="tb-titulo">Ajustes</span>`;
     $("#tb-volver").onclick = () => irA("proyectos");
   } else {
     ctx.innerHTML = ""; // inicio: la sección ya dice «Proyectos»

@@ -43,7 +43,10 @@
       <!-- 2. Inicio: título · 3. Proyecto: volver + folio + estado -->
       <div class="tb-ctx" id="tb-ctx"></div>
       <div class="tb-user">
-        <button class="key sm" id="tb-guardar" hidden>Guardar versión…</button>
+        <button class="use tb-guardar" id="tb-guardar" title="Sube una versión del proyecto al registro, con una nota de lo que cambió" hidden>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+          <span>Guardar versión</span>
+        </button>
         <span class="tb-quien" id="tb-quien"></span>
         <button class="key key-ico sm" id="tb-ajustes" title="Ajustes" aria-label="Ajustes">
           <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -88,29 +91,37 @@
       </section>
 
       <!-- ============ Proyecto: configuración global ============ -->
-      <section class="sec" id="sec-proyecto" hidden>
-        <header class="sec-head">
+      <section class="sec sec-fit" id="sec-proyecto" hidden>
+        <header class="sec-head pr-head">
           <div>
             <div class="stamp">Configuración global</div>
             <h1>Diseño del proyecto</h1>
-            <p class="lead">Lo que elijas aquí lo toman todos los módulos que insertes. Cada módulo puede personalizarse después sin cambiar el resto.</p>
           </div>
+          <p class="hint pr-lead">Lo toman todos los muebles que insertes. Cada uno se puede ajustar aparte en su página.</p>
         </header>
-        <div class="split">
-          <div class="plate">
-            <h3 class="stamp">Frente, manija y material</h3>
-            <div class="pickers" id="pr-pickers"></div>
-            <h3 class="stamp">Medidas comunes de gabinetes</h3>
-            <label class="switch"><input type="checkbox" id="pr-igualar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Igualar alto y fondo de cuerpo en todos los gabinetes</span></label>
+        <div class="pr-body">
+          <div class="plate pr-panel">
+            <h3 class="stamp">Gola, frente, manijas y material</h3>
+            <div class="pickers pickers-fila" id="pr-pickers"></div>
+            <div class="pr-medidas-head">
+              <h3 class="stamp">Medidas comunes de gabinetes</h3>
+              <label class="switch"><input type="checkbox" id="pr-igualar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Igualar alto y fondo</span></label>
+            </div>
             <div id="pr-medidas"></div>
           </div>
-          <div class="plate preview-plate">
-            <h3 class="stamp">Así se verá</h3>
+          <div class="plate pr-vista">
+            <div class="pr-vista-head">
+              <h3 class="stamp">Así se verá</h3>
+              <p class="hint" id="pr-preview-note"></p>
+            </div>
             <div class="preview" id="pr-preview"></div>
-            <p class="hint" id="pr-preview-note"></p>
-            <h3 class="stamp">Muebles ya insertados</h3>
-            <p class="hint">Vuelve a generar en su mismo lugar los muebles que ya están en la escena con el diseño del proyecto, por ejemplo para pasar todo a gola. Los que se insertaron ajustados o con su diseño original no cambian.</p>
-            <button class="use" id="pr-aplicar">Aplicar el diseño a los muebles insertados</button>
+            <div class="pr-aplicar">
+              <div class="pr-aplicar-txt">
+                <strong>¿Ya insertaste muebles?</strong>
+                <span class="hint">Se regeneran en su lugar con este diseño; los ajustados o con su diseño original no cambian.</span>
+              </div>
+              <button class="use" id="pr-aplicar">Aplicar a la escena</button>
+            </div>
           </div>
         </div>
       </section>
@@ -208,7 +219,7 @@
           <div class="grow">
             <div class="stamp">Piezas únicas</div>
             <h1>Crear desde CSV o Excel</h1>
-            <p class="lead">Cada fila es un módulo. Revisa la tabla, edita la fila que haga falta y genera desde aquí; lo generado se guarda en el <b>catálogo</b>.</p>
+            <p class="lead">Cada fila es un módulo. Revisa la tabla, edita la fila que haga falta y genera: cada mueble se inserta en la escena. Si lo quieres reutilizar, guárdalo también en el catálogo (queda como <b>creado por ti</b>).</p>
           </div>
           <div class="sec-actions">
             <button class="key" id="csv-plantilla">Descargar plantilla</button>
@@ -221,7 +232,7 @@
         <div class="plate" id="csv-tabla-wrap" hidden>
           <div class="csv-bar">
             <span id="csv-resumen" class="stamp"></span>
-            <label class="switch"><input type="checkbox" id="csv-escena"><span class="switch-track"><span class="switch-thumb"></span></span><span>Insertar también en la escena</span></label>
+            <label class="switch" title="Además de insertarlos en la escena, los guarda en el catálogo como creados por ti"><input type="checkbox" id="csv-guardar"><span class="switch-track"><span class="switch-thumb"></span></span><span>Guardar también en el catálogo</span></label>
             <button class="key" id="csv-quitar" title="Vacía la tabla para importar otro archivo">Quitar archivo</button>
             <button class="use" id="csv-generar">Generar seleccionados</button>
           </div>
