@@ -30,6 +30,15 @@ window.RKReglas = (function () {
     return m && f && m.familia === "MDF" && f.solo_madera ? `${m.nombre} es MDF: solo se fabrica en puerta Lisa` : "";
   }
 
+  /* Espesor de puertas y tapas (mm) del material +mat+ (opciones.json →
+     tipos_material): madera 22, MDF 18; null sin regla. Igual a
+     Catalogo.cambios_espesor. */
+  function espesorPuerta(op, mat) {
+    const m = buscar(op.materiales, mat);
+    const t = m && (op.tipos_material || {})[m.familia];
+    return t && t.espesor_puerta != null ? t.espesor_puerta : null;
+  }
+
   /* Con gola solo se fabrica el frente marcado con_gola (Lisa). */
   function frenteGola(op) {
     const f = (op.frentes || []).find((x) => x.con_gola);
@@ -123,5 +132,5 @@ window.RKReglas = (function () {
     return out.filter((e, i) => out.findIndex((x) => x.msg === e.msg) === i);
   }
 
-  return { USOS, manija, material, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
+  return { USOS, manija, material, espesorPuerta, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
 })();

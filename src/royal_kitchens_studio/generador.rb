@@ -248,6 +248,18 @@ module RoyalKitchens
           next unless base
           valores[attr] = "#{a_mm(base + suma_in(manifest, campo, valores))}mm"
         end
+        # Un sumando que cambia sin su campo (el espesor de puerta según el
+        # material, que va en la profundidad): se conserva lo capturado.
+        tocados = (cambios || {}).keys + encendidos
+        campos(manifest).each do |campo|
+          attr = campo["attr"]
+          next if campo["suma"].nil? || tocados.include?(attr)
+          next unless Array(campo["suma"]).any? { |s| (cambios || {}).key?(s["attr"]) }
+          total = medida_in(original, attr)
+          next unless total
+          crudo = total - suma_in(manifest, campo, original)
+          valores[attr] = "#{a_mm(crudo + suma_in(manifest, campo, valores))}mm"
+        end
         valores
       end
 

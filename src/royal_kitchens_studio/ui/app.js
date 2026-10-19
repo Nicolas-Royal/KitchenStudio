@@ -1062,12 +1062,19 @@ function pintarAvanzado(m) {
   });
   // Material del mueble: no es un campo del manifiesto (lo aplica Studio al
   // generar, a todo el mueble). Sin elegir, «Sin material» (blanco).
+  // El espesor de puertas sigue al material (MDF 18, madera 22), como en Ruby.
+  const ponerEspesor = () => {
+    const mm = fc && fc.espesor_puerta ? RKReglas.espesorPuerta(S.opciones, st.material || SIN_MATERIAL) : null;
+    if (mm != null) RKAvanzado.poner(st.man, st.reg.valores, fc.espesor_puerta.attr, mm, S.rcc);
+  };
   const pintarMaterial = () => {
     const d = { material: st.material || SIN_MATERIAL, frente: frenteDe() };
     pintarTile($("#av-material"), PICKERS.find((p) => p.key === "material"), d, () => {
-      st.material = d.material; pintarMaterial(); vista.refrescar();
+      st.material = d.material; ponerEspesor(); pintarMaterial(); vista.refrescar();
     });
   };
+  ponerEspesor();
+  vista.refrescar();
   pintarMaterial();
   $("#av-generar").onclick = () => (csv ? guardarFilaCsv(csv.i, st) : generarAvanzado(m, st));
 }

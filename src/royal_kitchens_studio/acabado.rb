@@ -134,6 +134,95 @@ module RoyalKitchens
         vistos.keys
       end
 
+      # ---- Canto de los frentes según el material ---------------------------
+      #
+      # El componente base trae «CANTO EXTERIOR» en los 4 cantos de las puertas
+      # y tapas de cajón lisas (en el DC, piezas dentro de «Puerta» o «Tapa»).
+      # Así va el MDF (Lisa de 18 mm). La madera es de 22 mm y no lleva chapa:
+      # esos cantos pasan a «SinCanto». Solo los frentes; la estructura no
+      # cambia. Cada mueble generado tiene sus propias definiciones.
+      FRENTES     = %w[Puerta Tapa].freeze
+      CANTO_ROJO  = "CANTO EXTERIOR".freeze
+      SIN_CANTO   = "SinCanto".freeze
+      DC          = "dynamic_attributes".freeze
+
+      def nombre_dc(e)
+        e.get_attribute(DC, "_name") || e.definition.get_attribute(DC, "_name")
+      end
+
+      # Material (id del catálogo) de un mueble generado, o nil.
+      def material_de(inst, attr)
+        inst.get_attribute(DC, attr) || inst.definition.get_attribute(DC, attr)
+      end
+
+      # Caras de las puertas y tapas de +inst+.
+      def caras_frente(inst)
+        caras = []
+        vistos = {}
+        pila = [[inst.definition, false]]
+        until pila.empty?
+          d, en_frente = pila.pop
+          next if vistos[[d, en_frente]]
+          vistos[[d, en_frente]] = true
+          caras.concat(d.entities.grep(Sketchup::Face)) if en_frente
+          d.entities.each do |e|
+            pila << [e.definition, en_frente || FRENTES.include?(nombre_dc(e))] if e.respond_to?(:definition)
+          end
+        end
+        caras.uniq
+      end
+
+      # Pasa a SinCanto el canto rojo de los frentes de +inst+, a la vista o
+      # guardado para planeación. Devuelve cuántos cantos cambió.
+      def frentes_sin_canto(model, inst)
+        sin = model.materials[SIN_CANTO]
+        objetivo = caras_frente(inst).select do |f|
+          [f.material, f.back_material].any? { |m| m && m.name == CANTO_ROJO } ||
+            [f.get_attribute(DICT, "material"), f.get_attribute(DICT, "atras")].include?(CANTO_ROJO)
+        end
+        return 0 if objetivo.empty?
+        model.start_operation("Frentes sin canto", true, false, true)
+        objetivo.each do |f|
+          f.material = sin if f.material && f.material.name == CANTO_ROJO
+          f.back_material = sin if f.back_material && f.back_material.name == CANTO_ROJO
+          %w[material atras].each do |k|
+            next unless f.get_attribute(DICT, k) == CANTO_ROJO
+            sin ? f.set_attribute(DICT, k, SIN_CANTO) : f.delete_attribute(DICT, k)
+          end
+        end
+        model.commit_operation
+        objetivo.size
+      end
+
+      # Los muebles de +ents+ (dentro de grupos también) con su material de
+      # frente (opciones.json → familias.<f>.material.attr).
+      def muebles(ents, attr, out = [])
+        ents.each do |e|
+          next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+          if e.is_a?(Sketchup::ComponentInstance) && material_de(e, attr)
+            out << e
+          elsif e.is_a?(Sketchup::Group)
+            muebles(e.entities, attr, out)
+          end
+        end
+        out
+      end
+
+      # Aplica la regla a +insts+ (por omisión, todos los muebles del modelo).
+      def frentes_segun_material(model, insts = nil)
+        op = Catalogo.cargar
+        attrs = (op["familias"] || {}).values.map { |f| f.dig("material", "attr") }.compact.uniq
+        attrs.each do |attr|
+          (insts || muebles(model.entities, attr)).each do |inst|
+            next unless inst.valid?
+            mat = material_de(inst, attr)
+            frentes_sin_canto(model, inst) if mat && !Catalogo.canto_frente?(op, mat)
+          end
+        end
+      rescue StandardError => e
+        puts "[RK Studio] cantos de frentes: #{e.message}"
+      end
+
       # Estado del proyecto ligado a +model+ (nil sin proyecto o sin conexión).
       def estado_de(model)
         folio = Sincronia.folio_de(model)
@@ -148,6 +237,8 @@ module RoyalKitchens
       # se sabe la fase: el modelo se queda como está.
       def sincronizar(model)
         return unless model
+        Catalogo.marcar_tableros(model)
+        frentes_segun_material(model)
         folio = Sincronia.folio_de(model)
         estado = estado_de(model)
         return if folio && estado.nil?
@@ -157,6 +248,7 @@ module RoyalKitchens
       # Después de generar o colocar un mueble: solo sus definiciones.
       def mueble_nuevo(model, inst)
         return unless inst && inst.valid?
+        frentes_segun_material(model, [inst])
         folio = Sincronia.folio_de(model)
         estado = estado_de(model)
         return if folio && estado.nil?

@@ -68,6 +68,28 @@ module RoyalKitchens
         "#{mat['nombre']} es MDF: solo se fabrica en puerta Lisa (no #{fr['nombre']})"
       end
 
+      # Lo que depende de si el material es MDF o madera (opciones.json →
+      # tipos_material): espesor de puertas y canto de los frentes lisos. {}
+      # si no es de un tipo conocido (Sin material).
+      def tipo_material(opciones, material)
+        mat = buscar(opciones, "materiales", material)
+        (mat && (opciones["tipos_material"] || {})[mat["familia"]]) || {}
+      end
+
+      # Espesor de puertas y tapas para +material+: la madera (también su Lisa)
+      # es de 22 mm y el MDF de 18. {} sin regla.
+      def cambios_espesor(cfg, opciones, material)
+        attr = cfg.dig("espesor_puerta", "attr")
+        mm = tipo_material(opciones, material)["espesor_puerta"]
+        attr && mm ? { attr => "#{mm}mm" } : {}
+      end
+
+      # ¿Las puertas y tapas lisas de +material+ llevan cubrecanto en
+      # planeación? Solo la madera no (es de 22 mm, sin chapa).
+      def canto_frente?(opciones, material)
+        tipo_material(opciones, material)["canto_frente"] != false
+      end
+
       # Con gola solo se fabrica el frente marcado con_gola (Lisa).
       def frente_gola(opciones)
         f = Array(opciones["frentes"]).find { |o| o["con_gola"] }
@@ -149,6 +171,7 @@ module RoyalKitchens
           # recalcula su fórmula en la raíz (la tienen solo en la definición) y
           # la estructura se quedaba con la madera del componente.
           (m["extra"] || {}).each { |k, v| cambios[k] = v.to_s.gsub("{material}", eleccion["material"].to_s) }
+          cambios.merge!(cambios_espesor(cfg, opciones, eleccion["material"]))
         end
         cambios
       end
@@ -174,6 +197,7 @@ module RoyalKitchens
         con_veta = !foto && base && o["veta"] && o["color"]
         if (mat = model.materials[id])
           Acabado.poner_veta(mat, o["color"], base) if con_veta && Acabado.falta_veta?(mat, o["color"])
+          marcar_tablero(mat, op)
           return
         end
         mat = model.materials.add(id)
@@ -185,6 +209,38 @@ module RoyalKitchens
         else
           mat.color = o["color"] ? Sketchup::Color.new(o["color"]) : Sketchup::Color.new(*(COLOR_FAMILIA[o["familia"]] || [200, 200, 200]))
         end
+        marcar_tablero(mat, op)
+      end
+
+      OCL         = "ladb_opencutlist".freeze
+      OCL_TABLERO = 2 # tipo «Tablero» (sheet good) de OpenCutList
+
+      # OpenCutList solo pone cubrecanto (CANTO EXTERIOR, SinCanto) en piezas
+      # cuyo material es «Tablero»; con un material sin tipo avisa «La pieza
+      # seleccionada debe ser del tipo 'Tablero'» y el despiece no lleva canto.
+      # Los del catálogo lo son, con sus espesores estándar y veta según
+      # opciones.json. Un material que ya tiene tipo (puesto a mano) no se toca.
+      def marcar_tablero(mat, op = cargar)
+        return false unless mat.get_attribute(OCL, "type").to_i.zero?
+        o = buscar(op, "materiales", mat.name)
+        return false unless o
+        mat.set_attribute(OCL, "type", OCL_TABLERO)
+        mat.set_attribute(OCL, "grained", !!o["veta"])
+        grosores = tipo_material(op, o["id"])["grosores"]
+        mat.set_attribute(OCL, "std_thicknesses", grosores) if grosores
+        true
+      end
+
+      # Los materiales del catálogo que ya están en +model+ (proyectos de
+      # antes). Devuelve cuántos marcó.
+      def marcar_tableros(model)
+        op = cargar
+        mats = model.materials.select { |m| m.get_attribute(OCL, "type").to_i.zero? && buscar(op, "materiales", m.name) }
+        return 0 if mats.empty?
+        model.start_operation("Materiales como tablero", true, false, true)
+        n = mats.count { |m| marcar_tablero(m, op) }
+        model.commit_operation
+        n
       end
 
       # opciones.json → textura_veta con su ruta absoluta, o nil si falta la imagen.

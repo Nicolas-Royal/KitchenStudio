@@ -266,9 +266,15 @@ module RoyalKitchens
           asegurar_material(material)
           # El mismo mapeo que al insertar (opciones.json → familias.<f>.material):
           # todo el mueble con ese material (frentes, estructura y fondo).
-          cfg = (Catalogo.cargar["familias"] || {}).dig(req["familia"].to_s, "material") || {}
+          op  = Catalogo.cargar
+          fam = (op["familias"] || {})[req["familia"].to_s] || {}
+          cfg = fam["material"] || {}
           valores[cfg["attr"] || "c16_material_puerta"] = material
           (cfg["extra"] || { "c22matpuertade" => "=c16_material_puerta" }).each { |k, v| valores[k] = v.to_s.gsub("{material}", material) }
+          # Espesor de puertas según el material (MDF 18, madera 22), sin
+          # cambiar el fondo del cuerpo que se capturó.
+          esp = Catalogo.cambios_espesor(fam, op, material)
+          valores = Generador.aplicar_cambios(Familias.manifiesto(req["familia"].to_s), valores, esp) unless esp.empty?
         end
         r = Generador.generar(req["familia"].to_s, nombre, valores, divisores: req["divisores"],
                               insertar: !!req["insertar"], publicar: !!req["publicar"], clase: req["clase"],

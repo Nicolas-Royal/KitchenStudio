@@ -117,6 +117,14 @@ prueba("reglas: concha solo en cajones, Berlín solo con Lisa, Lateral negra al 
   assert.ok(/MDF/.test(R.diseno(op, { frente: "3", material: mdf.id }, false)));
 });
 
+prueba("espesor de puertas según el material: madera 22, MDF 18, sin material sin regla", () => {
+  const mdf = op.materiales.find((m) => m.familia === "MDF"), mad = op.materiales.find((m) => m.familia === "Madera");
+  assert.strictEqual(R.espesorPuerta(op, mdf.id), 18);
+  assert.strictEqual(R.espesorPuerta(op, mad.id), 22);
+  assert.strictEqual(R.espesorPuerta(op, "SIN_MATERIAL"), null);
+  assert.strictEqual(op.familias.gabinete.espesor_puerta.attr, "c02_espesor_puerta");
+});
+
 prueba("reglas en «Avanzado»: concha en puertas y Lateral negra fuera del centro", () => {
   const fam = op.familias.gabinete;
   const v = rcc.flatten(man.gabinete, { familia: "gabinete", valores: rcc.defaultValores(man.gabinete) });

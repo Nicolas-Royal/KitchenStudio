@@ -872,6 +872,11 @@
       "color": "#2a2c2e"
     }
   ],
+  "tipos_material": {
+    "_doc": "Lo que depende de la familia del material (materiales[].familia). espesor_puerta = mm de puertas y tapas (familias.<f>.espesor_puerta): la madera, incluida su Lisa, es de 22; el MDF solo existe en Lisa y es de 18. canto_frente = si las puertas y tapas lisas llevan cubrecanto (CANTO EXTERIOR) en planeación: el MDF sí; la madera no (Acabado.frentes_segun_material las pasa a SinCanto). grosores = espesores estándar del tablero en OpenCutList (estructura 18, puertas de madera 22). Todos los materiales del catálogo son «Tablero» en OpenCutList (Catalogo.marcar_tablero): si no, no deja ponerles canto. Sin entrada (Sin material): el espesor del mueble y su canto.",
+    "MDF": { "espesor_puerta": 18, "canto_frente": true, "grosores": "18mm" },
+    "Madera": { "espesor_puerta": 22, "canto_frente": false, "grosores": "18mm;22mm" }
+  },
   "textura_veta": {
     "_doc": "Textura base de la madera sin foto: la de TEKA ARTICO-VESTO1 del gabinete base (veta recta). Studio la tiñe con el color de cada material con veta: pixel = color × luminancia / luminancia media (Acabado.tenir y el filtro de RKVista). ancho/alto = lo que cubre en SketchUp.",
     "foto": "texturas/veta_teka_artico.png",
@@ -932,6 +937,9 @@
           "attr": "b01_gola_o_tirador",
           "valor": "1"
         }
+      },
+      "espesor_puerta": {
+        "attr": "c02_espesor_puerta"
       },
       "material": {
         "attr": "c16_material_puerta",

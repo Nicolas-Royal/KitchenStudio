@@ -247,6 +247,36 @@ Acabado (`acabado.rb`, 10/2026):
   (`Acabado::CON_CANTOS`) se devuelven. Se aplica al generar o colocar un
   mueble (solo sus definiciones), al abrir/activar un modelo y al cambiar de
   estado. Sin proyecto = diseño; sin conexión con el almacén no se toca.
+- **Frentes según el material** (`opciones.json → tipos_material`). La madera
+  (también su Lisa) es de 22 mm y no lleva chapa; el MDF solo existe en Lisa,
+  es de 18 mm y sí lleva canto. `Catalogo.cambios_espesor` pone
+  `c02_espesor_puerta` (`familias.gabinete.espesor_puerta`) al insertar y al
+  generar desde «Avanzado»/CSV (`Dialogo.generar`); `Generador.aplicar_cambios`
+  conserva el fondo capturado cuando cambia solo un sumando como ese. En
+  «Avanzado» el campo sigue al material (`RKReglas.espesorPuerta`). El canto
+  rojo del componente en puertas y tapas lisas (piezas dentro de «Puerta» o
+  «Tapa» del DC) pasa a «SinCanto» en los muebles de madera
+  (`Acabado.frentes_segun_material`: al generar o colocar, y al abrir el
+  modelo para los ya insertados), a la vista o guardado para planeación. La
+  estructura no cambia. «Sin material» no tiene regla: espesor y canto del
+  mueble.
+- **Materiales como «Tablero» de OpenCutList.** OpenCutList solo pone canto
+  (y lo cuenta en el despiece) en piezas cuyo material es tipo Tablero
+  (`ladb_opencutlist.type = 2`); si no, avisa «La pieza seleccionada debe ser
+  del tipo 'Tablero'». `Catalogo.marcar_tablero` se lo pone a cada material del
+  catálogo al crearlo o usarlo, con `std_thicknesses` de `tipos_material.grosores`
+  (MDF 18; madera 18 y 22) y `grained` = su `veta`; `marcar_tableros` corrige
+  los de proyectos anteriores al abrir el modelo. Un material con tipo puesto
+  a mano no se toca.
+- **Frente liso en `GABINETE.skp` (19/10/2026).** Cada puerta y tapa de cajón
+  traía dos tableros encimados del mismo tamaño: `Panel` (con el canto rojo) y
+  `CE_Panel > MPrin` (el que se ve, sin canto; Studio lo nombra «Puerta Lisa» /
+  «Tapa de cajón Lisa» en OpenCutList). Con Lisa e Italiana los dos quedaban
+  visibles y el frente salía doble en el despiece. Ahora los 16 `MPrin` (zona 1
+  y 2: 6 tapas de cajón y 2 puertas cada una; cada uno es su propia
+  definición) llevan CANTO EXTERIOR en sus 4 cantos, y `Panel` solo se muestra
+  con Mitered (`_hidden_formula` = `IF(parent!u05estilo=3,FALSE,TRUE)`; antes se
+  ocultaba solo de 4 a 10). Un cambio de canto en el frente se hace en los 16.
 - **Veta.** Los materiales de madera del catálogo no traen foto: al crearlos
   (`Catalogo.asegurar_material`) se les pone la textura de TEKA ARTICO-VESTO1
   (`catalogo/texturas/veta_teka_artico.png`, veta recta; `opciones.json →

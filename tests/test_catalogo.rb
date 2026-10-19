@@ -67,3 +67,26 @@ c = C.cambios_receta(CFG, { "material" => "ENCINO_COLOR_NUEVO" }, OP)
 assert c.values_at("c16_material_puerta", "c15_material_estructura", "c17_material_fondo", "c21matestrde", "c23matfondode").uniq == ["ENCINO_COLOR_NUEVO"] &&
        c["c22matpuertade"] == "=c16_material_puerta", "el material va a frentes, estructura y fondo"
 assert OP["materiales"].first["id"] == "SIN_MATERIAL" && OP["materiales"].first["color"] == "#ffffff", "«Sin material» (blanco) encabeza la lista"
+
+# Espesor y canto de los frentes según el tipo de material.
+mad = OP["materiales"].find { |m| m["familia"] == "Madera" }
+assert C.cambios_receta(CFG, { "material" => mdf["id"] }, OP)["c02_espesor_puerta"] == "18mm", "MDF: puertas de 18 mm"
+assert C.cambios_receta(CFG, { "material" => mad["id"] }, OP)["c02_espesor_puerta"] == "22mm", "madera (también Lisa): puertas de 22 mm"
+assert !C.cambios_receta(CFG, { "material" => "SIN_MATERIAL" }, OP).key?("c02_espesor_puerta"), "sin material: el espesor del mueble"
+assert C.canto_frente?(OP, mdf["id"]) && !C.canto_frente?(OP, mad["id"]) && C.canto_frente?(OP, "SIN_MATERIAL"),
+       "canto rojo en los frentes: MDF sí, madera no"
+
+# OpenCutList: los materiales del catálogo son «Tablero» (si no, no deja ponerles canto).
+class MatFalso
+  attr_reader :name, :attrs
+  def initialize(name, attrs = {}); @name, @attrs = name, attrs; end
+  def get_attribute(_d, k); @attrs[k]; end
+  def set_attribute(_d, k, v); @attrs[k] = v; end
+end
+t = MatFalso.new(mdf["id"])
+assert C.marcar_tablero(t, OP) && t.attrs["type"] == 2 && t.attrs["std_thicknesses"] == "18mm", "MDF: tablero de 18 mm en OpenCutList"
+t = MatFalso.new(mad["id"])
+assert C.marcar_tablero(t, OP) && t.attrs["std_thicknesses"] == "18mm;22mm" && t.attrs["grained"] == true, "madera: tablero de 18 y 22 mm con veta"
+t = MatFalso.new(mad["id"], "type" => 1)
+assert !C.marcar_tablero(t, OP) && t.attrs["type"] == 1, "un tipo puesto a mano no se toca"
+assert !C.marcar_tablero(MatFalso.new("CANTO EXTERIOR"), OP), "lo que no es del catálogo no se toca"

@@ -232,14 +232,8 @@ body { overflow: hidden; }
   box-shadow: var(--shadow-card);
 }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 6px; }
-.brand-mark {
-  width: 40px; height: 40px; flex: none;
-  display: grid; place-items: center;
-  border-radius: var(--radius-md);
-  background: var(--accent); color: var(--text);
-  font: 800 14px/1 var(--font-mono);
-  box-shadow: var(--shadow-accent);
-}
+.brand-mark { width: 40px; height: 40px; flex: none; object-fit: contain; }
+.login-card .brand-mark { width: 56px; height: 56px; }
 .brand-name { font-weight: 800; font-size: 15px; letter-spacing: -0.01em; }
 .tb-ctx { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
 .tb-titulo { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
