@@ -554,6 +554,92 @@ module RoyalKitchens
         [grupo, grupo.definition].each { |e| e.set_attribute(DICT, 'name', nombre) }
       end
 
+      # ---------------------------------------------------------------------
+      # Nombra cada pieza para el despiece. El nombre va en la definición y en
+      # el atributo dinámico «name»: OpenCutList lee uno u otro según su
+      # opción, y en la definición SketchUp agrega «#1» si se repite.
+      #
+      # reglas: [{ ruta:, nombre:, unidad:, segun: }]
+      #   ruta   -> los últimos niveles del camino a la pieza, p. ej.
+      #             ["LateralL", "Panel"]. Cada nivel se compara (con comodines
+      #             de File.fnmatch) contra el _name del DC, el nombre de la
+      #             instancia y el de la definición sin «#n».
+      #   unidad -> lo de adentro cuenta como parte de la pieza (manijas,
+      #             bisagras, golas de aluminio): un renglón por unidad.
+      #   segun  -> { attr:, valores: { "0" => "DIVISOR" } }: el nombre depende
+      #             de un atributo del camino, el mueble incluido (el divisor es
+      #             la repisa de retiro 0; el piso del cajón Antaro, b02 = 2).
+      #   dentro -> la pieza tiene que estar dentro de un nivel así (cualquiera
+      #             del camino): «PuertaIZQ» para PUERTA IZQ.
+      #   numerar-> «{n}» en el nombre: las que coinciden se numeran de arriba
+      #             abajo (FRENTE CAJÓN 1 es el de más arriba).
+      # La primera regla que coincide nombra la pieza y ya no se baja en ella.
+      # Las iguales del mueble comparten definición (un renglón con cantidad).
+      # Devuelve cuántas piezas nombró.
+      # ---------------------------------------------------------------------
+      def nombrar_piezas(inst, reglas)
+        n = 0
+        nombrados = {}
+        por_numerar = []
+        recorrer = lambda do |ent, camino, tr|
+          ent.definition.entities.to_a.each do |hijo|
+            next unless hijo.is_a?(Sketchup::ComponentInstance) && hijo.valid?
+            next if oculto?(hijo)
+            c = camino + [hijo]
+            regla = reglas.find { |r| ruta_coincide?(c, r[:ruta]) && dentro?(camino, r[:dentro]) }
+            unless regla
+              recorrer.call(hijo, c, tr * hijo.transformation)
+              next
+            end
+            # Los frentes llegan compartidos (unificar_frentes): cada uno se
+            # separa para tomar su propio nombre; los iguales se vuelven a juntar.
+            hijo.make_unique if hijo.definition.instances.size > 1
+            piezas_como_grupo(hijo.definition) if regla[:unidad]
+            if regla[:numerar]
+              por_numerar << [hijo, nombre_segun(regla, c), (tr * hijo.bounds.center).z]
+            else
+              nombrar_unica(hijo, nombre_segun(regla, c), nombrados)
+            end
+            n += 1
+          end
+        end
+        recorrer.call(inst, [inst], Geom::Transformation.new)
+        por_numerar.sort_by { |_, _, z| -z }.each_with_index do |(hijo, nombre, _), i|
+          nombrar_unica(hijo, nombre.gsub('{n}', (i + 1).to_s), nombrados)
+        end
+        n
+      end
+
+      def dentro?(camino, patron)
+        return true if patron.to_s.empty?
+        camino.any? { |e| etiquetas_pieza(e).any? { |t| File.fnmatch(patron.to_s, t) } }
+      end
+
+      def etiquetas_pieza(ent)
+        [ent.get_attribute(DICT, '_name'), ent.definition.get_attribute(DICT, '_name'),
+         ent.name, ent.definition.name.sub(/#\d+\z/, '')].map(&:to_s).reject(&:empty?)
+      end
+
+      def ruta_coincide?(camino, ruta)
+        ruta = Array(ruta)
+        return false if ruta.empty? || ruta.size > camino.size
+        camino.last(ruta.size).zip(ruta).all? do |ent, patron|
+          etiquetas_pieza(ent).any? { |t| File.fnmatch(patron.to_s, t) }
+        end
+      end
+
+      def nombre_segun(regla, camino)
+        s = regla[:segun]
+        return regla[:nombre] unless s
+        attr = s[:attr].to_s
+        fuente = camino.reverse.find { |e| !(e.get_attribute(DICT, attr) || e.definition.get_attribute(DICT, attr)).nil? }
+        v = fuente && (fuente.get_attribute(DICT, attr) || fuente.definition.get_attribute(DICT, attr))
+        # El DC guarda los números como texto («0», «2.6») o como número.
+        num = Float(v.to_s) rescue nil
+        clave = num && num == num.round ? num.round.to_s : v.to_s
+        (s[:valores] || {})[clave] || regla[:nombre]
+      end
+
       # Componentes con caras propias debajo de una definición (lo que
       # OpenCutList contaría como piezas).
       def piezas_con_caras(defn)
@@ -716,6 +802,7 @@ module RoyalKitchens
       #     :purgar              -> purge_unused al final si se limpió (default true)
       #     :formulas_piezas     -> [{ pieza:, hijos:, formulas: {} }] antes del redibujado
       #     :piezas_unicas       -> [{ grupo:, nombre: }] contenedores que OpenCutList lista como una pieza
+      #     :nombres_piezas      -> [{ ruta:, nombre:, unidad:, segun: }] nombre de cada pieza (nombrar_piezas)
       #
       # Devuelve { ok:, ruta:, instancia:, warnings: [] }.
       # ---------------------------------------------------------------------
@@ -815,6 +902,15 @@ module RoyalKitchens
               unificar_herrajes(inst, spec)
             rescue => e
               warnings << "Unificación de herrajes: #{e.message}"
+            end
+          end
+
+          # Al final: nombres del despiece para lo que quedó.
+          if opts[:nombres_piezas]
+            begin
+              nombrar_piezas(inst, opts[:nombres_piezas])
+            rescue => e
+              warnings << "Nombres de piezas: #{e.message}"
             end
           end
 

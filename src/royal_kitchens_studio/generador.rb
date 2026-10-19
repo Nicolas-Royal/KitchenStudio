@@ -199,6 +199,18 @@ module RoyalKitchens
         lista.map { |r| { grupo: r["grupo"].to_s, nombre: r["nombre"].to_s } }
       end
 
+      # manifest.nombres_piezas: [{ ruta, nombre, unidad, segun }]
+      # (Engine.nombrar_piezas). Todo nombre del despiece va en mayúsculas.
+      def nombres_opts(manifest)
+        lista = Array(manifest["nombres_piezas"]).map do |r|
+          next unless r.is_a?(Hash) && r["ruta"].is_a?(Array) && r["nombre"]
+          s = r["segun"].is_a?(Hash) ? { attr: r["segun"]["attr"].to_s, valores: (r["segun"]["valores"] || {}).transform_values { |v| v.to_s.upcase } } : nil
+          { ruta: r["ruta"].map(&:to_s), nombre: r["nombre"].to_s.upcase.gsub("{N}", "{n}"), unidad: !!r["unidad"], segun: s,
+            dentro: r["dentro"], numerar: !!r["numerar"] }
+        end.compact
+        lista.empty? ? nil : lista
+      end
+
       def valores_componente(manifest)
         (manifest["valores_componente"] || {}).reject { |k, _v| k.start_with?("_") }.transform_values(&:to_s)
       end
@@ -393,7 +405,7 @@ module RoyalKitchens
           campo = campo_por_attr(manifest, h["attr_tipo"])
           valor = valores[h["attr_tipo"]] || (campo && campo["default"])
           tipo  = etiqueta(manifest, h["attr_tipo"], valor).to_s
-          { pieza: h["pieza"].to_s, nombre: h["nombre"].to_s.sub("{tipo}", tipo).squeeze(" "),
+          { pieza: h["pieza"].to_s, nombre: h["nombre"].to_s.sub("{tipo}", tipo).squeeze(" ").upcase.gsub("{CM}", "{cm}"),
             multiplo_cm: (h["multiplo_cm"] || 1).to_i }
         end.compact
         lista.empty? ? nil : lista
@@ -408,7 +420,7 @@ module RoyalKitchens
         campo = campo_por_attr(manifest, r["attr_linea"])
         valor = valores[r["attr_linea"]] || (campo && campo["default"])
         linea = etiqueta(manifest, r["attr_linea"], valor).to_s
-        { nombre: r["nombre"].to_s.sub("{linea}", linea), piezas: r["piezas"] || {} }
+        { nombre: r["nombre"].to_s.sub("{linea}", linea).upcase.gsub("{PIEZA}", "{pieza}"), piezas: (r["piezas"] || {}).transform_values { |v| v.to_s.upcase } }
       end
 
       # Genera un mueble desde la fila plana +valores+.
@@ -455,7 +467,7 @@ module RoyalKitchens
 
         model = Sketchup.active_model
         fila  = valores_componente(manifest).merge(valores)
-        clave = clave_mueble(base_path, fila, div)
+        clave = clave_mueble(base_path, fila, div, manifest)
         if (hecha = generada(model, clave))
           r = colocar(model, hecha, nombre, transformation || siguiente_x(model))
           Acabado.mueble_nuevo(model, r["instancia"])
@@ -475,7 +487,8 @@ module RoyalKitchens
           divisores:          div,
           union:              union_opts(manifest),
           formulas_piezas:    formulas_piezas_opts(manifest),
-          piezas_unicas:      piezas_unicas_opts(manifest)
+          piezas_unicas:      piezas_unicas_opts(manifest),
+          nombres_piezas:     nombres_opts(manifest)
         }.compact
         res = Engine.generar_unidad(base_def, nombre, fila, opts)
         sellar(res[:instancia].definition, clave) if res[:ok] && res[:instancia]
@@ -488,14 +501,15 @@ module RoyalKitchens
       # ---- Reutilizar lo ya generado -------------------------------------------
       #
       # Cada mueble generado lleva en su definición la clave de lo que lo
-      # produjo (receta completa, divisores, componente base y versión) y una
+      # produjo (receta completa, divisores, componente base, versión y el
+      # manifiesto, que trae los nombres y arreglos del despiece) y una
       # huella de cómo quedó (piezas y medidas). Con la misma clave se reutiliza,
       # salvo que la huella ya no coincida: alguien lo editó por dentro.
 
       DICT_GENERADO = "RK_Studio_Generado".freeze
 
-      def clave_mueble(base_path, fila, div)
-        firma = [VERSION, File.basename(base_path), File.mtime(base_path).to_i, fila.sort, div]
+      def clave_mueble(base_path, fila, div, manifest = nil)
+        firma = [VERSION, File.basename(base_path), File.mtime(base_path).to_i, fila.sort, div, manifest]
         require "digest"
         Digest::MD5.hexdigest(JSON.generate(firma))
       end

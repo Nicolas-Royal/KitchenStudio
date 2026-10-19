@@ -277,6 +277,35 @@ Acabado (`acabado.rb`, 10/2026):
   definición) llevan CANTO EXTERIOR en sus 4 cantos, y `Panel` solo se muestra
   con Mitered (`_hidden_formula` = `IF(parent!u05estilo=3,FALSE,TRUE)`; antes se
   ocultaba solo de 4 a 10). Un cambio de canto en el frente se hace en los 16.
+- **Nombres del despiece** (`familias/gabinete.json → nombres_piezas`,
+  `Engine.nombrar_piezas`, último paso de la generación). Todo en mayúsculas,
+  con acentos y Ñ. El nombre va en la definición y en el atributo dinámico
+  `name` (OpenCutList lee uno u otro según su opción; en la definición SketchUp
+  agrega «#1» si se repite, en `name` no). Cada regla es la cola del camino a la
+  pieza (`_name` del DC, nombre de instancia o de definición; admite `*`):
+  estructura PISO, LATERAL IZQUIERDA/DERECHA, REFUERZO DELANTERO/TRASERO,
+  RESPALDO, AMARRE FRONTAL/POSTERIOR, ENTREPAÑO o DIVISOR (`segun`: retiro 0);
+  golas de melamina L y C en sus piezas (PISO y FRENTE; no llevan techo), AMARRE
+  GOLA CENTRAL/SUPERIOR (corte 45), GOLA ALUMINIO L/C como unidad; zoclo POLLO
+  FRONTAL/IZQUIERDO/DERECHO/POSTERIOR/TRANSVERSAL y AMARRE ZOCLO IZQUIERDO/
+  DERECHO; cajón COSTADO CAJÓN IZQUIERDO/DERECHO, FRONTAL, POSTERIOR, FONDO y
+  AMARRE CAJÓN. Unidades (`unidad`: lo de adentro cuenta como una pieza, un
+  renglón): BISAGRA CAZOLETA, MANIJA + modelo del catálogo (MANIJA PAOLA,
+  MANIJA LATERAL NEGRA, MANIJA BERLÍN…). Frentes: PUERTA IZQ / DER
+  (`dentro`: la hoja) y FRENTE CAJÓN 1, 2… (`numerar`: 1 = el de más arriba),
+  sobre el nombre que les puso `reglas_frentes`. Cajón Antaro (b02 = 2): ANTARO
+  PISOS y ANTARO RESPALDOS (`segun`). Correderas (CORREDERA ANTARO 50CM) en
+  `reglas_herrajes`. Izquierda y derecha van separadas en estructura y cajón;
+  herrajes y manijas en un solo renglón.
+- **Piso del cajón Antaro de 15 mm** (`formulas_piezas`): `c07espfondope` de
+  cada cajón = `IF(parent!b02_tipo_cajon=2,1.5,0)`. Es el espesor propio del
+  fondo del cajón; en 0 usa el respaldo del gabinete (`c03`, 12 mm), que no
+  cambia. Las fórmulas del cajón van en cm: un atributo de longitud referido
+  llega en pulgadas (daba 5.9 mm).
+- **Reutilizar muebles:** la clave incluye el manifiesto (`clave_mueble`), así
+  que cambiar nombres o reglas obliga a generar de nuevo; antes se reusaba el
+  mueble con los nombres viejos. Los
+  tiradores viejos de `B.Tirador` (no están en el catálogo) no se nombran.
 - **Veta.** Los materiales de madera del catálogo no traen foto: al crearlos
   (`Catalogo.asegurar_material`) se les pone la textura de TEKA ARTICO-VESTO1
   (`catalogo/texturas/veta_teka_artico.png`, veta recta; `opciones.json →
