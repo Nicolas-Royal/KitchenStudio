@@ -331,6 +331,47 @@ module RoyalKitchens
         resultados
       end
 
+      # Como buscar_para_modificar, pero independiza SOLO los contenedores del
+      # camino hasta lo hallado. buscar_para_modificar independiza todo lo que
+      # recorre; antes del redibujado eso es el base completo con todas sus
+      # variantes (manijas, estilos de frente…): ~2,700 copias y ~16 s por
+      # mueble, casi todo para borrarse después. El resto lo independiza
+      # eliminar_ocultos, que ya baja solo por lo visible.
+      def buscar_camino_unico(entidad, nombre_buscado)
+        buscado  = nombre_buscado.downcase.strip
+        coincide = lambda do |e|
+          e.name.to_s.downcase.include?(buscado) || e.definition.name.to_s.downcase.include?(buscado)
+        end
+        return [entidad] if coincide.call(entidad)
+
+        # ¿Hay algo que coincida debajo de esta definición? Solo lectura.
+        memo = {}
+        contiene = lambda do |defn|
+          return memo[defn] if memo.key?(defn)
+          memo[defn] = false
+          memo[defn] = defn.entities.any? do |h|
+            (h.is_a?(Sketchup::ComponentInstance) || h.is_a?(Sketchup::Group)) &&
+              (coincide.call(h) || contiene.call(h.definition))
+          end
+        end
+
+        resultados = []
+        bajar = lambda do |ent|
+          ent.definition.entities.to_a.each do |hijo|
+            next unless hijo.is_a?(Sketchup::ComponentInstance) || hijo.is_a?(Sketchup::Group)
+            if coincide.call(hijo)
+              independizar(hijo)
+              resultados << hijo
+            elsif contiene.call(hijo.definition)
+              independizar(hijo)
+              bajar.call(hijo)
+            end
+          end
+        end
+        bajar.call(entidad)
+        resultados
+      end
+
       # Une las mitades dentro de UN contenedor, que buscar_para_modificar ya
       # dejó independizado. Devuelve un warning o nil.
       def unir_mitades(grupo, piezas, nombre)
@@ -788,7 +829,8 @@ module RoyalKitchens
       def formulas_piezas(inst, lista)
         warnings = []
         Array(lista).each do |r|
-          piezas = buscar_para_modificar(inst, r[:pieza].to_s).reject { |e| e == inst }
+          # Antes del redibujado: solo se copia el camino a la pieza.
+          piezas = buscar_camino_unico(inst, r[:pieza].to_s).reject { |e| e == inst }
           if piezas.empty?
             warnings << "Fórmulas: no se encontró la pieza '#{r[:pieza]}'."
             next

@@ -102,8 +102,14 @@ parten de «Este proyecto»:
   regenera en su lugar (posición, etiqueta y grupo) y borra los viejos.
   Ajustados y originales no cambian.
 - **Reutilizar lo ya generado** (`Generador.generada`). Generar un gabinete
-  tarda ~45 s (medido: copiar el árbol del base ~14 s, limpiar definiciones
-  ~15 s, redibujado del DC ~8 s, cargar el base ~5 s). Cada definición
+  tarda ~16 s (medido 10/2026, antes ~50 s: redibujado del DC ~8 s, cargar
+  el base ~5 s, limpiar ~1,200 definiciones ~2.5 s, fórmulas y nombres
+  ~0.1 s cada uno). Las fórmulas de piezas (`formulas_piezas`) van antes del
+  redibujado y solo copian los contenedores del camino hasta cada pieza
+  (`Engine.buscar_camino_unico`); antes independizaban el base completo con
+  todas sus variantes (~2,700 copias), lo que costaba ~16 s ahí, ~7 s en los
+  nombres y ~13 s en la limpieza. El resto lo independiza
+  `eliminar_ocultos`, que solo baja por lo visible. Cada definición
   generada lleva `RK_Studio_Generado` = `{ clave, huella }`: la clave es la
   receta completa + divisores + archivo base (nombre y fecha) + versión +
   manifiesto; la huella, piezas y medidas al generarse (sin grupos vacíos).
@@ -118,8 +124,9 @@ parten de «Este proyecto»:
   reutilizan y el que ya tenía el diseño se queda.
 - Probado y descartado (10/2026): dejar el base cargado entre generaciones
   (obliga a copiar todo el árbol para no ensuciarlo: 26 s de copia y 21 s de
-  redibujado, peor que cargarlo), copiar solo el camino a las piezas que se
-  tocan (el DC deja 4 «Tap.Tirador» de más) y limpiar con `purge_unused`
+  redibujado, peor que cargarlo), copiar solo el camino a todas las piezas que se
+  tocan en lugar de independizar lo visible (el DC deja 4 «Tap.Tirador» de
+  más; las fórmulas sí lo hacen porque solo tocan repisas, divisores y piso) y limpiar con `purge_unused`
   protegido (~2.5 s menos sobre ~3700 definiciones, no compensa).
 - Nombre de un mueble nuevo (`RKMuebles.nombreNuevo`): `GAB-600-2P-3C-014` =
   familia, ancho, frentes de arriba abajo y un consecutivo (el siguiente al
