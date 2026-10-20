@@ -964,6 +964,8 @@ function svgModulo(m, avanzado, enLista) {
     const ala = fam === "alacena";
     const lay = layoutDe(fam, v, ala ? { ancho: RKVista.num(v.LenX, 800), alto: RKVista.num(v.LenZ, 700) }
       : { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
+    // Alacena: la zona 2 tiene su propia manija.
+    if (ala && lay.zonas[1]) lay.zonas[1].manijaPuerta = disenoSvg({ manija_puerta: v.d36_z2_tirador_tipo }, false).manijaPuerta;
     return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: ala ? v.d16_tirador_tipo : v.d16_z1_tirador_tipo,
       manija_cajon: v.e01_tirador_tipo, material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
   }

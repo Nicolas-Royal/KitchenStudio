@@ -61,23 +61,32 @@ window.RKVista = (function () {
     };
   }
 
-  /* Distribución de la alacena (c25tipopuerta: 0 abierta, 1 abatible, 6 Avento
-     S, 10 Avento D). Va colgada: sin zoclo, y la manija va abajo (+abajo+). */
+  /* Distribución de la alacena (tipo de puerta por zona: 0 abierta, 1
+     abatible, 6 Avento S, 10 Avento D). Va colgada: sin zoclo, y la manija va
+     abajo (+abajo+). Con dos zonas, la de arriba mide d02 (0 = la mitad). */
   function desdeAlacena(v, medidas) {
     const ancho = medidas.ancho || num(v.LenX, 800);
     const alto = medidas.alto || num(v.LenZ, 700);
-    const t = String(v.c25tipopuerta == null ? "1" : v.c25tipopuerta);
-    let z;
-    if (t === "0") z = { tipo: "abierto" };
-    else if (t === "6" || t === "10") {
-      // Avento D: dos hojas (independientes o unidas) salvo «Una puerta».
-      const hojas = String(v.d23_avento_d_tipo || "3");
-      const dos = t === "10" && hojas !== "1";
-      z = { tipo: "avento", n: parseInt(v.d21_avento_cant_puertas, 10) || 1, filas: dos ? 2 : 1,
-            unidas: hojas === "3", altoSup: dos ? num(v.d24_avento_d_alto_sup, 0) : 0 };
-    } else z = Object.assign({ tipo: "puerta" }, puertas(v.d15_cant_puertas || "1"));
-    z.h = alto;
-    return { ancho, alto, zoclo: 0, zocloVisible: false, gola: false, abajo: true, zonas: [z] };
+    const zona = (tipo, cantPuertas, cantAvento) => {
+      const t = String(tipo == null ? "1" : tipo);
+      if (t === "0") return { tipo: "abierto" };
+      if (t === "6" || t === "10") {
+        // Avento D: dos hojas (independientes o unidas) salvo «Una puerta».
+        const hojas = String(v.d23_avento_d_tipo || "3");
+        const dos = t === "10" && hojas !== "1";
+        return { tipo: "avento", n: parseInt(cantAvento, 10) || 1, filas: dos ? 2 : 1,
+                 unidas: hojas === "3", altoSup: dos ? num(v.d24_avento_d_alto_sup, 0) : 0 };
+      }
+      return Object.assign({ tipo: "puerta" }, puertas(cantPuertas || "1"));
+    };
+    const zonas = [zona(v.c25tipopuerta, v.d15_cant_puertas, v.d21_avento_cant_puertas)];
+    if (String(v.d01_cantidad_zonas) === "2") {
+      const sup = num(v.d02_alto_zona_superior, 0);
+      zonas[0].h = sup > 0 && sup < alto ? sup : alto / 2;
+      zonas.push(zona(v.d31_z2_contenido, v.d35_z2_cant_puertas, v.d41_z2_avento_cant_puertas));
+      zonas[1].h = alto - zonas[0].h;
+    } else zonas[0].h = alto;
+    return { ancho, alto, zoclo: 0, zocloVisible: false, gola: false, abajo: true, zonas };
   }
 
   /* Sin receta (módulos del catálogo): se adivina por sus etiquetas. */
@@ -307,13 +316,15 @@ window.RKVista = (function () {
           rect(GAP, y + GAP + GOLA - 8, W - 2 * GAP, 3, 'fill="rgba(255,255,255,.35)"');
         zy += GOLA; zh -= GOLA;
       }
+      // Una zona puede traer su propia manija (alacena en «Avanzado»: una por zona).
+      const dz = z.manijaPuerta !== undefined ? Object.assign({}, d, { manijaPuerta: z.manijaPuerta }) : d;
       if (z.tipo === "puerta") {
         const n = z.n || 1;
         const w = (W - GAP * (n + 1)) / n;
         for (let i = 0; i < n; i++) {
           const lado = n === 1 ? z.lado : (i < n / 2 ? "izq" : "der");
           // En doble, la manija va hacia el centro: la hoja izquierda abre a la derecha.
-          out += hoja(GAP + i * (w + GAP), zy, w, zh, d, "puerta", lado);
+          out += hoja(GAP + i * (w + GAP), zy, w, zh, dz, "puerta", lado);
         }
       } else if (z.tipo === "avento") {
         // Columnas a lo ancho; en el Avento D, dos hojas por columna.
@@ -323,9 +334,9 @@ window.RKVista = (function () {
         for (let i = 0; i < n; i++) {
           const x = GAP + i * (w + GAP);
           if (filas === 2) {
-            out += hoja(x, zy, w, hSup, d, "avento", "centro", !z.unidas) +
-              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, d, "avento", "centro");
-          } else out += hoja(x, zy, w, zh, d, "avento", "centro");
+            out += hoja(x, zy, w, hSup, dz, "avento", "centro", !z.unidas) +
+              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, dz, "avento", "centro");
+          } else out += hoja(x, zy, w, zh, dz, "avento", "centro");
         }
       } else if (z.tipo === "cajones") {
         const n = z.n || 1;

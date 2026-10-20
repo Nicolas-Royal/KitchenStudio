@@ -137,18 +137,25 @@ window.RKMuebles = (function () {
     return { texto: zonas.map((z) => z.texto).join(" + "), codigo: zonas.map((z) => z.codigo).join("-") };
   }
 
-  /* Lo mismo para la alacena, desde sus variables (fila o formulario):
-     «2 puertas» (2P), «2 Avento S» (2AS), «1 Avento D» (1AD) o abierta (A). */
+  /* Lo mismo para la alacena, desde sus variables (fila o formulario), de
+     arriba abajo: «2 puertas» (2P), «2 Avento S» (2AS), «1 Avento D» (1AD) o
+     abierta (A); con dos zonas, «1 Avento S + 2 puertas» (1AS-2P). */
   function frentesAlacena(v) {
-    const t = String((v || {}).c25tipopuerta == null ? "1" : v.c25tipopuerta);
-    if (t === "0") return { texto: "abierta", codigo: "A" };
-    if (t === "6" || t === "10") {
-      const n = parseInt(v.d21_avento_cant_puertas, 10) || 1;
-      const s = t === "6" ? "S" : "D";
-      return { texto: `${n} Avento ${s}`, codigo: `${n}A${s}` };
-    }
-    const n = String(v.d15_cant_puertas) === "3" ? 2 : 1;
-    return { texto: n + (n === 1 ? " puerta" : " puertas"), codigo: n + "P" };
+    v = v || {};
+    const zona = (t, puertas, avento) => {
+      t = String(t == null ? "1" : t);
+      if (t === "0") return { texto: "abierta", codigo: "A" };
+      if (t === "6" || t === "10") {
+        const n = parseInt(avento, 10) || 1;
+        const s = t === "6" ? "S" : "D";
+        return { texto: `${n} Avento ${s}`, codigo: `${n}A${s}` };
+      }
+      const n = String(puertas) === "3" ? 2 : 1;
+      return { texto: n + (n === 1 ? " puerta" : " puertas"), codigo: n + "P" };
+    };
+    const zonas = [zona(v.c25tipopuerta, v.d15_cant_puertas, v.d21_avento_cant_puertas)];
+    if (String(v.d01_cantidad_zonas) === "2") zonas.push(zona(v.d31_z2_contenido, v.d35_z2_cant_puertas, v.d41_z2_avento_cant_puertas));
+    return { texto: zonas.map((z) => z.texto).join(" + "), codigo: zonas.map((z) => z.codigo).join("-") };
   }
 
   // ---- Identidad: que dos muebles no se pisen ----------------------------------

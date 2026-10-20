@@ -903,7 +903,8 @@
       },
       "manija_puerta": {
         "attrs": [
-          "d16_tirador_tipo"
+          "d16_tirador_tipo",
+          "d36_z2_tirador_tipo"
         ]
       },
       "espesor_puerta": {

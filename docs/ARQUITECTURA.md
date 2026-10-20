@@ -563,6 +563,23 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     hoja de abajo (`u34–u37`) usan las fórmulas del componente con esa
     fracción (antes saltaba de cerrado a abierto con `u33animate2`).
     Independientes, las dos se levantan juntas (`rotx = -parent!u38tanim`).
+  - **Zonas (20/10/2026)**, como el gabinete pero sin cajones: 1 o 2 zonas
+    (`d01_cantidad_zonas`), la de arriba de `d02_alto_zona_superior` (0 = la
+    mitad) y la de abajo con el resto, separadas 3 mm (`f04seppuertas`); solo
+    cambia el frente (sin pieza fija). Zona 1 = `c25tipopuerta` (abatible,
+    Avento S o D; el D obliga a una zona), zona 2 = `d31_z2_contenido`
+    (abierta, abatible o Avento S) con `d35_z2_cant_puertas`,
+    `d41_z2_avento_cant_puertas` y su manija `d36–d39` (posición fija como la
+    zona 1). En el componente: `zn11/zn12` (zona 1) y `zn21/zn22` (zona 2);
+    `v21tamlenzpu1`/`v21poszpu1` = zona 1, así que la puerta y los Avento de
+    siempre la siguen sin cambios, y la zona 2 tiene sus copias
+    («PUA02 - ZONA 2 - Pu.Manijas», «PUERTA AVENTO S Z2»). Con dos zonas las
+    puertas van por fuera. En Studio: grupo «Zonas de la fachada», resumen
+    «1 Avento S + 2 puertas» (1AS-2P), nombre `ALA-800-AS1-Z2P2` y la vista
+    con una manija por zona.
+  - Las abatibles traían `u01open = 90` (abiertas) en el componente; quedaron
+    en 0 (cerradas). Valores base del componente: una zona, abatible, sin
+    entrepaño.
   - Gráfico: sin zonas de cajones `geomFrentes` devuelve igual el espesor de
     puerta (el corte lateral lo suma; sin él su ancho salía `NaN` y se iba a
     la esquina) y cada vista mide al menos lo que su título, con el dibujo

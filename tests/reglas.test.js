@@ -188,6 +188,30 @@ prueba('R-06 · cada tipo de puerta de alacena trae sus propios campos', functio
   assert.deepStrictEqual(campo('alacena', 'l01_linea_frente').opciones, campo('gabinete', 'l01_linea_frente').opciones);
 });
 
+prueba('R-06d · alacena por zonas: arriba y abajo, con puertas o Avento S y una manija por zona', function () {
+  var ala = function (extra) { return plano('alacena', Object.assign({ LenX: '800', LenY: '330', LenZ: '900' }, extra)); };
+  // Una zona: nada de la zona 2.
+  var una = ala({});
+  ['d02_alto_zona_superior', 'd31_z2_contenido', 'd35_z2_cant_puertas', 'd36_z2_tirador_tipo'].forEach(function (a) { assert.ok(!(a in una), a); });
+  // Dos zonas: Avento S arriba, abatible doble abajo; cada manija en su posición fija.
+  var dos = ala({ d01_cantidad_zonas: '2', c25tipopuerta: '6', d31_z2_contenido: '1', d35_z2_cant_puertas: '3', d36_z2_tirador_tipo: '13' });
+  assert.ok(dos.d17_tirador_posicion === '8' && dos.d18_tirador_orientacion === '1', 'zona 1 Avento: abajo al centro');
+  assert.ok(dos.d37_z2_tirador_posicion === '9' && dos.d38_z2_tirador_orientacion === '2', 'zona 2 abatible: abajo, vertical');
+  assert.strictEqual(dos.d36_z2_tirador_tipo, '13');
+  assert.strictEqual(dos.d02_alto_zona_superior, '0mm', '0 = la mitad');
+  var av2 = ala({ d01_cantidad_zonas: '2', d31_z2_contenido: '6', d41_z2_avento_cant_puertas: '2' });
+  assert.ok(av2.d41_z2_avento_cant_puertas === '2' && !('d35_z2_cant_puertas' in av2) && av2.d37_z2_tirador_posicion === '8');
+  // La zona 2 solo admite abatible, Avento S o abierta; el Avento D ocupa toda la fachada.
+  assert.deepStrictEqual(campo('alacena', 'd31_z2_contenido').opciones.map(function (o) { return o.valor; }), ['0', '1', '6']);
+  assert.strictEqual(ala({ d01_cantidad_zonas: '2', c25tipopuerta: '10' }).d01_cantidad_zonas, '1');
+  // Con dos zonas las puertas van por fuera; nombre con la zona 2.
+  assert.strictEqual(ala({ d01_cantidad_zonas: '2', f02_montaje: '2' }).f02_montaje, '1');
+  var n = function (c) { return T.autoNombre(man.alacena, registro('alacena', Object.assign({ LenX: '800' }, c)).valores); };
+  assert.strictEqual(n({ d01_cantidad_zonas: '2', c25tipopuerta: '6', d35_z2_cant_puertas: '3' }), 'ALA-800-AS1-Z2P2');
+  assert.strictEqual(n({}), 'ALA-800-P1I');
+  assert.ok(errores('alacena', { LenX: '800', LenY: '330', LenZ: '900', d01_cantidad_zonas: '2', d02_alto_zona_superior: '950' }).length > 0, 'zona de arriba más alta que el mueble');
+});
+
 prueba('R-06b · el vidrio completo y el uñero no llevan tirador (esquinero)', function () {
   ['3', '5'].forEach(function (diseno) {
     var f = plano('esquinero', { EstiloPuerta: diseno });

@@ -393,6 +393,12 @@ prueba("muebles: frentes de la alacena y su nombre nuevo", () => {
   assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "6", d21_avento_cant_puertas: "2" }), { texto: "2 Avento S", codigo: "2AS" });
   assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "10" }), { texto: "1 Avento D", codigo: "1AD" });
   assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "0" }), { texto: "abierta", codigo: "A" });
+  // Dos zonas, de arriba abajo.
+  assert.deepStrictEqual(MU.frentesAlacena({ d01_cantidad_zonas: "2", c25tipopuerta: "6", d31_z2_contenido: "1", d35_z2_cant_puertas: "3" }),
+    { texto: "1 Avento S + 2 puertas", codigo: "1AS-2P" });
+  const z = RKVista.desdeAlacena({ d01_cantidad_zonas: "2", d02_alto_zona_superior: "300mm", c25tipopuerta: "6", d31_z2_contenido: "1" }, { ancho: 800, alto: 900 });
+  assert.deepStrictEqual(z.zonas.map((x) => [x.tipo, x.h]), [["avento", 300], ["puerta", 600]]);
+  assert.deepStrictEqual(RKVista.desdeAlacena({ d01_cantidad_zonas: "2" }, { ancho: 800, alto: 900 }).zonas.map((x) => x.h), [450, 450], "0 = la mitad");
   // Un Avento también cuenta para el consecutivo.
   assert.strictEqual(MU.nombreNuevo("ALA", 800, "1AS", ["ALA-800-2AS-004"]), "ALA-800-1AS-005");
   // Sin cajones lo fijo son las puertas.

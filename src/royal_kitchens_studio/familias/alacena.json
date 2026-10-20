@@ -3,11 +3,13 @@
   "titulo": "Alacena",
   "descripcion": "Alacena (gabinete superior): puerta abatible o Avento con las líneas de frente y las manijas del catálogo.",
   "componente_base": "componentes/ALACENA.skp",
-  "nombre_patron": "ALA-{LenX}-{c25tipopuerta}{d15_cant_puertas}{d21_avento_cant_puertas}{c24entrepano}",
+  "nombre_patron": "ALA-{LenX}-{c25tipopuerta}{d15_cant_puertas}{d21_avento_cant_puertas}[-Z2{d31_z2_contenido}{d35_z2_cant_puertas}{d41_z2_avento_cant_puertas}]{c24entrepano}",
   "nombre_codigos": {
     "c25tipopuerta": { "0": "A", "1": "P", "6": "AS", "10": "AD" },
     "d15_cant_puertas": { "1": "1I", "2": "1D", "3": "2" },
-    "c24entrepano": { "0": "-E", "1": "" }
+    "c24entrepano": { "0": "-E", "1": "" },
+    "d31_z2_contenido": { "0": "A", "1": "P", "6": "AS" },
+    "d35_z2_cant_puertas": { "1": "1I", "2": "1D", "3": "2" }
   },
   "catalogo": {
     "categoria": "Alacenas",
@@ -18,7 +20,12 @@
         { "attr": "c24entrepano", "valores": { "0": "Entrepaño" } }
       ],
       "puerta": [{ "attr": "l01_linea_frente" }],
-      "configuracion": [{ "attr": "d15_cant_puertas" }, { "attr": "d21_avento_cant_puertas", "prefijo": "Avento: " }]
+      "configuracion": [
+        { "attr": "d01_cantidad_zonas" },
+        { "attr": "d15_cant_puertas" },
+        { "attr": "d21_avento_cant_puertas", "prefijo": "Avento: " },
+        { "attr": "d31_z2_contenido", "prefijo": "Zona 2: " }
+      ]
     }
   },
   "reglas_frentes": { "nombre": "{pieza} {linea}", "attr_linea": "l01_linea_frente", "piezas": { "Puerta": "PUERTA" } },
@@ -42,7 +49,7 @@
     },
     {
       "padres": ["PuertaIZQ", "PuertaDER", "Puerta", "PuertaSUP", "PuertaINF"],
-      "attrs": ["d16_tirador_tipo"],
+      "attrs": ["d16_tirador_tipo", "d36_z2_tirador_tipo"],
       "variantes": {
         "B.TiradorCLE": ["7"],
         "Tirador New Chica": ["8"],
@@ -65,13 +72,13 @@
   ],
   "nombres_piezas": [
     {
-      "_doc": "Como en el gabinete (Engine.nombrar_piezas). Puertas: PUERTA IZQ/DER (abatible), PUERTA AVENTO (S) y PUERTA AVENTO SUP/INF (D), sobre el nombre que les puso reglas_frentes."
+      "_doc": "Como en el gabinete (Engine.nombrar_piezas). Puertas: PUERTA IZQ/DER (abatible), PUERTA AVENTO (S, en cualquier zona) y PUERTA AVENTO SUP/INF (D), sobre el nombre que les puso reglas_frentes."
     },
     { "ruta": ["PUERTA *"], "dentro": "PuertaIZQ", "nombre": "PUERTA IZQ" },
     { "ruta": ["PUERTA *"], "dentro": "PuertaDER", "nombre": "PUERTA DER" },
     { "ruta": ["PUERTA *"], "dentro": "PuertaSUP", "nombre": "PUERTA AVENTO SUP" },
     { "ruta": ["PUERTA *"], "dentro": "PuertaINF", "nombre": "PUERTA AVENTO INF" },
-    { "ruta": ["PUERTA *"], "dentro": "PUERTA AVENTO S", "nombre": "PUERTA AVENTO" },
+    { "ruta": ["PUERTA *"], "dentro": "PUERTA AVENTO S*", "nombre": "PUERTA AVENTO" },
     { "ruta": ["LateralL", "Panel"], "nombre": "LATERAL IZQUIERDA" },
     { "ruta": ["LateralR", "Panel"], "nombre": "LATERAL DERECHA" },
     { "ruta": ["Estructura", "Base", "Panel"], "nombre": "PISO" },
@@ -110,6 +117,7 @@
     }
   },
   "reglas_geometria": [
+    { "attrs": ["d02_alto_zona_superior"], "menor_que": "LenZ", "mensaje": "La zona de arriba no deja lugar a la de abajo: mide más que el alto." },
     {
       "attrs": ["f11margsupcaj", "f12marginfcaj"],
       "menor_que": "LenZ",
@@ -169,16 +177,36 @@
       ]
     },
     {
-      "id": "sistema",
-      "titulo": "Puerta",
+      "id": "zonas",
+      "titulo": "Zonas de la fachada",
       "campos": [
+        {
+          "id": "d01_cantidad_zonas",
+          "attr": "d01_cantidad_zonas",
+          "label": "Zonas",
+          "tipo": "select",
+          "default": "1",
+          "opciones": [{ "label": "Una zona", "valor": "1" }, { "label": "Dos zonas (arriba y abajo)", "valor": "2" }],
+          "forzar": [{ "valor": "1", "si": [{ "attr": "c25tipopuerta", "valor": "10" }], "mensaje": "El Avento D ocupa toda la fachada: una sola zona." }]
+        },
+        {
+          "id": "d02_alto_zona_superior",
+          "attr": "d02_alto_zona_superior",
+          "label": "Alto de la zona de arriba",
+          "tipo": "numero",
+          "unidad": "mm",
+          "default": "0",
+          "placeholder": "0",
+          "visible_si": { "attr": "d01_cantidad_zonas", "valor": "2" },
+          "nota": "0 = las dos del mismo alto. La de abajo toma el resto (con 3 mm de separación)."
+        },
         {
           "id": "c25tipopuerta",
           "attr": "c25tipopuerta",
-          "label": "Tipo de puerta",
+          "label": "Zona 1 (arriba): tipo de puerta",
           "tipo": "select",
           "default": "1",
-          "nota": "Avento S: una hoja que abre hacia arriba. Avento D: dos hojas plegables.",
+          "nota": "Con una zona es toda la fachada. Avento S: una hoja que abre hacia arriba. Avento D: dos hojas plegables (solo con una zona).",
           "opciones": [
             { "label": "Sin puerta", "valor": "0" },
             { "label": "Puerta abatible", "valor": "1" },
@@ -187,13 +215,34 @@
           ]
         },
         {
+          "id": "d31_z2_contenido",
+          "attr": "d31_z2_contenido",
+          "label": "Zona 2 (abajo): tipo de puerta",
+          "tipo": "select",
+          "default": "1",
+          "visible_si": { "attr": "d01_cantidad_zonas", "valor": "2" },
+          "opciones": [{ "label": "Sin puerta", "valor": "0" }, { "label": "Puerta abatible", "valor": "1" }, { "label": "Avento S", "valor": "6" }]
+        }
+      ]
+    },
+    {
+      "id": "sistema",
+      "titulo": "Frente",
+      "campos": [
+        {
           "id": "l01_linea_frente",
           "attr": "l01_linea_frente",
           "label": "Línea de frente",
           "tipo": "select",
           "default": "1",
           "nota": "Para el catálogo se genera en Lisa; el estilo se cambia al insertar.",
-          "habilitado_si": { "attr": "c25tipopuerta", "excepto": ["0"], "mensaje": "Sin puerta no hay frente." },
+          "habilitado_si": {
+            "alguna": [
+              { "attr": "c25tipopuerta", "excepto": ["0"] },
+              { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }] }
+            ],
+            "mensaje": "Sin puerta no hay frente."
+          },
           "opciones": [
             { "label": "Lisa", "valor": "1" },
             { "label": "Italiana", "valor": "2" },
@@ -236,13 +285,14 @@
           "tipo": "select",
           "default": "1",
           "visible_si": { "attr": "c25tipopuerta", "valor": "1" },
-          "opciones": [{ "label": "Exterior", "valor": "1" }, { "label": "Interior", "valor": "2" }]
+          "opciones": [{ "label": "Exterior", "valor": "1" }, { "label": "Interior", "valor": "2" }],
+          "forzar": [{ "valor": "1", "si": [{ "attr": "d01_cantidad_zonas", "valor": "2" }], "mensaje": "Con dos zonas las puertas van por fuera." }]
         }
       ]
     },
     {
       "id": "puertas",
-      "titulo": "Puerta abatible",
+      "titulo": "Zona 1 · Puerta abatible",
       "condicion": { "attr": "c25tipopuerta", "valor": "1", "mensaje": "Se activa con «Puerta abatible»." },
       "campos": [
         {
@@ -261,7 +311,7 @@
     },
     {
       "id": "avento",
-      "titulo": "Avento",
+      "titulo": "Zona 1 · Avento",
       "condicion": { "attr": "c25tipopuerta", "valores": ["6", "10"], "mensaje": "Se activa con «Avento S» o «Avento D»." },
       "campos": [
         {
@@ -312,13 +362,13 @@
     },
     {
       "id": "manija",
-      "titulo": "Manija",
+      "titulo": "Zona 1 · Manija",
       "condicion": { "attr": "c25tipopuerta", "excepto": ["0"], "mensaje": "Sin puerta no hay manija." },
       "campos": [
         {
           "id": "d16_tirador_tipo",
           "attr": "d16_tirador_tipo",
-          "label": "Manija",
+          "label": "Zona 1: manija",
           "tipo": "select",
           "default": "9",
           "opciones": [
@@ -343,7 +393,7 @@
         {
           "id": "d17_tirador_posicion",
           "attr": "d17_tirador_posicion",
-          "label": "Posición de la manija",
+          "label": "Zona 1: posición de la manija",
           "tipo": "select",
           "oculto": true,
           "default": "9",
@@ -377,7 +427,7 @@
         {
           "id": "d18_tirador_orientacion",
           "attr": "d18_tirador_orientacion",
-          "label": "Orientación de la manija",
+          "label": "Zona 1: orientación de la manija",
           "tipo": "select",
           "oculto": true,
           "default": "2",
@@ -396,7 +446,7 @@
         {
           "id": "d19_tirador_largo",
           "attr": "d19_tirador_largo",
-          "label": "Largo de la manija",
+          "label": "Zona 1: largo de la manija",
           "tipo": "numero",
           "oculto": true,
           "unidad": "mm",
@@ -408,9 +458,155 @@
       ]
     },
     {
+      "id": "z2_puertas",
+      "titulo": "Zona 2 · Puerta abatible",
+      "condicion": {
+        "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "valor": "1" }],
+        "mensaje": "Se activa con «Zona 2: Puerta abatible»."
+      },
+      "campos": [
+        {
+          "id": "d35_z2_cant_puertas",
+          "attr": "d35_z2_cant_puertas",
+          "label": "Zona 2: cantidad de puertas",
+          "tipo": "select",
+          "default": "1",
+          "opciones": [
+            { "label": "Puerta simple - IZQ", "valor": "1" },
+            { "label": "Puerta simple - DER", "valor": "2" },
+            { "label": "Puerta doble", "valor": "3" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "z2_avento",
+      "titulo": "Zona 2 · Avento S",
+      "condicion": {
+        "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "valor": "6" }],
+        "mensaje": "Se activa con «Zona 2: Avento S»."
+      },
+      "campos": [
+        {
+          "id": "d41_z2_avento_cant_puertas",
+          "attr": "d41_z2_avento_cant_puertas",
+          "label": "Zona 2: puertas a lo ancho",
+          "tipo": "select",
+          "default": "1",
+          "opciones": [{ "label": "1", "valor": "1" }, { "label": "2", "valor": "2" }, { "label": "3", "valor": "3" }]
+        }
+      ]
+    },
+    {
+      "id": "z2_manija",
+      "titulo": "Zona 2 · Manija",
+      "condicion": {
+        "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }],
+        "mensaje": "Se activa cuando la zona 2 lleva puerta."
+      },
+      "campos": [
+        {
+          "id": "d36_z2_tirador_tipo",
+          "attr": "d36_z2_tirador_tipo",
+          "label": "Zona 2: manija",
+          "tipo": "select",
+          "default": "9",
+          "opciones": [
+            { "label": "Sin tirador", "valor": "1" },
+            { "label": "Lateral negra", "valor": "7" },
+            { "label": "New Chica", "valor": "8" },
+            { "label": "Andrea", "valor": "9" },
+            { "label": "Escolano", "valor": "10" },
+            { "label": "Barra negra", "valor": "11" },
+            { "label": "Botón cilíndrico chico", "valor": "12" },
+            { "label": "Paola", "valor": "13" },
+            { "label": "Mulholland", "valor": "14" },
+            { "label": "Concha dorada", "valor": "15" },
+            { "label": "Botón Oberol", "valor": "16" },
+            { "label": "Swarovski chica", "valor": "17" },
+            { "label": "Swarovski grande", "valor": "18" },
+            { "label": "Botón cilíndrico dorado", "valor": "19" },
+            { "label": "Botón cilíndrico plateado", "valor": "20" },
+            { "label": "Berlín", "valor": "21" }
+          ]
+        },
+        {
+          "id": "d37_z2_tirador_posicion",
+          "attr": "d37_z2_tirador_posicion",
+          "label": "Zona 2: posición de la manija",
+          "tipo": "select",
+          "oculto": true,
+          "default": "9",
+          "habilitado_si": { "attr": "d36_z2_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que posicionar." },
+          "forzar": [
+            {
+              "valor": "8",
+              "si": [{ "attr": "d31_z2_contenido", "valores": ["6"] }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }],
+              "mensaje": "Avento: abajo al centro (en el Avento D unido, solo la hoja de abajo)."
+            },
+            { "valor": "5", "si": [{ "attr": "d36_z2_tirador_tipo", "valor": "7" }], "mensaje": "Lateral negra: va en el canto, a media altura." },
+            { "valor": "8", "si": [{ "attr": "d36_z2_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de abajo, a todo el ancho." },
+            {
+              "valor": "9",
+              "si": [{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }],
+              "mensaje": "Abajo, del lado que abre. El componente la refleja en la puerta con bisagra a la derecha y en la doble las lleva al centro."
+            }
+          ],
+          "opciones": [
+            { "label": "Arriba - Izquierda", "valor": "1" },
+            { "label": "Arriba - Centro", "valor": "2" },
+            { "label": "Arriba - Derecha", "valor": "3" },
+            { "label": "Centro - Izquierda", "valor": "4" },
+            { "label": "Centro - Centro", "valor": "5" },
+            { "label": "Centro - Derecha", "valor": "6" },
+            { "label": "Abajo - Izquierda", "valor": "7" },
+            { "label": "Abajo - Centro", "valor": "8" },
+            { "label": "Abajo - Derecha", "valor": "9" }
+          ]
+        },
+        {
+          "id": "d38_z2_tirador_orientacion",
+          "attr": "d38_z2_tirador_orientacion",
+          "label": "Zona 2: orientación de la manija",
+          "tipo": "select",
+          "oculto": true,
+          "default": "2",
+          "habilitado_si": { "attr": "d36_z2_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que orientar." },
+          "forzar": [
+            {
+              "valor": "1",
+              "si": [{ "attr": "d31_z2_contenido", "valores": ["6"] }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }],
+              "mensaje": "En el Avento la manija va horizontal."
+            },
+            { "valor": "1", "si": [{ "attr": "d36_z2_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va horizontal en el canto." },
+            { "valor": "2", "si": [{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "En puertas abatibles la manija va vertical." }
+          ],
+          "opciones": [{ "label": "Horizontal", "valor": "1" }, { "label": "Vertical", "valor": "2" }]
+        },
+        {
+          "id": "d39_z2_tirador_largo",
+          "attr": "d39_z2_tirador_largo",
+          "label": "Zona 2: largo de la manija",
+          "tipo": "numero",
+          "oculto": true,
+          "unidad": "mm",
+          "default": "300",
+          "placeholder": "300",
+          "positivo": true,
+          "habilitado_si": { "attr": "d36_z2_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay largo." }
+        }
+      ]
+    },
+    {
       "id": "bisagras",
       "titulo": "Bisagras",
-      "condicion": { "attr": "c25tipopuerta", "excepto": ["0"], "mensaje": "Sin puerta no hay bisagras." },
+      "condicion": {
+        "alguna": [
+          { "attr": "c25tipopuerta", "excepto": ["0"] },
+          { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }] }
+        ],
+        "mensaje": "Sin puertas no aplica."
+      },
       "campos": [
         {
           "id": "f07_bisagra_angulo",
@@ -824,7 +1020,13 @@
     {
       "id": "margenes",
       "titulo": "Márgenes y separaciones",
-      "condicion": { "attr": "c25tipopuerta", "excepto": ["0"], "mensaje": "Sin puerta no hay frente que margenar." },
+      "condicion": {
+        "alguna": [
+          { "attr": "c25tipopuerta", "excepto": ["0"] },
+          { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }] }
+        ],
+        "mensaje": "Sin puertas no aplica."
+      },
       "campos": [
         {
           "id": "f11margsupcaj",
