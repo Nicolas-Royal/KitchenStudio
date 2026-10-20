@@ -31,6 +31,20 @@ module RoyalKitchens
       barra.add_item(cmd)
       barra.restore
 
+      # Generar un mueble ocupa a SketchUp unos segundos (la API solo corre en
+      # su hilo principal). Pasados ~5 s Windows aclara las ventanas y les pone
+      # «(No responde)», y parece que se colgó. Se le pide a Windows que no lo
+      # haga en este proceso (DisableProcessWindowsGhosting, user32): la
+      # ventana se queda como está, con su aviso de «Insertando…».
+      if Sketchup.platform == :platform_win
+        begin
+          require "fiddle"
+          Fiddle::Function.new(Fiddle.dlopen("user32")["DisableProcessWindowsGhosting"], [], Fiddle::TYPE_VOID).call
+        rescue StandardError, LoadError => e
+          warn "[#{PLUGIN_NAME}] no se pudo quitar el efecto «No responde»: #{e.message}"
+        end
+      end
+
       # La configuración del proyecto vive en cada .skp: al abrir o crear otro
       # modelo, el diálogo vuelve a leerla.
       Sketchup.add_observer(Dialogo::ObservadorApp.new)

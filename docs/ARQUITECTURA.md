@@ -121,7 +121,25 @@ parten de «Este proyecto»:
   ya no buscan gemela en otros muebles. Si alguien lo editó por dentro la
   huella cambia y se genera de nuevo. En
   «Aplicar el diseño» el primero de cada mueble se genera, los iguales
-  reutilizan y el que ya tenía el diseño se queda.
+  reutilizan y el que ya tenía el diseño se queda (`Generador.mismo_mueble?`:
+  misma clave y huella intacta; ya no se compara la definición, porque cada
+  copia tiene la suya).
+- **Poda antes del redibujado** (`gabinete.json → poda`, `Engine.podar`,
+  `Generador.podar_opts`). Cada puerta y cajón del base trae los 10 estilos de
+  frente y las 15 manijas; con la receta se sabe cuáles van (`l01`;
+  `d16/d36/e01`, ninguna con gola) y las demás se borran de esos contenedores
+  antes de redibujar, copiando solo el camino a ellos. Sin el valor en la
+  receta no se poda (decide el DC). Si un frente o manija sale faltando, la
+  tabla `variantes` no coincide con la fórmula de ocultar del componente.
+- **Limpieza en segundo plano** (`Generador.limpiar_despues`): lo que sobra del
+  base se borra en tandas de 150 cada 0.3 s mientras SketchUp está libre, en
+  operaciones transparentes; cada tanda revisa qué está en la escena y suelta
+  lo de otro modelo.
+- **Sin «No responde»** (`main.rb`): en Windows Studio llama a
+  `DisableProcessWindowsGhosting` (user32, con Fiddle) al cargar, para que
+  Windows no aclare las ventanas mientras SketchUp genera.
+- Sin probar en SketchUp a la fecha del commit (poda, limpieza en segundo
+  plano y «No responde»): medir y revisar frentes y manijas de varias líneas.
 - Probado y descartado (10/2026): dejar el base cargado entre generaciones
   (obliga a copiar todo el árbol para no ensuciarlo: 26 s de copia y 21 s de
   redibujado, peor que cargarlo), copiar solo el camino a todas las piezas que se

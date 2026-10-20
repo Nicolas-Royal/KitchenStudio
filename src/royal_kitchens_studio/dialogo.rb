@@ -208,7 +208,7 @@ module RoyalKitchens
             res = instanciar(m, t["eleccion"], transformation: viejo.transformation)
             next errores << "#{m['name']}: #{res['error']}" unless res["ok"] && res["instancia"]
             nuevo = res["instancia"]
-            if nuevo.definition == viejo.definition
+            if Generador.mismo_mueble?(viejo.definition, nuevo.definition)
               quitar_copia(nuevo)
             else
               reemplazar(viejo, nuevo, m["id"])
@@ -216,8 +216,8 @@ module RoyalKitchens
             hechos += 1
           end
         end
-        # Lo que los muebles viejos dejaron fuera de la escena.
-        Generador.quitar_definiciones_nuevas(model, antes)
+        # Lo que los muebles viejos dejaron fuera de la escena (en tandas).
+        Generador.limpiar_despues(model, antes)
         { "ok" => true, "hechos" => hechos, "errores" => errores }
       end
 

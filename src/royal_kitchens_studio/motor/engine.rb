@@ -331,6 +331,54 @@ module RoyalKitchens
         resultados
       end
 
+      # ---------------------------------------------------------------------
+      # Quita, ANTES del redibujado, las variantes que la receta no usa: el
+      # base trae dentro de cada puerta y cajón los 10 estilos de frente y las
+      # 15 manijas, y el redibujado calcula las fórmulas de todas aunque
+      # después se borren. Lo decide Generador.podar_opts con la receta.
+      #
+      # reglas: [{ padres: ["Tapa", "Puerta"], borrar: ["MFP *", …] }]
+      #   Se borran los hijos DIRECTOS de un «padre» (por _name, instancia o
+      #   definición; admite *) que coinciden con +borrar+. Solo se copia el
+      #   camino hasta cada padre (el resto se queda compartido con el base
+      #   hasta eliminar_ocultos).
+      # Devuelve cuántas piezas quitó.
+      # ---------------------------------------------------------------------
+      def podar(inst, reglas)
+        reglas = Array(reglas).reject { |r| Array(r[:borrar]).empty? }
+        return 0 if reglas.empty?
+        es_padre = ->(e) { reglas.any? { |r| Array(r[:padres]).any? { |p| etiquetas_pieza(e).any? { |t| File.fnmatch(p, t) } } } }
+        memo = {}
+        contiene = lambda do |defn|
+          return memo[defn] if memo.key?(defn)
+          memo[defn] = false
+          memo[defn] = defn.entities.any? { |h| h.is_a?(Sketchup::ComponentInstance) && (es_padre.(h) || contiene.(h.definition)) }
+        end
+        n = 0
+        visitar = lambda do |ent|
+          ent.definition.entities.to_a.each do |hijo|
+            next unless hijo.is_a?(Sketchup::ComponentInstance) && hijo.valid?
+            padre = es_padre.(hijo)
+            next unless padre || contiene.(hijo.definition)
+            independizar(hijo)
+            if padre
+              borrar = reglas.select { |r| Array(r[:padres]).any? { |p| etiquetas_pieza(hijo).any? { |t| File.fnmatch(p, t) } } }
+                             .flat_map { |r| r[:borrar] }
+              fuera = hijo.definition.entities.to_a.select do |e|
+                e.is_a?(Sketchup::ComponentInstance) && borrar.any? { |p| etiquetas_pieza(e).any? { |t| File.fnmatch(p, t) } }
+              end
+              unless fuera.empty?
+                hijo.definition.entities.erase_entities(fuera)
+                n += fuera.size
+              end
+            end
+            visitar.(hijo)
+          end
+        end
+        visitar.(inst)
+        n
+      end
+
       # Como buscar_para_modificar, pero independiza SOLO los contenedores del
       # camino hasta lo hallado. buscar_para_modificar independiza todo lo que
       # recorre; antes del redibujado eso es el base completo con todas sus
@@ -890,6 +938,7 @@ module RoyalKitchens
       #     :formulas_piezas     -> [{ pieza:, hijos:, formulas: {} }] antes del redibujado
       #     :piezas_unicas       -> [{ grupo:, nombre: }] contenedores que OpenCutList lista como una pieza
       #     :nombres_piezas      -> [{ ruta:, nombre:, unidad:, segun: }] nombre de cada pieza (nombrar_piezas)
+      #     :podar               -> [{ padres:, borrar: }] variantes que la receta no usa, antes del redibujado
       #
       # Devuelve { ok:, ruta:, instancia:, warnings: [] }.
       # ---------------------------------------------------------------------
@@ -910,6 +959,15 @@ module RoyalKitchens
           fila_plana.each do |col, valor_raw|
             w = inyectar_atributo(inst, col, valor_raw)
             warnings << w if w
+          end
+
+          # Antes del redibujado: fuera las variantes que la receta no usa.
+          if opts[:podar]
+            begin
+              podar(inst, opts[:podar])
+            rescue => e
+              warnings << "Poda de variantes: #{e.message}"
+            end
           end
 
           # Antes del redibujado: fórmulas de piezas internas que Studio

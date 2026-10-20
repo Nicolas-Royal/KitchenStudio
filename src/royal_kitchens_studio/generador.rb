@@ -199,6 +199,29 @@ module RoyalKitchens
         lista.map { |r| { grupo: r["grupo"].to_s, nombre: r["nombre"].to_s } }
       end
 
+      # manifest.poda: [{ padres, attrs, si, variantes: { patrón => [valores] } }]
+      # → [{ padres:, borrar: [patrones] }] para Engine.podar. Una variante se
+      # borra si ninguno de los valores de +attrs+ en la receta la usa; con
+      # +si+ que no se cumple (p. ej. con gola no hay manija) se borran todas.
+      # Sin ningún valor en la receta la regla no poda nada (lo decide el DC).
+      def podar_opts(manifest, valores)
+        lista = Array(manifest["poda"]).map do |r|
+          next unless r.is_a?(Hash) && r["variantes"].is_a?(Hash) && r["padres"].is_a?(Array)
+          valor_de = lambda do |attr|
+            campo = campo_por_attr(manifest, attr)
+            v = valores.key?(attr) ? valores[attr] : (campo && campo["default"])
+            v.nil? || v.to_s.strip.empty? ? nil : v.to_s.strip.sub(/\.0+\z/, "")
+          end
+          presentes = Array(r["attrs"]).map { |a| valor_de.call(a) }.compact
+          next if presentes.empty?
+          si = r["si"]
+          presentes = [] if si.is_a?(Hash) && valor_de.call(si["attr"]) != si["valor"].to_s
+          borrar = r["variantes"].select { |_pat, usan| (Array(usan).map(&:to_s) & presentes).empty? }.keys
+          { padres: r["padres"].map(&:to_s), borrar: borrar }
+        end.compact
+        lista.empty? ? nil : lista
+      end
+
       # manifest.nombres_piezas: [{ ruta, nombre, unidad, segun }]
       # (Engine.nombrar_piezas). Todo nombre del despiece va en mayúsculas.
       def nombres_opts(manifest)
@@ -488,11 +511,13 @@ module RoyalKitchens
           union:              union_opts(manifest),
           formulas_piezas:    formulas_piezas_opts(manifest),
           piezas_unicas:      piezas_unicas_opts(manifest),
-          nombres_piezas:     nombres_opts(manifest)
+          nombres_piezas:     nombres_opts(manifest),
+          podar:              podar_opts(manifest, fila)
         }.compact
         res = Engine.generar_unidad(base_def, nombre, fila, opts)
         sellar(res[:instancia].definition, clave) if res[:ok] && res[:instancia]
-        quitar_definiciones_nuevas(model, antes)
+        # Lo que sobró del base se borra en tandas, sin hacer esperar.
+        limpiar_despues(model, antes)
         # Cantos según la fase del proyecto (en diseño, del material de su pieza).
         Acabado.mueble_nuevo(model, res[:instancia]) if res[:ok]
         { "ok" => res[:ok], "error" => res[:error], "avisos" => res[:warnings] || [], "instancia" => res[:instancia] }
@@ -594,6 +619,55 @@ module RoyalKitchens
       # SketchUp reutiliza las definiciones anidadas que ya están en el modelo
       # (las de un gabinete insertado antes) y las copias nuevas quedan
       # colgando de ellas, con instancias pero fuera de la escena.
+      # ¿+a+ y +b+ son el mismo mueble generado (misma clave) y +a+ sigue como
+      # se generó (huella intacta)? Cada mueble colocado tiene su propia copia
+      # del árbol, así que comparar la definición ya no sirve.
+      def mismo_mueble?(a, b)
+        clave = a.get_attribute(DICT_GENERADO, "clave")
+        !clave.nil? && clave == b.get_attribute(DICT_GENERADO, "clave") &&
+          a.get_attribute(DICT_GENERADO, "huella") == huella(a)
+      end
+
+      # ---- Limpieza en segundo plano ---------------------------------------
+      #
+      # Borrar lo que sobró del base (~1,200 definiciones, ~2.4 s) ya no hace
+      # esperar: se apunta y se borra en tandas mientras SketchUp está libre.
+      # Cada tanda vuelve a revisar qué está en la escena (un deshacer puede
+      # haber devuelto algo) y deja en paz lo que ya estaba suelto antes.
+
+      TANDA_LIMPIEZA = 150
+
+      def limpiar_despues(model, sueltas_antes)
+        vivas = alcanzables(model)
+        basura = model.definitions.to_a.reject do |d|
+          vivas[d.persistent_id] || sueltas_antes[d.persistent_id] || d.image?
+        end
+        return if basura.empty?
+        @por_limpiar ||= []
+        @por_limpiar.concat(basura.map { |d| [model, d] })
+        @limpieza ||= UI.start_timer(0.3, true) { limpiar_tanda }
+      end
+
+      def limpiar_tanda
+        model = Sketchup.active_model
+        # Lo de otro modelo (se cambió de archivo) ya no se toca.
+        @por_limpiar.select! { |m, d| m == model && d.valid? }
+        if @por_limpiar.empty?
+          UI.stop_timer(@limpieza) if @limpieza
+          @limpieza = nil
+          return
+        end
+        vivas = alcanzables(model)
+        tanda = @por_limpiar.shift(TANDA_LIMPIEZA).map(&:last).reject { |d| vivas[d.persistent_id] }
+        return if tanda.empty?
+        model.start_operation("Limpiar componente base", true, false, true)
+        tanda.each { |d| model.definitions.remove(d) if d.valid? }
+        model.commit_operation
+      rescue => e
+        model.abort_operation rescue nil
+        warn "[#{PLUGIN_NAME}] limpieza de definiciones: #{e.message}"
+      end
+
       def quitar_definiciones_nuevas(model, sueltas_antes)
         vivas = alcanzables(model)
         basura = model.definitions.to_a.reject do |d|
