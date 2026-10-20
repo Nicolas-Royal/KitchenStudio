@@ -105,10 +105,15 @@ parten de «Este proyecto»:
   tarda ~45 s (medido: copiar el árbol del base ~14 s, limpiar definiciones
   ~15 s, redibujado del DC ~8 s, cargar el base ~5 s). Cada definición
   generada lleva `RK_Studio_Generado` = `{ clave, huella }`: la clave es la
-  receta completa + divisores + archivo base (nombre y fecha) + versión; la
-  huella, piezas y medidas al generarse (sin grupos vacíos). Misma clave y
-  misma huella → se coloca otra instancia de esa definición (~0.1 s). Si
-  alguien lo editó por dentro la huella cambia y se genera de nuevo. En
+  receta completa + divisores + archivo base (nombre y fecha) + versión +
+  manifiesto; la huella, piezas y medidas al generarse (sin grupos vacíos).
+  Misma clave y misma huella → se coloca otra instancia y se le da **una
+  copia propia de todo su árbol** (`Engine.copia_independiente`, ~0.3 s):
+  cada mueble es independiente y editar uno (opciones del DC o por dentro)
+  no cambia a otro. Dentro del mueble lo idéntico (manijas, bisagras,
+  correderas) sigue compartido para salir en un renglón; las correderas
+  ya no buscan gemela en otros muebles. Si alguien lo editó por dentro la
+  huella cambia y se genera de nuevo. En
   «Aplicar el diseño» el primero de cada mueble se genera, los iguales
   reutilizan y el que ya tenía el diseño se queda.
 - Probado y descartado (10/2026): dejar el base cargado entre generaciones

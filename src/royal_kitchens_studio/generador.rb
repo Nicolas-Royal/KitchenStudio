@@ -551,6 +551,9 @@ module RoyalKitchens
         model.start_operation("Insertar #{nombre}", true)
         inst = model.entities.add_instance(defn, transformation)
         inst.name = nombre
+        # Una copia propia de todo el árbol: cada mueble colocado es
+        # independiente del que se reutilizó (editar uno no cambia al otro).
+        Engine.copia_independiente(inst)
         model.commit_operation
         { "ok" => true, "error" => nil, "avisos" => [], "instancia" => inst }
       end

@@ -679,6 +679,8 @@ module RoyalKitchens
       #     Por eso los juegos idénticos comparten una sola definición: así
       #     salen en un renglón con su cantidad. Si después el componente
       #     dinámico redibuja uno, SketchUp lo vuelve a independizar.
+      #   - Solo entre los juegos de ESTE mueble: compartir con otro mueble
+      #     hacía que editar uno cambiara al otro.
       #
       # spec: { pieza:, nombre: (con «{cm}»), multiplo_cm: }
       # Devuelve la cantidad de herrajes unificados.
@@ -687,6 +689,7 @@ module RoyalKitchens
         multiplo = spec[:multiplo_cm].to_i
         multiplo = 1 if multiplo < 1
         n = 0
+        propias = []
         buscar_para_modificar(inst, spec[:pieza].to_s).each do |pieza|
           next if pieza == inst || oculto?(pieza) || !pieza.is_a?(Sketchup::ComponentInstance)
           largo = pieza.get_attribute(DICT, 'leny') || pieza.definition.get_attribute(DICT, 'leny')
@@ -696,12 +699,13 @@ module RoyalKitchens
           nombre = spec[:nombre].to_s.sub('{cm}', cm.to_s)
 
           piezas_como_grupo(pieza.definition)
-          gemela = pieza.model.definitions.find { |d| d != pieza.definition && mismo_herraje?(d, pieza.definition, nombre) }
+          gemela = propias.find { |d| d != pieza.definition && mismo_herraje?(d, pieza.definition, nombre) }
           if gemela
             pieza.definition = gemela
           else
             pieza.definition.name = nombre
             pieza.definition.set_attribute(DICT_STUDIO, 'compartida', true)
+            propias << pieza.definition
           end
           # Para quien tenga OpenCutList leyendo el nombre del atributo dinámico.
           [pieza, pieza.definition].each { |e| e.set_attribute(DICT, 'name', nombre) }
@@ -727,6 +731,47 @@ module RoyalKitchens
       def independizar(ent)
         return if ent.definition.get_attribute(DICT_STUDIO, 'compartida')
         ent.make_unique if ent.definition.instances.size > 1
+      end
+
+      # ---------------------------------------------------------------------
+      # Deja a +inst+ con una copia propia de TODO su árbol: nada de lo que
+      # tiene adentro lo comparte con otro mueble. Se usa al reutilizar un
+      # mueble ya generado (Generador.colocar): sin esto las copias eran el
+      # mismo componente y editar una cambiaba la otra (las opciones del DC
+      # solo independizan el primer nivel).
+      #
+      # Cada definición del árbol se copia una sola vez, así que lo que estaba
+      # compartido DENTRO del mueble (frentes, manijas y bisagras iguales) se
+      # queda junto en la copia: un renglón con su cantidad en el despiece.
+      # La copia lleva sus atributos (los del DC y el nombre «name»); SketchUp
+      # le agrega «#n» al nombre de la definición.
+      # ---------------------------------------------------------------------
+      def copia_independiente(inst)
+        copias = {}
+        inst.make_unique
+        pila = [inst.definition]
+        until pila.empty?
+          defn = pila.pop
+          defn.entities.to_a.each do |e|
+            next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+            original = e.definition
+            # Un grupo no puede cambiar de definición: cada uno se copia aparte.
+            if e.is_a?(Sketchup::Group)
+              e.make_unique if original.instances.size > 1
+              pila << e.definition unless copias[e.definition]
+              copias[e.definition] ||= e.definition
+              next
+            end
+            if (copia = copias[original])
+              e.definition = copia
+              next
+            end
+            e.make_unique
+            copias[original] = e.definition
+            pila << e.definition
+          end
+        end
+        copias.size
       end
 
       # ---------------------------------------------------------------------
