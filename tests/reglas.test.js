@@ -320,11 +320,32 @@ prueba('R-19 · Alacena y Esquinero no tienen techo que medir', function () {
   assert.strictEqual(campo('esquinero', 'e23ancamtecho'), null);
 });
 
-prueba('R-20 · «Personalizado» exige todos los espacios visibles', function () {
+prueba('R-20 · «Personalizado»: un espacio vacío es automático (alacena, como el gabinete)', function () {
   var dims = { LenX: '800', LenY: '350', LenZ: '700' };
-  var e = errores('alacena', Object.assign({ c24entrepano: '0', f02tipomedida: '2', f01cantdiv: '2' }, dims));
-  assert.strictEqual(e.length, 2, 'faltan los dos espacios: ' + JSON.stringify(e));
-  assert.strictEqual(errores('alacena', Object.assign({ c24entrepano: '0', f02tipomedida: '1', f01cantdiv: '2' }, dims)).length, 0);
+  var c = Object.assign({ c24entrepano: '0', f02tipomedida: '2', f01cantdiv: '2' }, dims);
+  assert.strictEqual(errores('alacena', c).length, 0, 'vacío = reparto automático');
+  var f = plano('alacena', Object.assign({ f03espacio1: '200' }, c));
+  assert.strictEqual(f['divisor>f03espacio1'], '200mm');
+  assert.strictEqual(f['divisor>f03espacio2'], '0mm', 'el vacío se manda en 0 (el componente lo reparte)');
+  assert.strictEqual(f['divisor>f03espacio3'], '0mm', 'n repisas dejan n + 1 espacios');
+  assert.ok(!('divisor>f03espacio4' in f));
+  assert.strictEqual(errores('alacena', Object.assign({}, c, { f02tipomedida: '1' })).length, 0);
+});
+
+prueba('R-20b · alacena: gráfico de entrepaños igual al componente (respaldo a 12 mm)', function () {
+  var m = man.alacena, V = m.grupos.filter(function (g) { return g.visual; })[0].visual;
+  var r = registro('alacena', { LenX: '800', LenY: '282', LenZ: '747', c24entrepano: '0', f01cantdiv: '2', g01margenf1: '0mm' });
+  var G = T.geomEntrepanos(m, r.valores, V);
+  // Medido en SketchUp (20/10/2026): repisas a 243 y 486 mm, divisor de 258 mm
+  // (hasta el respaldo), entrepaño de 232 mm (5 cm menos que el cuerpo) con 1.5 mm por lado.
+  assert.deepStrictEqual(G.repisas.map(function (x) { return [Math.round(x.zCuerpo), x.divisor, x.profundidad, x.lateralIzq]; }),
+                         [[243, true, 258, 0], [486, false, 232, 1.5]]);
+  assert.strictEqual(G.retiroFormula, 26);
+  // Sin cajones no hay frentes que dibujar, pero el corte lateral necesita el
+  // espesor de puerta (sin él su ancho salía NaN y el dibujo se iba a la esquina).
+  assert.strictEqual(T.geomFrentes(m, r.valores, V).espPuerta, 18);
+  // El respaldo ya no se elige: siempre en ranura a 12 mm.
+  assert.strictEqual(campo('alacena', 'o01tipofondo'), null);
 });
 
 prueba('R-21 · la separación entre cajones nace en 3 mm (40 con gola)', function () {

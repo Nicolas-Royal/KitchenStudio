@@ -443,10 +443,11 @@
   // =========================================================================
 
   /* Tipo de fondo del componente: Estructura!o01tipofondo =
-     IF(i06_trasera=1, 1, IF(i05_ceja_trasera=1, 2, 3)). */
+     IF(i06_trasera=1, 1, IF(i05_ceja_trasera=1, 2, 3)). Sin esas reglas
+     (alacena) el fondo va siempre en ranura (3). */
   function tipoFondo(manifest, valores, V) {
-    if (condicionCumple(manifest, valores, V.fondo_tarja)) return 1;
-    if (condicionCumple(manifest, valores, V.fondo_sin_ceja)) return 2;
+    if (V.fondo_tarja && condicionCumple(manifest, valores, V.fondo_tarja)) return 1;
+    if (V.fondo_sin_ceja && condicionCumple(manifest, valores, V.fondo_sin_ceja)) return 2;
     return 3;
   }
 
@@ -561,7 +562,9 @@
     var C = V.cajones || {};
     var num = function (a) { var v = a ? attrMmCrudo(manifest, valores, a) : NaN; return isNaN(v) ? 0 : v; };
     var R = manifest.reglas_cajones;
-    if (!R) return { zonas: [] };
+    // Sin zonas de cajones (alacena) no hay frentes que dibujar, pero el corte
+    // lateral sí necesita el espesor de puerta.
+    if (!R) return { zonas: [], espPuerta: num(V.espesor_puerta), interior: false };
     var cuerpo = num(V.alto), ancho = num(V.ancho), esp = num(V.espesor_estructura);
     var espPuerta = num(V.espesor_puerta);
     var k02 = num(V.margen_inf);

@@ -149,10 +149,20 @@ window.RKEntrepanos = (function () {
       const nombre = (r) => (r.divisor ? "Divisor " : "Entrepaño ") + (r.i + 1);
       const otro = (r) => (r.divisor ? "entrepaño" : "divisor");
 
+      // Cada vista mide al menos lo que su título (10 px de monoespaciada ≈ 6.2 px
+      // por letra) y el dibujo va centrado: en un mueble alto y poco profundo
+      // (alacena de 1900 × 300) el corte queda angosto y el título se salía.
+      const anchoVista = (wDibujo, titulo) => {
+        const w = Math.max(wDibujo + M.l + M.r, titulo.length * 6.2 + 12);
+        return { w, l: M.l + (w - (wDibujo + M.l + M.r)) / 2 };
+      };
+
       // ===== Alzado ==========================================================
       const wA = anchoC * s;
-      const A = svg("svg", { class: "visual-svg", width: wA + M.l + M.r, height: H, viewBox: `0 0 ${wA + M.l + M.r} ${H}` });
-      const X = (x) => M.l + x * s;
+      const tituloA = `Frente · ${fmt(anchoC)} × ${fmt(G.cuerpo)} mm`;
+      const vA = anchoVista(wA, tituloA);
+      const A = svg("svg", { class: "visual-svg", width: vA.w, height: H, viewBox: `0 0 ${vA.w} ${H}` });
+      const X = (x) => vA.l + x * s;
       A.appendChild(rect(X(0), Y(G.cuerpo), wA, ESC_ALTO, "vs-cuerpo"));
       A.appendChild(rect(X(G.esp), Y(G.cuerpo - G.esp), G.ancho * s, G.alto * s, "vs-caja"));
       F.zonas.forEach((zn) => zn.cajas.forEach((c) => {
@@ -163,9 +173,9 @@ window.RKEntrepanos = (function () {
         let zb = G.esp;
         G.espacios.forEach((e, j) => {
           const y1 = Y(zb), y0 = Y(zb + e);
-          A.appendChild(svg("line", { class: "vs-cota", x1: M.l - 10, y1: y0, x2: M.l - 10, y2: y1 }));
+          A.appendChild(svg("line", { class: "vs-cota", x1: vA.l - 10, y1: y0, x2: vA.l - 10, y2: y1 }));
           A.appendChild(svg("text", { class: "vs-cota-txt" + (G.crudos[j] > 0 ? " is-fijo" : ""),
-            x: M.l - 14, y: (y0 + y1) / 2 + 4, "text-anchor": "end" }, fmt(e)));
+            x: vA.l - 14, y: (y0 + y1) / 2 + 4, "text-anchor": "end" }, fmt(e)));
           zb += e + (j < G.n ? G.esp : 0);
         });
         G.repisas.forEach((r) => {
@@ -185,19 +195,20 @@ window.RKEntrepanos = (function () {
         A.appendChild(rect(X(fr.x0), Y(fr.z1), (fr.x1 - fr.x0) * s, (fr.z1 - fr.z0) * s, "vs-frente-out"));
         A.appendChild(svg("text", { class: "vs-frente-txt", x: X(fr.x0) + 4, y: Y(fr.z1) + 11 }, fr.tipo === "puerta" ? "P" : "C" + fr.n));
       }));
-      A.appendChild(svg("text", { class: "vs-titulo", x: M.l + wA / 2, y: ESC_ALTO + M.t + 17, "text-anchor": "middle" },
-        `Frente · ${fmt(anchoC)} × ${fmt(G.cuerpo)} mm`));
+      A.appendChild(svg("text", { class: "vs-titulo", x: vA.w / 2, y: ESC_ALTO + M.t + 17, "text-anchor": "middle" }, tituloA));
 
       // ===== Corte lateral ===================================================
       // y = 0 en la cara frontal del cuerpo, creciendo hacia el fondo; el frente
       // queda a la derecha y sobresale el espesor de puerta.
       const wC = (G.fondoCuerpo + F.espPuerta) * s;
-      const C = svg("svg", { class: "visual-svg", width: wC + M.l + M.r, height: H, viewBox: `0 0 ${wC + M.l + M.r} ${H}` });
-      const XF = M.l + G.fondoCuerpo * s;                  // cara frontal del cuerpo
+      const tituloC = `Lado · fondo ${fmt(G.fondoCuerpo)} mm · frente →`;
+      const vC = anchoVista(wC, tituloC);
+      const C = svg("svg", { class: "visual-svg", width: vC.w, height: H, viewBox: `0 0 ${vC.w} ${H}` });
+      const XF = vC.l + G.fondoCuerpo * s;                 // cara frontal del cuerpo
       const XC = (y) => XF - y * s;
-      C.appendChild(rect(M.l, Y(G.cuerpo), G.fondoCuerpo * s, ESC_ALTO, "vs-cuerpo"));
+      C.appendChild(rect(vC.l, Y(G.cuerpo), G.fondoCuerpo * s, ESC_ALTO, "vs-cuerpo"));
       C.appendChild(rect(XC(G.fondoCuerpo - G.reserva), Y(G.cuerpo - G.esp), (G.fondoCuerpo - G.reserva) * s, G.alto * s, "vs-caja"));
-      if (G.reserva > 0) C.appendChild(rect(M.l, Y(G.cuerpo - G.esp), G.reserva * s, G.alto * s, "vs-fondo"));
+      if (G.reserva > 0) C.appendChild(rect(vC.l, Y(G.cuerpo - G.esp), G.reserva * s, G.alto * s, "vs-fondo"));
       F.zonas.forEach((zn) => zn.cajas.forEach((c) => {
         C.appendChild(rect(XC(c.y1), Y(c.z1), (c.y1 - c.y0) * s, (c.z1 - c.z0) * s, "vs-cajon"));
       }));
@@ -224,8 +235,7 @@ window.RKEntrepanos = (function () {
       F.zonas.forEach((zn) => zn.frentes.forEach((fr) => {
         C.appendChild(rect(fr.interior ? XC(F.espPuerta) : XF, Y(fr.z1), F.espPuerta * s, (fr.z1 - fr.z0) * s, "vs-frente-out"));
       }));
-      C.appendChild(svg("text", { class: "vs-titulo", x: M.l + wC / 2, y: ESC_ALTO + M.t + 17, "text-anchor": "middle" },
-        `Lado · fondo ${fmt(G.fondoCuerpo)} mm · frente →`));
+      C.appendChild(svg("text", { class: "vs-titulo", x: vC.w / 2, y: ESC_ALTO + M.t + 17, "text-anchor": "middle" }, tituloC));
 
       vistas.append(A, C);
 

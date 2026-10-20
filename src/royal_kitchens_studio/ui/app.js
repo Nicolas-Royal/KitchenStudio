@@ -871,9 +871,9 @@ function grupoInterior(man) {
 /* Frentes de arriba abajo ({ texto, codigo }): del gráfico de entrepaños
    (gabinete) o, en la alacena, de su tipo de puerta. */
 function frentesDe(man, valores) {
+  if (man && man.familia === "alacena") return M.frentesAlacena(valores);
   const g = grupoInterior(man);
   if (g) return M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual));
-  if (man && man.familia === "alacena") return M.frentesAlacena(valores);
   return { texto: "", codigo: "" };
 }
 

@@ -536,5 +536,35 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   nombre nuevo (`ALA-800-1P-001`). En la página del mueble solo salen los
   selectores que su familia mapea en `opciones.json` (sin gola ni manija de
   cajón). «Igualar» alto y fondo sigue siendo solo de gabinetes. Pendiente:
-  gráfico de entrepaños (`visual`) y altura a la que se cuelga al insertar.
+  altura a la que se cuelga al insertar.
+- **Respaldo, repisas, gráfico y Avento (20/10/2026)**, en `ALACENA.skp`:
+  - El respaldo va **siempre** en ranura a 12 mm del canto trasero
+    (`Estructura!o23distpersra` = 12 mm; antes 0 = espesor de estructura,
+    18). Ya no se elige en el manifiesto.
+  - Cada repisa mide `LenY − su propio retiro` (`Repisa!leny =
+    parent!LenY-margenfrontal`): todas topan en el respaldo. Antes tomaban el
+    largo calculado con el retiro de la primera, y una repisa con más retiro
+    que la primera atravesaba el respaldo. El entrepaño conserva su estándar
+    (5 cm menos que el cuerpo: retiro 26 mm con el respaldo a 12).
+  - Holgura lateral (e33/e34) solo en entrepaños, como en el gabinete: el
+    contenedor ya no la aplica y la `Repisa` la toma si su retiro no es 0. El
+    espacio 6 del contenedor traía el texto «mm»; quedó en 0.
+  - Gráfico de entrepaños y divisores: el grupo `divisores` tiene `visual`
+    (sin zonas ni cajones; `ranura_mm` 12) y el interruptor «Entrepaño».
+    Espacios vacíos = automáticos (`vacio` 0 mm), retiro «Entrepaño» con la
+    fórmula del componente. `geomEntrepanos` sin reglas de tarja/ceja toma el
+    fondo en ranura. Sale en «Avanzado» y en «Ajustar este mueble».
+  - Animación (herramienta Interactuar): la hoja del Avento S lleva
+    `onclick = ANIMATE("u01open",0,o02angapertura)`, como la abatible. El
+    Avento D anima **sus dos hojas con un clic**: el clic está en el Avento
+    (`onclick = ANIMATE("u38tanim",0,o02angapertura)`; las hojas no tienen,
+    así que el clic sobre ellas sube a él). Unidas (`e08cantpuvert` = 3) se
+    pliegan: `u39frac` = fracción abierta y los ángulos y la posición de la
+    hoja de abajo (`u34–u37`) usan las fórmulas del componente con esa
+    fracción (antes saltaba de cerrado a abierto con `u33animate2`).
+    Independientes, las dos se levantan juntas (`rotx = -parent!u38tanim`).
+  - Gráfico: sin zonas de cajones `geomFrentes` devuelve igual el espesor de
+    puerta (el corte lateral lo suma; sin él su ancho salía `NaN` y se iba a
+    la esquina) y cada vista mide al menos lo que su título, con el dibujo
+    centrado (en una alacena alta el corte queda angosto).
 - Materiales sin foto: se ven y se crean con un tono aproximado.
