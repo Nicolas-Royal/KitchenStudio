@@ -496,4 +496,20 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
 - Tarja, frente, manija y material se aplican de verdad solo en **gabinete**
   (única familia con mapeo en `opciones.json`). Alacena y esquinero: medidas y
   «Avanzado».
+- **`componentes/ALACENA.skp` (20/10/2026)**: la alacena del componente
+  anterior (KitchenCreator) con la puerta del gabinete trasplantada
+  (`Pu.Manijas`: 10 líneas de frente y las 15 manijas del catálogo). La
+  puerta lee de la raíz de la alacena opciones con los nombres del gabinete
+  sin zona: `l01_linea_frente`, `l02/l03/l11/l12`, `d15_cant_puertas`,
+  `d16_tirador_tipo`…`d19_tirador_largo`, `f11/f12_tirador_margen_*`,
+  `c21_material_tirador`, `f07/f08/f09/f13_bisagra_*` y `f02_montaje`; las
+  medidas, de `v21…pu1`, `c01espestr` y `c02esppuerta`. Gola apagada
+  (`g01gola = 0`). `c25tipopuerta = 1` es «Puerta» (la línea va aparte); se
+  quitaron las variantes viejas Lisa e Italiana. Berlín va en el canto de
+  **abajo** (la alacena se abre desde abajo): en cada hoja el perfil lleva
+  `roty = 180`, `z = 3.8` y `x = LenX` (izquierda) o `0` (derecha, reflejada),
+  y la puerta sube 3.8 cm (`z = IF(f21tipotirador=21,3.8,0)`). El gabinete lo
+  sigue llevando arriba. Vidrio, uñero y Avento
+  siguen como venían. El manifiesto (`familias/alacena.json`) todavía es el
+  del componente viejo: falta conectarlo.
 - Materiales sin foto: se ven y se crean con un tono aproximado.
