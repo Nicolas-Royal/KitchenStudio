@@ -61,6 +61,25 @@ window.RKVista = (function () {
     };
   }
 
+  /* Distribución de la alacena (c25tipopuerta: 0 abierta, 1 abatible, 6 Avento
+     S, 10 Avento D). Va colgada: sin zoclo, y la manija va abajo (+abajo+). */
+  function desdeAlacena(v, medidas) {
+    const ancho = medidas.ancho || num(v.LenX, 800);
+    const alto = medidas.alto || num(v.LenZ, 700);
+    const t = String(v.c25tipopuerta == null ? "1" : v.c25tipopuerta);
+    let z;
+    if (t === "0") z = { tipo: "abierto" };
+    else if (t === "6" || t === "10") {
+      // Avento D: dos hojas (independientes o unidas) salvo «Una puerta».
+      const hojas = String(v.d23_avento_d_tipo || "3");
+      const dos = t === "10" && hojas !== "1";
+      z = { tipo: "avento", n: parseInt(v.d21_avento_cant_puertas, 10) || 1, filas: dos ? 2 : 1,
+            unidas: hojas === "3", altoSup: dos ? num(v.d24_avento_d_alto_sup, 0) : 0 };
+    } else z = Object.assign({ tipo: "puerta" }, puertas(v.d15_cant_puertas || "1"));
+    z.h = alto;
+    return { ancho, alto, zoclo: 0, zocloVisible: false, gola: false, abajo: true, zonas: [z] };
+  }
+
   /* Sin receta (módulos del catálogo): se adivina por sus etiquetas. */
   function desdeEtiquetas(mod) {
     const s = mod.specs || {};
@@ -166,34 +185,40 @@ window.RKVista = (function () {
     return `<path d="M${x} ${y}L${x + k} ${y + k}M${x + w} ${y}L${x + w - k} ${y + k}M${x} ${y + h}L${x + k} ${y + h - k}M${x + w} ${y + h}L${x + w - k} ${y + h - k}" stroke="rgba(0,0,0,.22)" stroke-width="1.2"/>`;
   }
 
-  /* Manija según su forma (opciones.json tiradores[].vista). */
-  function manija(v, x, y, w, h, tipo, lado) {
+  /* Manija según su forma (opciones.json tiradores[].vista). +abajo+: la de la
+     alacena (va colgada, se abre desde abajo). */
+  function manija(v, x, y, w, h, tipo, lado, abajo) {
     if (!v) return "";
     const c = v.color || "#aaa";
     const borde = `stroke="${shade(c, -0.35)}" stroke-width="1"`;
     const brillo = (bx, by, bw, bh) => rect(bx, by, bw, bh, `fill="${shade(c, 0.45)}" opacity=".7"`);
-    const cajon = tipo === "cajon";
+    const cajon = tipo === "cajon", avento = tipo === "avento";
     // Las mismas reglas que fija el manifiesto (forzar de d17/d18 y e02/e03),
     // con las medidas del componente (Andrea en un gabinete de 600):
     //   puerta: arriba del lado que abre (bisagra del otro lado), vertical, la
     //           barra empieza 30 mm abajo del canto y su eje a 25 mm del canto;
-    //   cajón:  al centro del frente, horizontal.
+    //           en la alacena, abajo del lado que abre;
+    //   cajón:  al centro del frente, horizontal;
+    //   Avento: abajo al centro, horizontal.
     const TOPE = 30, CANTO = 25;
-    const cx = cajon ? x + w / 2 : (lado === "izq" ? x + w - CANTO : x + CANTO);
+    const cx = cajon || avento ? x + w / 2 : (lado === "izq" ? x + w - CANTO : x + CANTO);
+    // Altura de la pieza (+alto+) en la puerta o el Avento: a TOPE del canto de arriba o del de abajo.
+    const yPieza = (alto) => (abajo || avento ? y + h - TOPE - alto : y + TOPE);
     switch (v.forma) {
       case "barra": {
         // Las manijas se compran de una medida: barra de 170 mm (menos si no cabe).
-        const L = Math.min(170, (cajon ? w : h) * 0.6);
+        const L = Math.min(170, (cajon || avento ? w : h) * 0.6);
+        if (avento) return rect(cx - L / 2, yPieza(10), L, 10, `rx="5" fill="${c}" ${borde}`) + brillo(cx - L / 2 + 4, yPieza(10) + 1.5, L - 8, 2.5);
         return cajon
           ? rect(cx - L / 2, y + h / 2 - 5, L, 10, `rx="5" fill="${c}" ${borde}`) + brillo(cx - L / 2 + 4, y + h / 2 - 3.5, L - 8, 2.5)
-          : rect(cx - 5, y + TOPE, 10, L, `rx="5" fill="${c}" ${borde}`) + brillo(cx - 3.5, y + TOPE + 4, 2.5, L - 8);
+          : rect(cx - 5, yPieza(L), 10, L, `rx="5" fill="${c}" ${borde}`) + brillo(cx - 3.5, yPieza(L) + 4, 2.5, L - 8);
       }
       case "boton": {
-        const cy = cajon ? y + h / 2 : y + TOPE + 13;
+        const cy = cajon ? y + h / 2 : yPieza(26) + 13;
         return `<circle cx="${cx}" cy="${cy}" r="13" fill="${c}" ${borde}/><circle cx="${cx - 4}" cy="${cy - 4}" r="4" fill="${shade(c, 0.5)}" opacity=".8"/>`;
       }
       case "cristal": {
-        const cy = cajon ? y + h / 2 : y + TOPE + 15;
+        const cy = cajon ? y + h / 2 : yPieza(30) + 15;
         return `<circle cx="${cx}" cy="${cy}" r="15" fill="${c}" stroke="#8fa6b8" stroke-width="1.5"/>` +
           `<path d="M${cx - 15} ${cy}H${cx + 15}M${cx} ${cy - 15}V${cy + 15}M${cx - 10} ${cy - 10}L${cx + 10} ${cy + 10}M${cx + 10} ${cy - 10}L${cx - 10} ${cy + 10}" stroke="#a9bccb" stroke-width=".8"/>`;
       }
@@ -206,28 +231,34 @@ window.RKVista = (function () {
       case "lateral": {
         // Cajón: en el canto de arriba, al centro. Puerta: siempre Centro-Centro,
         // en el canto del lado que abre; en doble, escalonadas para no chocar.
-        const L = Math.min(110, (cajon ? w : h) * 0.5);
+        // Avento: en el canto de abajo, al centro.
+        const L = Math.min(110, (cajon || avento ? w : h) * 0.5);
         if (cajon) return rect(cx - L / 2, y - 4, L, 16, `rx="2" fill="${c}" ${borde}`);
+        if (avento) return rect(cx - L / 2, y + h - 12, L, 16, `rx="2" fill="${c}" ${borde}`);
         const ly = lado === "izq" ? y + h / 2 - L : y + h / 2;
         return rect(lado === "izq" ? x + w - 4 : x - 12, ly, 16, L, `rx="2" fill="${c}" ${borde}`);
       }
-      case "perfil":
-        // Berlín: perfil de 38 mm en el canto de arriba, a todo el ancho (el
-        // componente acorta la hoja para dejarle lugar).
-        return rect(x, y, w, Math.min(38, h * 0.3), `fill="${c}" ${borde}`) + brillo(x, y + 2, w, 2);
+      case "perfil": {
+        // Berlín: perfil de 38 mm a todo el ancho (el componente acorta la
+        // hoja para dejarle lugar): en el canto de arriba, o en el de abajo
+        // en la alacena.
+        const P = Math.min(38, h * 0.3), py = abajo || avento ? y + h - P : y;
+        return rect(x, py, w, P, `fill="${c}" ${borde}`) + brillo(x, py + 2, w, 2);
+      }
       default: return "";
     }
   }
 
-  function hoja(x, y, w, h, d, tipo, lado) {
+  /* +conManija+ = false: la hoja de arriba de un Avento D unido (se jala de la de abajo). */
+  function hoja(x, y, w, h, d, tipo, lado, conManija) {
     // Con la textura de veta, la puerta la lleva vertical (patrón girado).
     const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
-    const fill = `url(#${d._pat}${conVeta && tipo === "puerta" ? "-v" : ""})`;
-    const sinManija = d.gola || String(d.frente) === "9";
+    const fill = `url(#${d._pat}${conVeta && tipo !== "cajon" ? "-v" : ""})`;
+    const sinManija = d.gola || String(d.frente) === "9" || conManija === false;
     return rect(x, y, w, h, `fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"`) +
       rect(x + 1.5, y + 1.5, w - 3, h - 3, 'fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"') +
       estiloFrente(d.frente, x, y, w, h) +
-      (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado));
+      (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado, d.abajo));
   }
 
   /* "#rrggbb" mezclado con negro: f = 0 igual, 1 negro. */
@@ -250,7 +281,7 @@ window.RKVista = (function () {
   /* layout: de desdeValores/desdeEtiquetas. d: { frente, manijaPuerta, manijaCajon:
      {forma,color}|null, material: {color, foto, veta}|null, gola, golaColor }. */
   function svg(layout, d) {
-    d = Object.assign({ gola: layout.gola }, d, { _pat: "rk-mat-" + (++serie) });
+    d = Object.assign({ gola: layout.gola }, d, { abajo: !!layout.abajo, _pat: "rk-mat-" + (++serie) });
     const W = layout.ancho, H = layout.alto, Z = layout.zoclo;
     const M = 40;
     let out = "";
@@ -284,6 +315,18 @@ window.RKVista = (function () {
           // En doble, la manija va hacia el centro: la hoja izquierda abre a la derecha.
           out += hoja(GAP + i * (w + GAP), zy, w, zh, d, "puerta", lado);
         }
+      } else if (z.tipo === "avento") {
+        // Columnas a lo ancho; en el Avento D, dos hojas por columna.
+        const n = z.n || 1, filas = z.filas || 1;
+        const w = (W - GAP * (n + 1)) / n;
+        const hSup = filas === 2 ? (z.altoSup > 0 ? Math.min(z.altoSup, zh - 60) : (zh - GAP) / 2) : zh;
+        for (let i = 0; i < n; i++) {
+          const x = GAP + i * (w + GAP);
+          if (filas === 2) {
+            out += hoja(x, zy, w, hSup, d, "avento", "centro", !z.unidas) +
+              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, d, "avento", "centro");
+          } else out += hoja(x, zy, w, zh, d, "avento", "centro");
+        }
       } else if (z.tipo === "cajones") {
         const n = z.n || 1;
         const h = (zh - GAP * (n - 1)) / n;
@@ -306,5 +349,5 @@ window.RKVista = (function () {
       `</svg>`;
   }
 
-  return { desdeValores, desdeEtiquetas, svg, num, filtroVeta };
+  return { desdeValores, desdeAlacena, desdeEtiquetas, svg, num, filtroVeta };
 })();

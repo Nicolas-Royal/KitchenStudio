@@ -77,6 +77,23 @@ prueba("vista: módulo viejo por etiquetas", () => {
   assert.deepStrictEqual([lay.ancho, lay.zonas[0].tipo, lay.zonas[0].n], [800, "cajones", 2]);
 });
 
+prueba("vista: alacena sin zoclo, con su puerta o Avento y la manija abajo", () => {
+  const med = { ancho: 800, alto: 700 };
+  const p = RKVista.desdeAlacena({ c25tipopuerta: "1", d15_cant_puertas: "3" }, med);
+  assert.deepStrictEqual([p.zoclo, p.abajo, p.zonas[0].tipo, p.zonas[0].n, p.zonas[0].h], [0, true, "puerta", 2, 700]);
+  const s = RKVista.desdeAlacena({ c25tipopuerta: "6", d21_avento_cant_puertas: "2" }, med);
+  assert.deepStrictEqual([s.zonas[0].tipo, s.zonas[0].n, s.zonas[0].filas], ["avento", 2, 1]);
+  const d = RKVista.desdeAlacena({ c25tipopuerta: "10", d23_avento_d_tipo: "3" }, med);
+  assert.deepStrictEqual([d.zonas[0].filas, d.zonas[0].unidas], [2, true]);
+  assert.strictEqual(RKVista.desdeAlacena({ c25tipopuerta: "0" }, med).zonas[0].tipo, "abierto");
+  // La barra de la puerta va en la mitad de abajo; en el Avento D unido solo la hoja de abajo lleva manija.
+  const barra = { forma: "barra", color: "#123456" };
+  const yBarras = (svg) => [...svg.matchAll(/<rect x="[\d.-]+" y="([\d.-]+)"[^>]*fill="#123456"/g)].map((x) => parseFloat(x[1]));
+  assert.ok(yBarras(RKVista.svg(p, { frente: "1", manijaPuerta: barra })).every((y) => y > 350), "abatible: abajo");
+  const ys = yBarras(RKVista.svg(d, { frente: "1", manijaPuerta: barra }));
+  assert.ok(ys.length === 1 && ys[0] > 600, "Avento D unido: una manija, abajo");
+});
+
 const CAT = path.join(__dirname, "..", "src", "royal_kitchens_studio", "catalogo");
 const op = JSON.parse(fs.readFileSync(path.join(CAT, "opciones.json"), "utf8"));
 prueba("opciones.json: cada material tiene tono y cada manija (salvo «sin») su forma", () => {
@@ -368,6 +385,18 @@ prueba("muebles: resumen de frentes y nombre nuevo que no se repite", () => {
   // Nunca devuelve un nombre cuyo id ya esté ocupado (aunque se escriba distinto).
   assert.strictEqual(MU.nombreNuevo("GAB", 600, "2P", ["gab 600 2p 001", "GAB_600_2P_002"]), "GAB-600-2P-003");
   assert.strictEqual(MU.nombreNuevo("GAB", 600, "2P", ["X-2P-001", "GAB 600 2P 002"]), "GAB-600-2P-003");
+});
+
+prueba("muebles: frentes de la alacena y su nombre nuevo", () => {
+  assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "1", d15_cant_puertas: "1" }), { texto: "1 puerta", codigo: "1P" });
+  assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "1", d15_cant_puertas: "3" }), { texto: "2 puertas", codigo: "2P" });
+  assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "6", d21_avento_cant_puertas: "2" }), { texto: "2 Avento S", codigo: "2AS" });
+  assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "10" }), { texto: "1 Avento D", codigo: "1AD" });
+  assert.deepStrictEqual(MU.frentesAlacena({ c25tipopuerta: "0" }), { texto: "abierta", codigo: "A" });
+  // Un Avento también cuenta para el consecutivo.
+  assert.strictEqual(MU.nombreNuevo("ALA", 800, "1AS", ["ALA-800-2AS-004"]), "ALA-800-1AS-005");
+  // Sin cajones lo fijo son las puertas.
+  assert.strictEqual(MU.alcance(op.familias.alacena, false, false, false).fijo[0], "puertas");
 });
 
 prueba("muebles: dos nombres que dan el mismo id son el mismo mueble", () => {

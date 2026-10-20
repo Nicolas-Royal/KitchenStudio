@@ -153,62 +153,71 @@ prueba('Z-09 · defaults del gabinete: ancho 700, profundidad 600, alto 770 (cue
   assert.deepStrictEqual([f.LenX, f.LenY, f.LenZ], ['700mm', '622mm', '870mm']);
 });
 
-prueba('R-06 · cada diseño de puerta de alacena trae sus propios campos', function () {
+prueba('R-06 · cada tipo de puerta de alacena trae sus propios campos', function () {
   var ala = function (extra) {
     var v = { LenX: '800', LenY: '350', LenZ: '700' };
     Object.keys(extra).forEach(function (k) { v[k] = extra[k]; });
     return plano('alacena', v);
   };
+  // Solo puertas del catálogo: abatible, Avento S y Avento D (o sin puerta).
+  assert.deepStrictEqual(campo('alacena', 'c25tipopuerta').opciones.map(function (o) { return o.valor; }), ['0', '1', '6', '10']);
 
-  // Puerta normal: solo la cantidad, con la lista del gabinete (11 = Puerta - 10).
-  var n = ala({ c25tipopuerta: '3', e07cantpuerta: '11' });
-  assert.strictEqual(n['puerta>e07cantpuerta'], '11');
-  ['puerta>e08cantpuvert', 'puerta>e09tipapertura']
-    .forEach(function (a) { assert.ok(!(a in n), a + ' no aplica a puerta normal'); });
+  // Abatible: cantidad 1 o 2, sin campos de Avento.
+  var n = ala({ c25tipopuerta: '1', d15_cant_puertas: '3' });
+  assert.strictEqual(n.d15_cant_puertas, '3');
+  ['d21_avento_cant_puertas', 'd22_avento_apertura', 'd23_avento_d_tipo', 'd24_avento_d_alto_sup']
+    .forEach(function (a) { assert.ok(!(a in n), a + ' no aplica a puerta abatible'); });
 
-  // Avento S: cantidad 1-10 + tipo de apertura, sin abatible.
-  var s = ala({ c25tipopuerta: '7', e07cantpuerta_avento: '10', e09tipapertura: '1' });
-  assert.strictEqual(s['puerta>e07cantpuerta'], '10');
-  assert.strictEqual(s['puerta>e09tipapertura'], '1');
-  assert.ok(!('puerta>e08cantpuvert' in s), 'el Avento S no lleva abatible');
+  // Avento S: puertas a lo ancho y apertura (siempre hacia arriba).
+  var s = ala({ c25tipopuerta: '6', d21_avento_cant_puertas: '2', d22_avento_apertura: '2' });
+  assert.strictEqual(s.d21_avento_cant_puertas, '2');
+  assert.strictEqual(s.d22_avento_apertura, '1', 'el Avento S abre hacia arriba');
+  ['d15_cant_puertas', 'd23_avento_d_tipo', 'd24_avento_d_alto_sup'].forEach(function (a) { assert.ok(!(a in s), a + ' no aplica al Avento S'); });
 
-  // Avento D: cantidad 1-10 + abatible, sin tipo de apertura.
-  var d = ala({ c25tipopuerta: '11', e07cantpuerta_avento: '2', e08cantpuvert: '3' });
-  assert.strictEqual(d['puerta>e07cantpuerta'], '2');
-  assert.strictEqual(d['puerta>e08cantpuvert'], '3');
-  assert.ok(!('puerta>e09tipapertura' in d), 'el Avento D no lleva tipo de apertura');
+  // Avento D: tipo de hojas y alto de la de arriba, sin apertura.
+  var d = ala({ c25tipopuerta: '10', d23_avento_d_tipo: '2', d24_avento_d_alto_sup: '300' });
+  assert.strictEqual(d.d23_avento_d_tipo, '2');
+  assert.strictEqual(d.d24_avento_d_alto_sup, '300mm');
+  assert.ok(!('d22_avento_apertura' in d) && !('d15_cant_puertas' in d));
 
-  // Sin puerta no se cuenta nada, con cualquiera de los dos campos.
+  // Sin puerta: ni línea, ni manija, ni bisagras, ni márgenes del frente.
   var cero = ala({ c25tipopuerta: '0' });
-  assert.ok(!('puerta>e07cantpuerta' in cero));
+  ['l01_linea_frente', 'd16_tirador_tipo', 'f09_bisagra_cantidad', 'f11margsupcaj', 'd15_cant_puertas']
+    .forEach(function (a) { assert.ok(!(a in cero), a + ' no aplica sin puerta'); });
+  // Las 10 líneas de frente del catálogo, igual que el gabinete.
+  assert.deepStrictEqual(campo('alacena', 'l01_linea_frente').opciones, campo('gabinete', 'l01_linea_frente').opciones);
 });
 
-prueba('R-06b · el vidrio completo y el uñero no llevan tirador', function () {
-  [['alacena', 'c25tipopuerta'], ['esquinero', 'EstiloPuerta']]
-    .forEach(function (par) {
-      ['3', '5'].forEach(function (diseno) {
-        var v = {}; v[par[1]] = diseno;
-        var f = plano(par[0], v);
-        ['puerta>f21tipotirador', 'puerta>f22postirador', 'puerta>f23orienttirador']
-          .forEach(function (a) {
-            assert.ok(!(a in f), par[0] + ' con diseño ' + diseno + ' no debería inyectar ' + a);
-          });
-      });
-      // Una puerta lisa sí lo lleva: la condición no puede apagar el grupo entero.
-      var w = {}; w[par[1]] = '1';
-      assert.ok('puerta>f21tipotirador' in plano(par[0], w), par[0] + ' lisa sí lleva tirador');
-    });
+prueba('R-06b · el vidrio completo y el uñero no llevan tirador (esquinero)', function () {
+  ['3', '5'].forEach(function (diseno) {
+    var f = plano('esquinero', { EstiloPuerta: diseno });
+    ['puerta>f21tipotirador', 'puerta>f22postirador', 'puerta>f23orienttirador']
+      .forEach(function (a) { assert.ok(!(a in f), 'esquinero con diseño ' + diseno + ' no debería inyectar ' + a); });
+  });
+  // Una puerta lisa sí lo lleva: la condición no puede apagar el grupo entero.
+  assert.ok('puerta>f21tipotirador' in plano('esquinero', { EstiloPuerta: '1' }), 'esquinero liso sí lleva tirador');
+});
 
-  // La alacena repite la regla en sus Avento de vidrio (8 y 12). No hay Avento
-  // uñero; el vidrio-madera (9 y 13) sí monta tirador porque tiene madera.
-  ['8', '12'].forEach(function (d) {
-    assert.ok(!('puerta>f21tipotirador' in plano('alacena', { c25tipopuerta: d })),
-              'Avento de vidrio ' + d + ' no lleva tirador');
+prueba('R-06c · alacena: la manija va abajo y la decide el manifiesto', function () {
+  var ala = function (extra) { return plano('alacena', Object.assign({ LenX: '800', LenY: '350', LenZ: '700' }, extra)); };
+  // Abatible: abajo del lado que abre, vertical (el componente la refleja).
+  var p = ala({ c25tipopuerta: '1', d17_tirador_posicion: '1', d18_tirador_orientacion: '1' });
+  assert.ok(p.d17_tirador_posicion === '9' && p.d18_tirador_orientacion === '2', 'abatible: abajo, vertical');
+  assert.strictEqual(ala({ d16_tirador_tipo: '7' }).d17_tirador_posicion, '5', 'Lateral negra: centro-centro');
+  var ber = ala({ d16_tirador_tipo: '21' });
+  assert.ok(ber.d17_tirador_posicion === '8' && ber.d18_tirador_orientacion === '1', 'Berlín: canto de abajo, horizontal');
+  // Avento S y D: abajo al centro, horizontal (Lateral negra y Berlín también).
+  ['6', '10'].forEach(function (t) {
+    ['9', '7', '21'].forEach(function (m) {
+      var a = ala({ c25tipopuerta: t, d16_tirador_tipo: m });
+      assert.ok(a.d17_tirador_posicion === '8' && a.d18_tirador_orientacion === '1', 'Avento ' + t + ' con manija ' + m + ': abajo al centro, horizontal');
+    });
   });
-  ['6', '9', '10', '13'].forEach(function (d) {
-    assert.ok('puerta>f21tipotirador' in plano('alacena', { c25tipopuerta: d }),
-              'Avento ' + d + ' sí lleva tirador');
-  });
+  // Sin tirador no se inyecta nada de la manija.
+  var sin = ala({ d16_tirador_tipo: '1' });
+  ['d17_tirador_posicion', 'd18_tirador_orientacion', 'd19_tirador_largo'].forEach(function (a) { assert.ok(!(a in sin), a); });
+  ['d17_tirador_posicion', 'd18_tirador_orientacion', 'd19_tirador_largo', 'd22_avento_apertura']
+    .forEach(function (id) { assert.ok(campo('alacena', id).oculto, id + ' oculto'); });
 });
 
 prueba('R-07 · el esquinero no tiene separación entre puertas', function () {

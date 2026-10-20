@@ -47,8 +47,8 @@ function setImg(img, url, fallback) {
 
 // Categoría del catálogo -> familia del manifiesto (para «Avanzado»).
 const FAMILIA_DE_CATEGORIA = { Gabinetes: "gabinete", Alacenas: "alacena", Esquineros: "esquinero" };
-// Por ahora Studio solo trabaja con gabinetes; alacena y esquinero vienen después.
-const FAMILIAS_ACTIVAS = ["gabinete"];
+// Familias que Studio genera; el esquinero viene después.
+const FAMILIAS_ACTIVAS = ["gabinete", "alacena"];
 // Biblioteca::CATEGORIAS en Ruby: las primeras de S.categorias, siempre visibles en el filtro.
 const CATEGORIAS_FIJAS = 5;
 const M = window.RKMuebles; // ui/muebles.js
@@ -399,6 +399,9 @@ function pintarPickers(box, d, editable, onCambio, extra) {
   // Con gola el frente no se elige (va Lisa): un ajuste viejo con otro no es error.
   const error = RKReglas.diseno(S.opciones, extra.gola ? Object.assign({}, d, { frente: RKReglas.frenteGola(S.opciones) }) : d, !!extra.gola);
   PICKERS.forEach((p) => {
+    // En un mueble (+extra.fc+, su mapeo de opciones.json) solo lo que su
+    // familia usa: la alacena no lleva gola ni manija de cajón.
+    if (extra.fc && !extra.fc[p.key]) return;
     // Con gola no hay manija y el frente es siempre Lisa: no se eligen.
     const sinManija = esManija(p.key) && extra.gola;
     const frenteGola = p.key === "frente" && extra.gola;
@@ -590,7 +593,7 @@ function pintarLista() {
   if (!lista.length) {
     const vacio = q ? "Sin resultados"
       : Object.values(S.car).some((v) => v.length) && enPanel.length ? "Ningún mueble tiene esas características · quita alguna de la barra"
-      : !enPanel.length ? "Aún no hay muebles · crea uno con + Gabinete o desde CSV y guárdalo en el catálogo"
+      : !enPanel.length ? "Aún no hay muebles · crea uno con + Gabinete, + Alacena o desde CSV y guárdalo en el catálogo"
       : S.cat && !FAMILIAS_ACTIVAS.includes(FAMILIA_DE_CATEGORIA[S.cat] || "gabinete") ? `${S.cat}: todavía no disponible en Studio`
       : `No hay ${S.clase === "usuario" ? "muebles creados por usuario" : S.clase === "catalogo" ? "muebles de catálogo" : "muebles"}${S.cat ? " en " + S.cat : ""}`;
     grid.innerHTML = `<p class="empty">${esc(vacio)}</p>`;
@@ -640,10 +643,9 @@ function infoMueble(m) {
   const s = m.specs || {};
   const info = { medidas: [s.ancho_mm, s.alto_mm, s.fondo_mm].filter(Boolean).join(" × "), frentes: "", rasgos: [] };
   const man = S.manifiestos[familiaDe(m)];
-  const g = S.rcc && grupoInterior(man);
-  if (g && m.receta) {
+  if (man && S.rcc && m.receta) {
     const valores = RKAvanzado.valoresDesdeFila(man, m.receta.valores || {}, S.rcc);
-    info.frentes = M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual)).texto;
+    info.frentes = frentesDe(man, valores).texto;
   }
   const f = m.features || {};
   // Tirador o gola, tarja, entrepaño y el tipo de cajón: lo que distingue a dos muebles con los mismos frentes.
@@ -776,7 +778,9 @@ function nuevoModulo(fam) {
   const man = S.manifiestos[fam];
   if (!man) return aviso("Error: falta el manifiesto de " + fam);
   const cat = Object.keys(FAMILIA_DE_CATEGORIA).find((k) => FAMILIA_DE_CATEGORIA[k] === fam);
-  abrirModulo({ id: "nuevo-" + fam, name: "Nuevo " + man.titulo.toLowerCase(), category: cat, familia: fam,
+  const titulo = man.titulo.toLowerCase();
+  // «Nueva alacena», «Nuevo gabinete».
+  abrirModulo({ id: "nuevo-" + fam, name: (/a$/.test(titulo) ? "Nueva " : "Nuevo ") + titulo, category: cat, familia: fam,
     _source: "nuevo", _virtual: true, specs: {}, features: {} }, true);
 }
 
@@ -844,7 +848,7 @@ function pintarDiseno(m, d, real) {
     o.tarja = v === "1"; cambioDiseno(m); pintarModulo();
   }, !personal || !real);
 
-  pintarPickers($("#md-pickers"), personal ? o : d, personal, () => { cambioDiseno(m); pintarModulo(); }, { gola });
+  pintarPickers($("#md-pickers"), personal ? o : d, personal, () => { cambioDiseno(m); pintarModulo(); }, { gola, fc });
   pintarInterior(m, d, personal && real);
   $("#md-error").hidden = true;
   $("#md-insert").textContent = d.modo === "original" ? "Insertar como se creó" : real ? "Insertar con este diseño" : "Insertar con estas medidas";
@@ -862,6 +866,15 @@ function filaConInterior(m) {
 
 function grupoInterior(man) {
   return man && man.grupos.find((g) => g.visual && g.visual.tipo === "entrepanos");
+}
+
+/* Frentes de arriba abajo ({ texto, codigo }): del gráfico de entrepaños
+   (gabinete) o, en la alacena, de su tipo de puerta. */
+function frentesDe(man, valores) {
+  const g = grupoInterior(man);
+  if (g) return M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual));
+  if (man && man.familia === "alacena") return M.frentesAlacena(valores);
+  return { texto: "", codigo: "" };
 }
 
 /* Formulario (solo en memoria) del mueble con su diseño y medidas de este
@@ -933,20 +946,30 @@ function pintarInterior(m, d, editable) {
   refrescar();
 }
 
+/* Distribución de la vista desde las variables de la familia (gabinete o
+   alacena), o null si la familia no tiene dibujo propio. */
+function layoutDe(fam, v, medidas) {
+  if (fam === "gabinete") return RKVista.desdeValores(v, medidas);
+  if (fam === "alacena") return RKVista.desdeAlacena(v, medidas);
+  return null;
+}
+
 /* Alzado SVG del módulo: con su diseño efectivo, o con las variables de
-   «Avanzado» (+avanzado+, solo gabinete). */
+   «Avanzado» (+avanzado+, gabinete y alacena). */
 function svgModulo(m, avanzado, enLista) {
-  if (avanzado && S.av[m.id] && familiaDe(m) === "gabinete") {
+  const fam = familiaDe(m);
+  if (avanzado && S.av[m.id] && FAMILIAS_ACTIVAS.includes(fam)) {
     const st = S.av[m.id];
     const v = st.reg.valores;
-    const lay = RKVista.desdeValores(v, { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
-    return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: v.d16_z1_tirador_tipo, manija_cajon: v.e01_tirador_tipo,
-      material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
+    const ala = fam === "alacena";
+    const lay = layoutDe(fam, v, ala ? { ancho: RKVista.num(v.LenX, 800), alto: RKVista.num(v.LenZ, 700) }
+      : { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
+    return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: ala ? v.d16_tirador_tipo : v.d16_z1_tirador_tipo,
+      manija_cajon: v.e01_tirador_tipo, material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
   }
   const d = disenoDe(m, enLista);
-  const lay = m.receta && familiaDe(m) === "gabinete"
-    ? RKVista.desdeValores(m.receta.valores, { ancho: d.ancho, alto: d.alto })
-    : RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
+  const lay = (m.receta && layoutDe(fam, m.receta.valores, { ancho: d.ancho, alto: d.alto })) ||
+    RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
   // La gola elegida en el diseño cambia el dibujo aunque la receta no la traiga.
   const gola = golaDe(m, d);
   lay.gola = gola;
@@ -1018,8 +1041,7 @@ function estadoAvanzado(m) {
 /* Nombre automático de un mueble nuevo (RKMuebles.nombreNuevo): familia, ancho,
    frentes y un consecutivo que no existe en el catálogo. */
 function nombreNuevo(man, valores) {
-  const g = grupoInterior(man);
-  const codigo = g ? M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual)).codigo : "";
+  const codigo = frentesDe(man, valores).codigo;
   const prefijo = (/^[A-Z]+/.exec(man.nombre_patron || "") || [man.titulo.slice(0, 3)])[0];
   return M.nombreNuevo(prefijo, RKVista.num(valores.LenX, 0), codigo, S.modulos.map((x) => (x.specs && x.specs.sku) || x.name));
 }
@@ -1178,7 +1200,6 @@ function insertar(m, d) {
   bridge("insertar", JSON.stringify({ id: m.id, eleccion, modo: d ? d.modo : "original" }));
 }
 
-// Por ahora solo se generan las filas de familias activas (gabinete).
 /* Por qué el nombre de la fila +i+ pisaría a otro mueble, o "": uno del
    catálogo, o una fila anterior del mismo archivo (se comparan como ids:
    «GAB 600» y «GAB-600» son el mismo). Una fila ya generada no cuenta. */
@@ -1192,7 +1213,7 @@ function csvChoque(i) {
   return m ? `Ya existe «${m.name}» en el catálogo: cámbiale el nombre en «Editar» para no reemplazarlo` : "";
 }
 
-// Por ahora solo se generan las filas de familias activas (gabinete), sin
+// Solo se generan las filas de familias activas (gabinete y alacena), sin
 // errores, cuyo nombre no pise a otro mueble y que no se hayan generado ya.
 function csvUsable(f, i) {
   const hecho = S.csv.hechos[i];
@@ -1222,7 +1243,7 @@ function pintarCsv() {
     const choque = csvChoque(i);
     const estado = hecho ? hecho.estado : !FAMILIAS_ACTIVAS.includes(f.familia) ? "pendiente" : choque ? "error" : f.estado;
     const det = detalleFila(f, man);
-    const notas = estado === "pendiente" ? ["Por ahora Studio solo genera gabinetes"] : hecho && hecho.msg ? [hecho.msg] : [choque].concat(msgs, f.avisos || []).filter(Boolean);
+    const notas = estado === "pendiente" ? ["Esta familia todavía no se genera en Studio"] : hecho && hecho.msg ? [hecho.msg] : [choque].concat(msgs, f.avisos || []).filter(Boolean);
     const tr = document.createElement("tr");
     tr.className = "st-" + estado;
     tr.innerHTML = `<td><input type="checkbox" ${c.sel.has(i) ? "checked" : ""} ${csvUsable(f, i) ? "" : "disabled"}></td>` +
@@ -1230,7 +1251,7 @@ function pintarCsv() {
       `<td>${esc(man ? man.titulo : f.familia || "—")}<span class="pj-sub">${esc(det.frentes)}</span></td>` +
       `<td class="mono">${esc(det.medidas || "—")}</td>` +
       `<td>${esc(det.diseno || "—")}<span class="pj-sub">${esc(det.material)}</span></td>` +
-      `<td><span class="pill">${esc({ ok: "Lista", aviso: "Con avisos", error: "Error", generado: "Generada", fallo: "Falló", pendiente: "Solo gabinete" }[estado] || estado)}</span></td>` +
+      `<td><span class="pill">${esc({ ok: "Lista", aviso: "Con avisos", error: "Error", generado: "Generada", fallo: "Falló", pendiente: "No disponible" }[estado] || estado)}</span></td>` +
       `<td class="msgs" title="${esc(notas.join("\n"))}">${esc(notas.slice(0, 2).join(" · ") || "—")}${notas.length > 2 ? ` <b>+${notas.length - 2}</b>` : ""}</td>` +
       `<td><button class="key sm" ${f.valores && estado !== "pendiente" && !c.cola ? "" : "disabled"}>Editar</button></td>`;
     $("input", tr).onchange = (e) => { e.target.checked ? c.sel.add(i) : c.sel.delete(i); pintarCsv(); };
@@ -1250,8 +1271,7 @@ function detalleFila(f, man) {
     const o = campo && (campo.opciones || []).find((x) => String(x.valor) === String(v[campo.id]));
     return o ? o.label : "";
   };
-  const g = grupoInterior(man);
-  if (g) out.frentes = M.resumenFrentes(S.rcc.geomFrentes(man, v, g.visual)).texto;
+  out.frentes = frentesDe(man, v).texto;
   out.medidas = ["LenX", "LenZ", "LenY"].map((a) => RKVista.num(v[a], 0)).filter((n) => n > 0).join(" × ");
   const fc = (S.opciones.familias || {})[f.familia] || {};
   // Tirador o gola, con el nombre corto del catálogo (manifest.catalogo.caracteristicas.tipo).

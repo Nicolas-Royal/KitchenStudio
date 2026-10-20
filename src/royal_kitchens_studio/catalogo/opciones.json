@@ -891,6 +891,35 @@
     "Gris mate": "#8d9396"
   },
   "familias": {
+    "alacena": {
+      "_doc": "Componente ALACENA.skp (20/10/2026): la puerta y los Avento llevan la puerta del gabinete. Sin gola ni tarja ni cajones; la posición de la manija la fija el manifiesto (abajo).",
+      "medidas": {
+        "ancho": "LenX",
+        "alto": "LenZ",
+        "fondo": "LenY"
+      },
+      "frente": {
+        "attr": "l01_linea_frente"
+      },
+      "manija_puerta": {
+        "attrs": [
+          "d16_tirador_tipo"
+        ]
+      },
+      "espesor_puerta": {
+        "attr": "c02esppuerta"
+      },
+      "material": {
+        "attr": "c16matpuertape",
+        "extra": {
+          "c22matpuertade": "{material}",
+          "c15matestrpe": "{material}",
+          "c17matfondope": "{material}",
+          "c21matestrde": "{material}",
+          "c23matfondode": "{material}"
+        }
+      }
+    },
     "gabinete": {
       "medidas": {
         "ancho": "LenX",

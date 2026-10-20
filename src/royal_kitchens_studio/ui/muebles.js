@@ -61,7 +61,8 @@ window.RKMuebles = (function () {
   /* Qué pone el diseño del proyecto en un mueble y qué se queda como está. */
   function alcance(fc, gola, igualar, golaProyecto) {
     const f = fc || {};
-    const cambia = [], fijo = ["zonas, puertas y cajones", "entrepaños"];
+    // Sin cajones (alacena) lo fijo son sus puertas.
+    const cambia = [], fijo = [f.manija_cajon ? "zonas, puertas y cajones" : "puertas", "entrepaños"];
     if (f.gola && golaProyecto) cambia.push("gola");
     if (f.frente) (gola ? fijo : cambia).push(gola ? "frente Lisa (con gola)" : "frente");
     if (f.manija_puerta || f.manija_cajon) (gola ? fijo : cambia).push(gola ? "sin manijas (gola)" : "manijas");
@@ -136,6 +137,20 @@ window.RKMuebles = (function () {
     return { texto: zonas.map((z) => z.texto).join(" + "), codigo: zonas.map((z) => z.codigo).join("-") };
   }
 
+  /* Lo mismo para la alacena, desde sus variables (fila o formulario):
+     «2 puertas» (2P), «2 Avento S» (2AS), «1 Avento D» (1AD) o abierta (A). */
+  function frentesAlacena(v) {
+    const t = String((v || {}).c25tipopuerta == null ? "1" : v.c25tipopuerta);
+    if (t === "0") return { texto: "abierta", codigo: "A" };
+    if (t === "6" || t === "10") {
+      const n = parseInt(v.d21_avento_cant_puertas, 10) || 1;
+      const s = t === "6" ? "S" : "D";
+      return { texto: `${n} Avento ${s}`, codigo: `${n}A${s}` };
+    }
+    const n = String(v.d15_cant_puertas) === "3" ? 2 : 1;
+    return { texto: n + (n === 1 ? " puerta" : " puertas"), codigo: n + "P" };
+  }
+
   // ---- Identidad: que dos muebles no se pisen ----------------------------------
   /* Id de un mueble a partir de su nombre, igual que Biblioteca.slug en Ruby:
      «GAB 600», «GAB-600» y «gab_600» son el MISMO mueble (cr-gab-600). */
@@ -161,7 +176,7 @@ window.RKMuebles = (function () {
       ids[idDe(n)] = true;
       // Solo cuentan los nombres con este formato (frentes y luego el consecutivo):
       // en «GAB-600» el 600 es el ancho, no un consecutivo.
-      const m = /-(?:\d+[PC]|A)-(\d{3,})$/.exec(String(n || ""));
+      const m = /-(?:\d+[A-Z]+|A)-(\d{3,})$/.exec(String(n || ""));
       if (m) mayor = Math.max(mayor, parseInt(m[1], 10));
     });
     const base = [String(prefijo || "MUE").toUpperCase(), ancho > 0 ? String(Math.round(ancho)) : "", codigo || ""].filter(Boolean).join("-");
@@ -170,5 +185,5 @@ window.RKMuebles = (function () {
     return nombre;
   }
 
-  return { idDe, choque, CLASES, clase, etiqueta, modo, modos, disenoOriginal, alcance, filtrar, conteos, facetas, resumenFrentes, nombreNuevo };
+  return { idDe, choque, CLASES, clase, etiqueta, modo, modos, disenoOriginal, alcance, filtrar, conteos, facetas, resumenFrentes, frentesAlacena, nombreNuevo };
 })();

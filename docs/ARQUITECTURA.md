@@ -490,12 +490,12 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
 
 ## Límites conocidos
 
-- Por ahora solo **gabinete** (`FAMILIAS_ACTIVAS` en `ui/app.js`): las listas,
-  «+ nuevo» y el CSV filtran el resto.
+- Studio genera **gabinete** y **alacena** (`FAMILIAS_ACTIVAS` en
+  `ui/app.js`): las listas, «+ nuevo» y el CSV filtran el resto (esquinero).
 
-- Tarja, frente, manija y material se aplican de verdad solo en **gabinete**
-  (única familia con mapeo en `opciones.json`). Alacena y esquinero: medidas y
-  «Avanzado».
+- Tarja, frente, manija y material se aplican de verdad en **gabinete** y
+  **alacena** (familias con mapeo en `opciones.json`; la alacena sin tarja).
+  Esquinero: medidas y «Avanzado».
 - **`componentes/ALACENA.skp` (20/10/2026)**: la alacena del componente
   anterior (KitchenCreator) con la puerta del gabinete trasplantada
   (`Pu.Manijas`: 10 líneas de frente y las 15 manijas del catálogo). La
@@ -509,7 +509,32 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   **abajo** (la alacena se abre desde abajo): en cada hoja el perfil lleva
   `roty = 180`, `z = 3.8` y `x = LenX` (izquierda) o `0` (derecha, reflejada),
   y la puerta sube 3.8 cm (`z = IF(f21tipotirador=21,3.8,0)`). El gabinete lo
-  sigue llevando arriba. Vidrio, uñero y Avento
-  siguen como venían. El manifiesto (`familias/alacena.json`) todavía es el
-  del componente viejo: falta conectarlo.
+  sigue llevando arriba. Solo puertas del catálogo: `c25tipopuerta` = 0 sin
+  puerta, 1 abatible, 6 Avento S, 10 Avento D (se borraron vidrio,
+  vidrio-madera, uñero y los Avento italiana/vidrio). Cada hoja de los Avento
+  lleva el frente de 10 líneas y las manijas de la puerta del gabinete, con las
+  fórmulas de su hoja (`f61–f66`, `u31–u38`) y `u39desplz` (S:
+  `IF(e09tipapertura=1,-LenZ,0)`; D: `-LenZ`) sumado a la `z` del frente y de
+  cada manija, porque su origen está arriba. Los Avento leen de la raíz las
+  mismas opciones que la puerta y las suyas: `d21_avento_cant_puertas`,
+  `d22_avento_apertura`, `d23_avento_d_tipo` y `d24_avento_d_alto_sup`.
+- **Manifiesto de alacena (20/10/2026)**: `familias/alacena.json` usa esas
+  opciones, con las reglas del gabinete (`reglas_frentes`, `poda`,
+  `nombres_piezas`) y `opciones.json → familias.alacena` (medidas, frente,
+  manija de puerta, espesor y material; sin gola, tarja ni cajones). La
+  manija la fija el manifiesto: abatible abajo del lado que abre (9,
+  vertical), Lateral negra 5, Berlín 8 horizontal y en los Avento abajo al
+  centro (8, horizontal). El Avento S siempre abre hacia arriba (`d22` oculto
+  = 1). Estructura: unión de piso y techo, respaldo y amarres
+  (`estructura>…`).
+- **Alacena en la interfaz (20/10/2026)**: activa en `FAMILIAS_ACTIVAS`
+  («+ Alacena», lista, CSV). Vista previa propia (`RKVista.desdeAlacena`):
+  sin zoclo, abatible o Avento (columnas a lo ancho; el D con dos hojas y,
+  unidas, manija solo en la de abajo) y la manija **abajo** (`layout.abajo`;
+  Berlín en el canto de abajo). Resumen y código de frentes
+  (`RKMuebles.frentesAlacena`: 2P, 1AS, 1AD, A) para la tarjeta, el CSV y el
+  nombre nuevo (`ALA-800-1P-001`). En la página del mueble solo salen los
+  selectores que su familia mapea en `opciones.json` (sin gola ni manija de
+  cajón). «Igualar» alto y fondo sigue siendo solo de gabinetes. Pendiente:
+  gráfico de entrepaños (`visual`) y altura a la que se cuelga al insertar.
 - Materiales sin foto: se ven y se crean con un tono aproximado.
