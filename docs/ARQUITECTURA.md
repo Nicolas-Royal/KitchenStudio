@@ -568,18 +568,34 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     mitad) y la de abajo con el resto, separadas 3 mm (`f04seppuertas`); solo
     cambia el frente (sin pieza fija). Zona 1 = `c25tipopuerta` (abatible,
     Avento S o D; el D obliga a una zona), zona 2 = `d31_z2_contenido`
-    (abierta, abatible o Avento S) con `d35_z2_cant_puertas`,
-    `d41_z2_avento_cant_puertas` y su manija `d36–d39` (posición fija como la
-    zona 1). En el componente: `zn11/zn12` (zona 1) y `zn21/zn22` (zona 2);
+    (abierta, abatible o Avento S) con `d35_z2_cant_puertas` y
+    `d41_z2_avento_cant_puertas`. **Una sola manija de puertas** para toda la
+    alacena (`d16`, decidido 20/10/2026): la zona 2 la toma por
+    `valores_componente` (`d36 = d16`, `d39 = d19`, fórmulas inyectadas al
+    generar); su posición y orientación (`d37/d38`) sí son propias, ocultas y
+    fijas según el tipo de puerta de la zona. En el diseño global la manija se
+    sigue eligiendo por uso (puertas / cajones); la alacena toma la de puertas.
+    Los `valores_componente` **mandan sobre la fila** (`insertar_en_escena`:
+    `valores.merge(valores_componente)`): las recetas guardadas cuando la zona
+    2 tenía su propia manija (`d36`) la traían, el diseño del proyecto solo
+    cambiaba la de la zona 1 y la poda borraba la manija de la zona 2, que
+    quedaba sin manija. En el componente: `zn11/zn12` (zona 1) y `zn21/zn22` (zona 2);
     `v21tamlenzpu1`/`v21poszpu1` = zona 1, así que la puerta y los Avento de
     siempre la siguen sin cambios, y la zona 2 tiene sus copias
     («PUA02 - ZONA 2 - Pu.Manijas», «PUERTA AVENTO S Z2»). Con dos zonas las
     puertas van por fuera. En Studio: grupo «Zonas de la fachada», resumen
     «1 Avento S + 2 puertas» (1AS-2P), nombre `ALA-800-AS1-Z2P2` y la vista
-    con una manija por zona.
+    con las dos zonas.
+  - «Así se verá» del diseño global tiene ejemplos de muestra (`EJEMPLOS` en
+    `app.js`): gabinete (el de siempre), alacena (800 mm, Avento S arriba y
+    puerta doble abajo, sin gola) y esquinero apagado («pronto») hasta que
+    Studio lo genere.
   - Las abatibles traían `u01open = 90` (abiertas) en el componente; quedaron
     en 0 (cerradas). Valores base del componente: una zona, abatible, sin
     entrepaño.
+  - Las hojas de los Avento (S, S de la zona 2 y las dos del D) traían el
+    símbolo de apertura del componente anterior (`SimbFachadaTA`, diagonales
+    punteadas en la capa visible): se quitó. Las abatibles no lo tienen.
   - Gráfico: sin zonas de cajones `geomFrentes` devuelve igual el espesor de
     puerta (el corte lateral lo suma; sin él su ancho salía `NaN` y se iba a
     la esquina) y cada vista mide al menos lo que su título, con el dibujo

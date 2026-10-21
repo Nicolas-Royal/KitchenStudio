@@ -316,15 +316,13 @@ window.RKVista = (function () {
           rect(GAP, y + GAP + GOLA - 8, W - 2 * GAP, 3, 'fill="rgba(255,255,255,.35)"');
         zy += GOLA; zh -= GOLA;
       }
-      // Una zona puede traer su propia manija (alacena en «Avanzado»: una por zona).
-      const dz = z.manijaPuerta !== undefined ? Object.assign({}, d, { manijaPuerta: z.manijaPuerta }) : d;
       if (z.tipo === "puerta") {
         const n = z.n || 1;
         const w = (W - GAP * (n + 1)) / n;
         for (let i = 0; i < n; i++) {
           const lado = n === 1 ? z.lado : (i < n / 2 ? "izq" : "der");
           // En doble, la manija va hacia el centro: la hoja izquierda abre a la derecha.
-          out += hoja(GAP + i * (w + GAP), zy, w, zh, dz, "puerta", lado);
+          out += hoja(GAP + i * (w + GAP), zy, w, zh, d, "puerta", lado);
         }
       } else if (z.tipo === "avento") {
         // Columnas a lo ancho; en el Avento D, dos hojas por columna.
@@ -334,9 +332,9 @@ window.RKVista = (function () {
         for (let i = 0; i < n; i++) {
           const x = GAP + i * (w + GAP);
           if (filas === 2) {
-            out += hoja(x, zy, w, hSup, dz, "avento", "centro", !z.unidas) +
-              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, dz, "avento", "centro");
-          } else out += hoja(x, zy, w, zh, dz, "avento", "centro");
+            out += hoja(x, zy, w, hSup, d, "avento", "centro", !z.unidas) +
+              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, d, "avento", "centro");
+          } else out += hoja(x, zy, w, zh, d, "avento", "centro");
         }
       } else if (z.tipo === "cajones") {
         const n = z.n || 1;

@@ -256,8 +256,20 @@ function pintarProyecto() {
   $("#pr-aplicar").onclick = () => { ocupado(true, "Buscando los muebles insertados…"); bridge("insertados"); };
 }
 
+/* Muebles de ejemplo de «Así se verá» (el esquinero, cuando Studio lo genere). */
+const EJEMPLOS = [["gabinete", "Gabinete"], ["alacena", "Alacena"], ["esquinero", "Esquinero · pronto", true]];
+
 function pintarPreviewProyecto() {
   const g = S.proyecto.global;
+  const ejemplo = S.ejemplo || "gabinete";
+  pintarSeg($("#pr-ejemplo"), EJEMPLOS, ejemplo, (v) => { S.ejemplo = v; pintarPreviewProyecto(); });
+  if (ejemplo === "alacena") {
+    // Las dos clases de frente de la alacena con la manija del proyecto; sin gola.
+    const lay = RKVista.desdeAlacena({ d01_cantidad_zonas: "2", c25tipopuerta: "6", d31_z2_contenido: "1", d35_z2_cant_puertas: "3" }, { ancho: 800, alto: 900 });
+    visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto-alacena");
+    $("#pr-preview-note").textContent = "Ejemplo: alacena de 800 mm con Avento S arriba y puerta doble abajo (las alacenas no llevan gola).";
+    return;
+  }
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
   const conGola = RKReglas.conGola(S.opciones, golaFam(), g.gola);
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
@@ -493,14 +505,15 @@ function pintarPicker() {
   if (!lista.length) grid.innerHTML = "<p class='empty'>Sin resultados</p>";
 }
 
+/* +opciones+ = [[valor, texto, apagada?]]: una opción apagada se ve pero no se elige. */
 function pintarSeg(box, opciones, actual, onCambio, deshabilitado) {
   box.innerHTML = "";
-  opciones.forEach(([v, txt]) => {
+  opciones.forEach(([v, txt, apagada]) => {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "chip" + (String(actual) === v ? " active" : "");
     b.textContent = txt;
-    b.disabled = !!deshabilitado;
+    b.disabled = !!deshabilitado || !!apagada;
     b.onclick = () => onCambio(v);
     box.appendChild(b);
   });
@@ -964,8 +977,6 @@ function svgModulo(m, avanzado, enLista) {
     const ala = fam === "alacena";
     const lay = layoutDe(fam, v, ala ? { ancho: RKVista.num(v.LenX, 800), alto: RKVista.num(v.LenZ, 700) }
       : { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
-    // Alacena: la zona 2 tiene su propia manija.
-    if (ala && lay.zonas[1]) lay.zonas[1].manijaPuerta = disenoSvg({ manija_puerta: v.d36_z2_tirador_tipo }, false).manijaPuerta;
     return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: ala ? v.d16_tirador_tipo : v.d16_z1_tirador_tipo,
       manija_cajon: v.e01_tirador_tipo, material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
   }

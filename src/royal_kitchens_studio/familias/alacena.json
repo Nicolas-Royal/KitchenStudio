@@ -49,7 +49,7 @@
     },
     {
       "padres": ["PuertaIZQ", "PuertaDER", "Puerta", "PuertaSUP", "PuertaINF"],
-      "attrs": ["d16_tirador_tipo", "d36_z2_tirador_tipo"],
+      "attrs": ["d16_tirador_tipo"],
       "variantes": {
         "B.TiradorCLE": ["7"],
         "Tirador New Chica": ["8"],
@@ -134,6 +134,11 @@
     { "attrs": ["c02esppuerta"], "menor_que": "LenY", "mensaje": "El espesor de puerta no puede alcanzar la profundidad." },
     { "attrs": ["c03espfondo"], "menor_que": "LenY", "mensaje": "El espesor de fondo no puede alcanzar la profundidad." }
   ],
+  "valores_componente": {
+    "_doc": "Variables del componente que Studio fija en cada generación (no van en el formulario). La alacena lleva una sola manija de puertas (d16, d19): la zona 2 la toma de ahí; su posición (d37/d38) sí es propia, según el tipo de puerta de la zona.",
+    "d36_z2_tirador_tipo": "=d16_tirador_tipo",
+    "d39_z2_tirador_largo": "=d19_tirador_largo"
+  },
   "grupos": [
     {
       "id": "dimensiones",
@@ -362,13 +367,19 @@
     },
     {
       "id": "manija",
-      "titulo": "Zona 1 · Manija",
-      "condicion": { "attr": "c25tipopuerta", "excepto": ["0"], "mensaje": "Sin puerta no hay manija." },
+      "titulo": "Manija",
+      "condicion": {
+        "alguna": [
+          { "attr": "c25tipopuerta", "excepto": ["0"] },
+          { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }] }
+        ],
+        "mensaje": "Sin puertas no aplica."
+      },
       "campos": [
         {
           "id": "d16_tirador_tipo",
           "attr": "d16_tirador_tipo",
-          "label": "Zona 1: manija",
+          "label": "Manija de puertas",
           "tipo": "select",
           "default": "9",
           "opciones": [
@@ -388,12 +399,13 @@
             { "label": "Botón cilíndrico dorado", "valor": "19" },
             { "label": "Botón cilíndrico plateado", "valor": "20" },
             { "label": "Berlín", "valor": "21" }
-          ]
+          ],
+          "nota": "Una para toda la alacena: las dos zonas la llevan, cada una en su posición."
         },
         {
           "id": "d17_tirador_posicion",
           "attr": "d17_tirador_posicion",
-          "label": "Zona 1: posición de la manija",
+          "label": "Posición de la manija",
           "tipo": "select",
           "oculto": true,
           "default": "9",
@@ -422,12 +434,13 @@
             { "label": "Abajo - Izquierda", "valor": "7" },
             { "label": "Abajo - Centro", "valor": "8" },
             { "label": "Abajo - Derecha", "valor": "9" }
-          ]
+          ],
+          "visible_si": { "attr": "c25tipopuerta", "excepto": ["0"] }
         },
         {
           "id": "d18_tirador_orientacion",
           "attr": "d18_tirador_orientacion",
-          "label": "Zona 1: orientación de la manija",
+          "label": "Orientación de la manija",
           "tipo": "select",
           "oculto": true,
           "default": "2",
@@ -441,12 +454,13 @@
             { "valor": "1", "si": [{ "attr": "d16_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va horizontal en el canto." },
             { "valor": "2", "si": [{ "attr": "d16_tirador_tipo", "excepto": ["1"] }], "mensaje": "En puertas abatibles la manija va vertical." }
           ],
-          "opciones": [{ "label": "Horizontal", "valor": "1" }, { "label": "Vertical", "valor": "2" }]
+          "opciones": [{ "label": "Horizontal", "valor": "1" }, { "label": "Vertical", "valor": "2" }],
+          "visible_si": { "attr": "c25tipopuerta", "excepto": ["0"] }
         },
         {
           "id": "d19_tirador_largo",
           "attr": "d19_tirador_largo",
-          "label": "Zona 1: largo de la manija",
+          "label": "Largo de la manija",
           "tipo": "numero",
           "oculto": true,
           "unidad": "mm",
@@ -454,6 +468,61 @@
           "placeholder": "300",
           "positivo": true,
           "habilitado_si": { "attr": "d16_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay largo." }
+        },
+        {
+          "id": "d37_z2_tirador_posicion",
+          "attr": "d37_z2_tirador_posicion",
+          "label": "Zona 2: posición de la manija",
+          "tipo": "select",
+          "oculto": true,
+          "default": "9",
+          "habilitado_si": { "attr": "d16_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que posicionar." },
+          "forzar": [
+            {
+              "valor": "8",
+              "si": [{ "attr": "d31_z2_contenido", "valores": ["6"] }, { "attr": "d16_tirador_tipo", "excepto": ["1"] }],
+              "mensaje": "Avento: abajo al centro (en el Avento D unido, solo la hoja de abajo)."
+            },
+            { "valor": "5", "si": [{ "attr": "d16_tirador_tipo", "valor": "7" }], "mensaje": "Lateral negra: va en el canto, a media altura." },
+            { "valor": "8", "si": [{ "attr": "d16_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de abajo, a todo el ancho." },
+            {
+              "valor": "9",
+              "si": [{ "attr": "d16_tirador_tipo", "excepto": ["1"] }],
+              "mensaje": "Abajo, del lado que abre. El componente la refleja en la puerta con bisagra a la derecha y en la doble las lleva al centro."
+            }
+          ],
+          "opciones": [
+            { "label": "Arriba - Izquierda", "valor": "1" },
+            { "label": "Arriba - Centro", "valor": "2" },
+            { "label": "Arriba - Derecha", "valor": "3" },
+            { "label": "Centro - Izquierda", "valor": "4" },
+            { "label": "Centro - Centro", "valor": "5" },
+            { "label": "Centro - Derecha", "valor": "6" },
+            { "label": "Abajo - Izquierda", "valor": "7" },
+            { "label": "Abajo - Centro", "valor": "8" },
+            { "label": "Abajo - Derecha", "valor": "9" }
+          ],
+          "visible_si": { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }] }
+        },
+        {
+          "id": "d38_z2_tirador_orientacion",
+          "attr": "d38_z2_tirador_orientacion",
+          "label": "Zona 2: orientación de la manija",
+          "tipo": "select",
+          "oculto": true,
+          "default": "2",
+          "habilitado_si": { "attr": "d16_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que orientar." },
+          "forzar": [
+            {
+              "valor": "1",
+              "si": [{ "attr": "d31_z2_contenido", "valores": ["6"] }, { "attr": "d16_tirador_tipo", "excepto": ["1"] }],
+              "mensaje": "En el Avento la manija va horizontal."
+            },
+            { "valor": "1", "si": [{ "attr": "d16_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va horizontal en el canto." },
+            { "valor": "2", "si": [{ "attr": "d16_tirador_tipo", "excepto": ["1"] }], "mensaje": "En puertas abatibles la manija va vertical." }
+          ],
+          "opciones": [{ "label": "Horizontal", "valor": "1" }, { "label": "Vertical", "valor": "2" }],
+          "visible_si": { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }] }
         }
       ]
     },
@@ -494,106 +563,6 @@
           "tipo": "select",
           "default": "1",
           "opciones": [{ "label": "1", "valor": "1" }, { "label": "2", "valor": "2" }, { "label": "3", "valor": "3" }]
-        }
-      ]
-    },
-    {
-      "id": "z2_manija",
-      "titulo": "Zona 2 · Manija",
-      "condicion": {
-        "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "excepto": ["0"] }],
-        "mensaje": "Se activa cuando la zona 2 lleva puerta."
-      },
-      "campos": [
-        {
-          "id": "d36_z2_tirador_tipo",
-          "attr": "d36_z2_tirador_tipo",
-          "label": "Zona 2: manija",
-          "tipo": "select",
-          "default": "9",
-          "opciones": [
-            { "label": "Sin tirador", "valor": "1" },
-            { "label": "Lateral negra", "valor": "7" },
-            { "label": "New Chica", "valor": "8" },
-            { "label": "Andrea", "valor": "9" },
-            { "label": "Escolano", "valor": "10" },
-            { "label": "Barra negra", "valor": "11" },
-            { "label": "Botón cilíndrico chico", "valor": "12" },
-            { "label": "Paola", "valor": "13" },
-            { "label": "Mulholland", "valor": "14" },
-            { "label": "Concha dorada", "valor": "15" },
-            { "label": "Botón Oberol", "valor": "16" },
-            { "label": "Swarovski chica", "valor": "17" },
-            { "label": "Swarovski grande", "valor": "18" },
-            { "label": "Botón cilíndrico dorado", "valor": "19" },
-            { "label": "Botón cilíndrico plateado", "valor": "20" },
-            { "label": "Berlín", "valor": "21" }
-          ]
-        },
-        {
-          "id": "d37_z2_tirador_posicion",
-          "attr": "d37_z2_tirador_posicion",
-          "label": "Zona 2: posición de la manija",
-          "tipo": "select",
-          "oculto": true,
-          "default": "9",
-          "habilitado_si": { "attr": "d36_z2_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que posicionar." },
-          "forzar": [
-            {
-              "valor": "8",
-              "si": [{ "attr": "d31_z2_contenido", "valores": ["6"] }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }],
-              "mensaje": "Avento: abajo al centro (en el Avento D unido, solo la hoja de abajo)."
-            },
-            { "valor": "5", "si": [{ "attr": "d36_z2_tirador_tipo", "valor": "7" }], "mensaje": "Lateral negra: va en el canto, a media altura." },
-            { "valor": "8", "si": [{ "attr": "d36_z2_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de abajo, a todo el ancho." },
-            {
-              "valor": "9",
-              "si": [{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }],
-              "mensaje": "Abajo, del lado que abre. El componente la refleja en la puerta con bisagra a la derecha y en la doble las lleva al centro."
-            }
-          ],
-          "opciones": [
-            { "label": "Arriba - Izquierda", "valor": "1" },
-            { "label": "Arriba - Centro", "valor": "2" },
-            { "label": "Arriba - Derecha", "valor": "3" },
-            { "label": "Centro - Izquierda", "valor": "4" },
-            { "label": "Centro - Centro", "valor": "5" },
-            { "label": "Centro - Derecha", "valor": "6" },
-            { "label": "Abajo - Izquierda", "valor": "7" },
-            { "label": "Abajo - Centro", "valor": "8" },
-            { "label": "Abajo - Derecha", "valor": "9" }
-          ]
-        },
-        {
-          "id": "d38_z2_tirador_orientacion",
-          "attr": "d38_z2_tirador_orientacion",
-          "label": "Zona 2: orientación de la manija",
-          "tipo": "select",
-          "oculto": true,
-          "default": "2",
-          "habilitado_si": { "attr": "d36_z2_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que orientar." },
-          "forzar": [
-            {
-              "valor": "1",
-              "si": [{ "attr": "d31_z2_contenido", "valores": ["6"] }, { "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }],
-              "mensaje": "En el Avento la manija va horizontal."
-            },
-            { "valor": "1", "si": [{ "attr": "d36_z2_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va horizontal en el canto." },
-            { "valor": "2", "si": [{ "attr": "d36_z2_tirador_tipo", "excepto": ["1"] }], "mensaje": "En puertas abatibles la manija va vertical." }
-          ],
-          "opciones": [{ "label": "Horizontal", "valor": "1" }, { "label": "Vertical", "valor": "2" }]
-        },
-        {
-          "id": "d39_z2_tirador_largo",
-          "attr": "d39_z2_tirador_largo",
-          "label": "Zona 2: largo de la manija",
-          "tipo": "numero",
-          "oculto": true,
-          "unidad": "mm",
-          "default": "300",
-          "placeholder": "300",
-          "positivo": true,
-          "habilitado_si": { "attr": "d36_z2_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay largo." }
         }
       ]
     },

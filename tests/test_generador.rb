@@ -84,3 +84,10 @@ assert vc["g46_melamina_tipo_perfil_c"] == "1", "gola de melamina del medio sin 
 assert !vc.key?("_doc"), "la nota del manifiesto no se inyecta"
 assert vc["g13_margen_tapa_perfil_c"].to_s.include?("(g12_alto_perfil_c-k12_sep_cajones_gola+") && vc["g13_margen_tapa_perfil_c"].start_with?("=IF(AND(g01_perfil_tipo=2"),
        "perfil del medio (solo melamina): el espacio para los dedos se reparte igual arriba y abajo"
+
+# Alacena: una sola manija de puertas. La zona 2 la toma de la zona 1 aunque
+# una receta vieja traiga la suya (los valores del componente mandan sobre la fila).
+ala = G.valores_componente(RoyalKitchens::Studio::Familias.manifiesto("alacena"))
+assert ala["d36_z2_tirador_tipo"] == "=d16_tirador_tipo", "la manija de la zona 2 es la de la zona 1"
+fila = { "d16_tirador_tipo" => "17", "d36_z2_tirador_tipo" => "14" }.merge(ala)
+assert fila["d36_z2_tirador_tipo"] == "=d16_tirador_tipo", "una receta vieja no pisa la manija única"

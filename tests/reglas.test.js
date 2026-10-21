@@ -188,16 +188,22 @@ prueba('R-06 · cada tipo de puerta de alacena trae sus propios campos', functio
   assert.deepStrictEqual(campo('alacena', 'l01_linea_frente').opciones, campo('gabinete', 'l01_linea_frente').opciones);
 });
 
-prueba('R-06d · alacena por zonas: arriba y abajo, con puertas o Avento S y una manija por zona', function () {
+prueba('R-06d · alacena por zonas: arriba y abajo, con puertas o Avento S y una sola manija', function () {
   var ala = function (extra) { return plano('alacena', Object.assign({ LenX: '800', LenY: '330', LenZ: '900' }, extra)); };
   // Una zona: nada de la zona 2.
   var una = ala({});
-  ['d02_alto_zona_superior', 'd31_z2_contenido', 'd35_z2_cant_puertas', 'd36_z2_tirador_tipo'].forEach(function (a) { assert.ok(!(a in una), a); });
-  // Dos zonas: Avento S arriba, abatible doble abajo; cada manija en su posición fija.
-  var dos = ala({ d01_cantidad_zonas: '2', c25tipopuerta: '6', d31_z2_contenido: '1', d35_z2_cant_puertas: '3', d36_z2_tirador_tipo: '13' });
+  ['d02_alto_zona_superior', 'd31_z2_contenido', 'd35_z2_cant_puertas', 'd37_z2_tirador_posicion'].forEach(function (a) { assert.ok(!(a in una), a); });
+  // Dos zonas: Avento S arriba, abatible doble abajo; la misma manija, cada zona en su posición fija.
+  var dos = ala({ d01_cantidad_zonas: '2', c25tipopuerta: '6', d31_z2_contenido: '1', d35_z2_cant_puertas: '3', d16_tirador_tipo: '13' });
   assert.ok(dos.d17_tirador_posicion === '8' && dos.d18_tirador_orientacion === '1', 'zona 1 Avento: abajo al centro');
   assert.ok(dos.d37_z2_tirador_posicion === '9' && dos.d38_z2_tirador_orientacion === '2', 'zona 2 abatible: abajo, vertical');
-  assert.strictEqual(dos.d36_z2_tirador_tipo, '13');
+  assert.strictEqual(dos.d16_tirador_tipo, '13');
+  // Una sola manija: no se elige por zona; la zona 2 la toma por fórmula al generar.
+  assert.strictEqual(campo('alacena', 'd36_z2_tirador_tipo'), null);
+  assert.strictEqual(man.alacena.valores_componente.d36_z2_tirador_tipo, '=d16_tirador_tipo');
+  // Sin puerta arriba, la zona 2 sigue llevando manija (y la zona 1 no tiene posición).
+  var abajo = ala({ d01_cantidad_zonas: '2', c25tipopuerta: '0', d31_z2_contenido: '1' });
+  assert.ok(abajo.d16_tirador_tipo === '9' && abajo.d37_z2_tirador_posicion === '9' && !('d17_tirador_posicion' in abajo));
   assert.strictEqual(dos.d02_alto_zona_superior, '0mm', '0 = la mitad');
   var av2 = ala({ d01_cantidad_zonas: '2', d31_z2_contenido: '6', d41_z2_avento_cant_puertas: '2' });
   assert.ok(av2.d41_z2_avento_cant_puertas === '2' && !('d35_z2_cant_puertas' in av2) && av2.d37_z2_tirador_posicion === '8');

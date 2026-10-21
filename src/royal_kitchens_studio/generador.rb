@@ -183,7 +183,9 @@ module RoyalKitchens
       # Variables del componente base que se fijan en cada generación
       # (manifest.valores_componente: { attr => valor }, p. ej. la gola de
       # melamina del medio sin pieza de arriba). No son elecciones de nadie,
-      # así que no van en la receta; lo que traiga la fila manda.
+      # así que no van en la receta y mandan sobre la fila: una receta vieja
+      # que los traiga no los pisa (la manija de la zona 2 de la alacena se
+      # elegía aparte; hoy es la misma que la de la zona 1).
       # Fórmulas de piezas internas que se corrigen al generar
       # (manifest.formulas_piezas, Engine.formulas_piezas).
       def formulas_piezas_opts(manifest)
@@ -489,7 +491,7 @@ module RoyalKitchens
         return { "ok" => false, "error" => "No está el componente base de #{manifest['titulo']}:\n#{base_path}" } unless File.exist?(base_path)
 
         model = Sketchup.active_model
-        fila  = valores_componente(manifest).merge(valores)
+        fila  = valores.merge(valores_componente(manifest))
         clave = clave_mueble(base_path, fila, div, manifest)
         if (hecha = generada(model, clave))
           r = colocar(model, hecha, nombre, transformation || siguiente_x(model))
