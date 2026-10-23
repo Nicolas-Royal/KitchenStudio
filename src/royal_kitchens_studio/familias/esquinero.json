@@ -82,7 +82,7 @@
     { "ruta": ["Fondo", "Panel"], "nombre": "RESPALDO IZQUIERDO" },
     { "ruta": ["PosteriorR", "Panel"], "nombre": "RESPALDO DERECHO" },
     { "ruta": ["Estructura", "Base", "Panel"], "nombre": "PISO" },
-    { "ruta": ["Base", "CE_Panel", "PanelCE0*"], "nombre": "PISO" },
+    { "ruta": ["Base", "CE_Panel"], "nombre": "PISO" },
     { "ruta": ["AmarreSupFront", "Panel"], "nombre": "REFUERZO DELANTERO" },
     { "ruta": ["AmarreSupPost", "Panel"], "nombre": "REFUERZO TRASERO" },
     { "ruta": ["AmarreSupFrontR", "Panel"], "nombre": "REFUERZO DELANTERO DERECHO" },
@@ -91,7 +91,7 @@
     { "ruta": ["AmarreFrontR", "Panel"], "nombre": "AMARRE FRONTAL DERECHO" },
     { "ruta": ["B.AmarrePost", "Amarre", "Panel"], "nombre": "AMARRE POSTERIOR" },
     { "ruta": ["Repisa", "Panel"], "nombre": "ENTREPAÑO" },
-    { "ruta": ["Repisa", "CE_Panel", "PanelCE0*"], "nombre": "ENTREPAÑO" },
+    { "ruta": ["Repisa", "CE_Panel"], "nombre": "ENTREPAÑO" },
     { "ruta": ["ZocaloFront", "Panel"], "nombre": "POLLO FRONTAL" },
     { "ruta": ["ZocaloFrontR", "Panel"], "nombre": "POLLO DERECHO" },
     { "ruta": ["ZocaloPost", "Panel"], "nombre": "POLLO POSTERIOR" },
@@ -121,13 +121,13 @@
     {
       "_doc": "La lateral con gola (la del gabinete) sale en dos piezas: cuerpo y tira al frente debajo de la muesca. En OpenCutList, UNA pieza con la medida total.",
       "grupo": "CEGolaLat"
-    }
+    },
+    {
+      "_doc": "Piso y entrepaños en L: dos mitades (PanelCE01/02) que en SketchUp siguen separadas y dinámicas (se editan y conservan sus fórmulas); en OpenCutList, UNA pieza por L. Antes los entrepaños se fusionaban (reglas_union) y perdían el componente dinámico. Los contenedores se llaman así en ESQUINERO.skp.",
+      "grupo": "PISO EN L"
+    },
+    { "grupo": "ENTREPAÑO EN L" }
   ],
-  "reglas_union": {
-    "grupo": "entrepaño",
-    "piezas": ["p01-esq", "p02-esq"],
-    "nombre": "ENTREPAÑO"
-  },
   "reglas_divisores": {
     "prefijo": "divisor",
     "attr_cantidad": "divisor>f01cantdiv",
@@ -392,7 +392,8 @@
       "titulo": "Bisagras",
       "condicion": { "attr": "c25tipopuerta", "excepto": ["0"], "mensaje": "Sin puerta no aplica." },
       "campos": [
-        { "id": "f07_bisagra_angulo", "attr": "f07_bisagra_angulo", "label": "Ángulo de apertura (°)", "tipo": "numero", "default": "90", "placeholder": "90", "positivo": true },
+        { "id": "f07_bisagra_angulo", "attr": "f07_bisagra_angulo", "label": "Ángulo de apertura (°)", "tipo": "numero", "default": "165", "placeholder": "165", "positivo": true,
+          "nota": "Bisagra de 165°, como en el esquinero original." },
         { "id": "f08_bisagra_lado", "attr": "f08_bisagra_lado", "label": "Mostrar bisagras", "tipo": "select", "default": "S",
           "opciones": [{ "label": "Sí", "valor": "S" }, { "label": "No", "valor": "N" }] },
         { "id": "f09_bisagra_cantidad", "attr": "f09_bisagra_cantidad", "label": "Bisagras por hoja", "tipo": "select", "default": "2",

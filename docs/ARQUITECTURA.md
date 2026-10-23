@@ -622,7 +622,10 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   - Opciones en la raíz con los nombres de la alacena: `c25tipopuerta`
     (0 sin puerta, 1 puerta en L), `l01–l12`, `d16–d19`,
     `f11/f12_tirador_margen_*`, `c21_material_tirador`, `f07/f08/f09/f13`
-    de bisagras y `f02_montaje`. Sin gola (`g01gola = 0`).
+    de bisagras y `f02_montaje`. Sin gola (`g01gola = 0`). La bisagra abre
+    a **165°** por defecto (`f07_bisagra_angulo`, en el componente y en el
+    manifiesto), como el esquinero original; el gabinete y la alacena siguen
+    en 90°.
   - **Techo duplicado**: el base traía `TECHO #3`, copia exacta de `BASE #3`
     (mismas fórmulas, z 100–118 mm): un segundo piso encimado que salía en el
     despiece. Se borró; arriba van los refuerzos delantero y trasero de cada
@@ -630,8 +633,17 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   - Entrepaño: `c24entrepano` en la raíz (como las otras familias) y
     `entrepano = c24entrepano` (lo lee `Estructura`). Antes el manifiesto
     escribía `c24entrepano` y el componente no lo tenía: la repisa salía
-    siempre. Repisas en L: las dos mitades se unen en una pieza
-    (`reglas_union`, ENTREPAÑO).
+    siempre.
+  - **Piso y entrepaños en L sin fusionar (23/10/2026)**: sus dos mitades
+    (`PanelCE01/02`) se quedan separadas y dinámicas en SketchUp (se editan y
+    conservan sus fórmulas) y OpenCutList las cuenta como UNA pieza, como las
+    laterales con gola: `piezas_unicas` sobre los contenedores «PISO EN L» y
+    «ENTREPAÑO EN L» (así se llaman en `ESQUINERO.skp`; «Entrepaño» solo
+    también encontraría la repisa completa) y `nombres_piezas` los nombra
+    PISO y ENTREPAÑO. Antes `reglas_union` fundía las mitades del entrepaño
+    con Solid Tools y se perdía el componente dinámico; el esquinero ya no la
+    usa (`Engine.unir_piezas` queda para quien la declare). Entrepaños
+    iguales comparten definición: un renglón con cantidad.
 - **Manifiesto de esquinero (23/10/2026)**: `familias/esquinero.json` con las
   reglas del gabinete (`reglas_frentes`, `poda` por hoja, `nombres_piezas`:
   PUERTA IZQ/DER, LATERAL, RESPALDO IZQUIERDO/DERECHO, PISO, REFUERZO

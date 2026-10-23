@@ -238,6 +238,7 @@ prueba('R-06b · esquinero: puerta en L con la manija que decide el manifiesto',
   assert.strictEqual(esq({ f02_montaje: '2' }).a0102profder, '578mm', 'puerta interior: no se suma');
   // El zócalo va aparte del cuerpo; nombre con los dos anchos.
   assert.strictEqual(p.LenZ, '870mm');
+  assert.strictEqual(p.f07_bisagra_angulo, '165', 'bisagra de 165° por defecto');
   var n = function (c) { return T.autoNombre(man.esquinero, registro('esquinero', Object.assign({ LenX: '1000', LenY: '900' }, c)).valores); };
   assert.strictEqual(n({}), 'ESQ-1000-900-PL-E');
   assert.strictEqual(n({ c25tipopuerta: '0', c24entrepano: '1' }), 'ESQ-1000-900-A');
@@ -276,6 +277,15 @@ prueba('R-06c · alacena: la manija va abajo y la decide el manifiesto', functio
   ['d17_tirador_posicion', 'd18_tirador_orientacion', 'd19_tirador_largo'].forEach(function (a) { assert.ok(!(a in sin), a); });
   ['d17_tirador_posicion', 'd18_tirador_orientacion', 'd19_tirador_largo', 'd22_avento_apertura']
     .forEach(function (id) { assert.ok(campo('alacena', id).oculto, id + ' oculto'); });
+});
+
+prueba('R-06e · esquinero: piso y entrepaños en L sin fusionar, una pieza para OpenCutList', function () {
+  assert.strictEqual(man.esquinero.reglas_union, undefined, 'las mitades no se funden: siguen dinámicas en SketchUp');
+  var grupos = man.esquinero.piezas_unicas.map(function (p) { return p.grupo; });
+  ['CEGolaLat', 'PISO EN L', 'ENTREPAÑO EN L'].forEach(function (g) { assert.ok(grupos.indexOf(g) >= 0, g); });
+  var nombre = function (ruta) { return man.esquinero.nombres_piezas.filter(function (r) { return JSON.stringify(r.ruta) === JSON.stringify(ruta); })[0].nombre; };
+  assert.strictEqual(nombre(['Base', 'CE_Panel']), 'PISO');
+  assert.strictEqual(nombre(['Repisa', 'CE_Panel']), 'ENTREPAÑO');
 });
 
 prueba('R-07 · el esquinero no tiene separación entre puertas', function () {
