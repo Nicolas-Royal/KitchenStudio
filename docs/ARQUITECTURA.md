@@ -614,10 +614,9 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     f04 − f14`, en `x = LenX − c02`, `y = −LenY + f14`, girada 90°
     (`rotz = −90 + u01open`), bisagra en el costado del ala. Las dos hojas
     siempre visibles (`e07cantpuerta` = 3 fijo).
-  - Manija: solo en la hoja derecha, junto a la esquina, como en el esquinero
-    viejo (la izquierda tiene `f21tipotirador = IF(parent!f21tipotirador=21,
-    21,1)`): Berlín es un perfil del canto de arriba y va en las dos.
-    Posición 3 (arriba del lado que abre, el componente la refleja), Lateral
+  - Manija: una en cada hoja, junto a la esquina (las dos con
+    `f21tipotirador = parent!f21tipotirador`; antes la izquierda solo llevaba
+    Berlín, como el esquinero viejo). Posición 3 (arriba del lado que abre, el componente la refleja), Lateral
     negra 5, Berlín 2 horizontal: lo fija el manifiesto (`forzar`, oculto).
   - Opciones en la raíz con los nombres de la alacena: `c25tipopuerta`
     (0 sin puerta, 1 puerta en L), `l01–l12`, `d16–d19`,
@@ -670,14 +669,25 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   `matrix` la acuesta, así la veta corre a lo largo de la pieza y sigue la
   perspectiva (patrón base si es larga en x, `-v` si es larga en y). Los
   refuerzos van entre los costados y detrás de la puerta (`espPuerta`) y de
-  la gola, con su grosor: solo se ve el canto de los traseros, que mira al
-  interior; el de los delanteros da a la puerta y no se dibuja. Sin gola,
-  arriba de cada puerta va su canto al ras de la tapa. Cada cara se dibuja plana con lo mismo que el alzado
+  la gola, con su grosor: se ve el canto que mira al interior (los traseros y
+  el delantero izquierdo donde cruza el ala derecha); el que da a la puerta
+  no se dibuja. Sin gola, arriba de cada puerta va su canto al ras de la
+  tapa. Capas, de atrás hacia adelante: todo lo de adentro (el interior un
+  grosor más abajo, la cara interior de los respaldos hasta él, los cantos
+  de los refuerzos y el canal de la gola), luego costados y frentes (que lo
+  tapan donde corresponde: así ningún canto asoma por fuera) y al final las
+  tablas de arriba, que sobresalen. La gola es un canal en L metido: la
+  puerta baja 40 mm y deja el frente abierto arriba; se ven el piso del
+  canal a esa altura, la pared del fondo y su labio arriba; los costados
+  llevan la muesca y por ella se ven las puntas del canal. Según su tipo
+  (`golaTipo`, de la gola elegida en el diseño o de la receta,
+  `golaEsquinero` en `app.js`): aluminio con el color del perfil y pared
+  delgada (4 mm), melamina con el material del mueble y el tablero de 18 mm
+  del frente de la gola. Cada cara se dibuja plana con lo mismo que el alzado
   (`hoja`, estilo de frente, veta, manija, gola) y una `matrix` SVG la
   inclina, así la veta y los marcos (Mitered, Rectangular…) salen en
   perspectiva sin dibujo aparte. Cada hoja mide su ancho menos la profundidad
-  del ala de enfrente; la manija va en la hoja del ala derecha junto a la
-  esquina y Berlín en las dos. Se usa en la tarjeta, la página del mueble,
+  del ala de enfrente; cada hoja lleva su manija junto a la esquina. Se usa en la tarjeta, la página del mueble,
   «Avanzado» y el ejemplo de «Así se verá». Probado en SketchUp con el generador del repo: un
   esquinero sale en ~2.5 s, y con diseño (Rectangular Flat Panel, Paola,
   Encino Paja: 22 mm) toma frente, manija y material en todo el mueble.

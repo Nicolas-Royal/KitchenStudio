@@ -94,7 +94,7 @@ prueba("vista: alacena sin zoclo, con su puerta o Avento y la manija abajo", () 
   assert.ok(ys.length === 1 && ys[0] > 600, "Avento D unido: una manija, abajo");
 });
 
-prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja derecha junto a ella", () => {
+prueba("vista: esquinero en isométrica desde la esquina, una manija en cada hoja junto a ella", () => {
   const v = { c25tipopuerta: "1", a0101profizq: "578", a0102profder: "578", a02zocalo: "100" };
   const lay = RKVista.desdeEsquinero(v, { ancho: 1000, alto: 770, fondo: 900 });
   assert.deepStrictEqual([lay.esquinero, lay.izq, lay.der, lay.profIzq, lay.profDer, lay.alto, lay.zoclo, lay.abierto],
@@ -102,7 +102,7 @@ prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja dere
   assert.strictEqual(RKVista.desdeEsquinero({ c25tipopuerta: "0" }, { ancho: 1000, alto: 770, fondo: 1000 }).zonas[0].tipo, "abierto");
   // Una profundidad mayor que el ala de enfrente no deja la hoja en negativo.
   assert.strictEqual(RKVista.desdeEsquinero({ a0101profizq: "950" }, { ancho: 1000, alto: 770, fondo: 900 }).profIzq, 800);
-  // Cuatro caras inclinadas (dos costados y dos frentes); el frente derecho (matriz con y creciente) es el que lleva la manija.
+  // Cuatro caras inclinadas (dos costados y dos frentes), cada frente con su manija junto a la esquina.
   // Las tablas de arriba van en el plano de la tapa (su matriz lleva -0.7071 en el tercer término).
   const TAPA = "0.7071 0.2988 -0.7071";
   const grupos = (svg) => svg.split('<g transform="matrix(').slice(1);
@@ -113,9 +113,12 @@ prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja dere
   const s = caras(RKVista.svg(lay, { frente: "1", manijaPuerta: barra }));
   assert.strictEqual(s.length, 4);
   const conManija = s.filter((c) => c.includes('fill="#123456"'));
-  assert.ok(conManija.length === 1 && conManija[0].startsWith("0.7071 0.2988"), "una manija, en el frente del ala derecha");
-  const x = parseFloat(/<rect x="([\d.-]+)"[^>]*fill="#123456"/.exec(conManija[0])[1]);
-  assert.ok(x < 60, "junto a la esquina (inicio de la cara): " + x);
+  assert.strictEqual(conManija.length, 2, "una manija en cada hoja");
+  // Junto a la esquina: en la hoja derecha (la cara empieza en la esquina) al inicio, en la izquierda al final.
+  const xDe = (c) => parseFloat(/<rect x="([\d.-]+)"[^>]*fill="#123456"/.exec(c)[1]);
+  const der = conManija.find((c) => c.startsWith("0.7071 0.2988")), izq = conManija.find((c) => c.startsWith("0.7071 -0.2988"));
+  assert.ok(xDe(der) < 60, "derecha junto a la esquina: " + xDe(der));
+  assert.ok(xDe(izq) > (1000 - 578) - 60, "izquierda junto a la esquina: " + xDe(izq));
   // Berlín va en las dos hojas.
   const perfil = { forma: "perfil", color: "#123456" };
   assert.strictEqual([...RKVista.svg(lay, { frente: "1", manijaPuerta: perfil }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 2);
@@ -123,10 +126,14 @@ prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja dere
   // Arriba va abierto: el interior con su degradado oscuro y, encima, 4 cantos y 4 refuerzos acostados en la tapa.
   const arriba = RKVista.svg(lay, { frente: "1" });
   assert.ok(/fill="url\(#rk-mat-\d+-interior\)"/.test(arriba), "interior oscuro");
-  assert.strictEqual((arriba.match(/<polygon /g) || []).length, 2, "sombra e interior");
+  assert.strictEqual((arriba.match(/<polygon /g) || []).length, 6, "sombra, interior y los dos costados (cuerpo y sombra)");
+  // El fondo es una capa de abajo: va antes que los frentes y que las tablas, y un grosor más abajo.
+  const iInt = arriba.indexOf("-interior)"), iFrente = arriba.indexOf('<g transform="matrix(0.7071 -0.2988'), iTabla = arriba.indexOf(TAPA);
+  assert.ok(iInt < iFrente && iInt < iTabla, "interior antes que frentes y tablas");
   assert.strictEqual(grupos(arriba).filter((c) => c.startsWith(TAPA)).length, 10, "4 cantos de pared, 4 refuerzos y el canto de las 2 puertas");
-  // Los refuerzos se ven como tablones; del frente no se ve su canto (da a la puerta).
-  assert.strictEqual(grupos(arriba).filter(esCanto).length, 2, "solo los cantos de los traseros, hacia el interior");
+  // Los refuerzos se ven como tablones: el canto que mira al interior (los dos traseros y el delantero
+  // izquierdo donde cruza el ala derecha); del frente no se ve (da a la puerta).
+  assert.strictEqual(grupos(arriba).filter(esCanto).length, 5, "cara interior de los 2 respaldos y 3 cantos de refuerzo hacia el interior");
   // La veta corre a lo largo de cada tabla: las largas en y llevan el patrón girado (-v), las largas en x el base.
   const conVeta = { color: "#8b5a3c", veta: true, textura: { url: "veta.png", ancho: 1800, alto: 400, luminancia: 215 } };
   const tablas = grupos(RKVista.svg(lay, { frente: "1", material: conVeta })).filter((c) => c.startsWith(TAPA)).map((c) => {
@@ -142,6 +149,20 @@ prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja dere
   const g = RKVista.desdeEsquinero(Object.assign({}, v, { b01_gola_o_tirador: "2" }), { ancho: 1000, alto: 770, fondo: 900 });
   assert.strictEqual(g.gola, true);
   assert.strictEqual([...RKVista.svg(g, { frente: "1", manijaPuerta: barra }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 0);
+  // El canal va metido, en L: arriba del frente no se pinta nada (la puerta baja 40 mm) y cada costado lleva su muesca.
+  const gsvg = RKVista.svg(g, { frente: "1" });
+  const frentes = caras(gsvg).filter((c) => /^0\.7071 (-?)0\.2988 0 0\.9063 [\d.-]+ [\d.-]+\)"><rect x="0\.0" y="40\.0"/.test(c));
+  assert.strictEqual(frentes.length, 2, "los dos frentes empiezan 40 mm abajo");
+  assert.strictEqual(caras(gsvg).filter((c) => /<polygon points="(?:[\d.-]+,[\d.-]+ ){5}[\d.-]+,[\d.-]+"/.test(c)).length, 2, "costados con muesca");
+  // Según su tipo: aluminio con el color del perfil (piso del canal y labio); melamina con el material del mueble.
+  assert.strictEqual(g.golaTipo, "1");
+  const alu = RKVista.svg(g, { frente: "1", golaColor: "#2a2c2e", material: conVeta });
+  assert.ok(/<polygon [^>]*fill="#2a2c2e"/.test(alu), "piso del canal de aluminio");
+  assert.strictEqual(grupos(alu).filter((c) => c.startsWith(TAPA) && c.includes('fill="#2a2c2e"')).length, 2, "labio del perfil en las dos alas");
+  const m = RKVista.desdeEsquinero(Object.assign({}, v, { b01_gola_o_tirador: "2", g01_perfil_tipo: "2" }), { ancho: 1000, alto: 770, fondo: 900 });
+  const mel = RKVista.svg(m, { frente: "1", golaColor: "#e2dccf", material: conVeta });
+  assert.ok(!mel.includes('fill="#e2dccf"'), "la melamina va del material del mueble");
+  assert.ok(/<polygon [^>]*fill="url\(#rk-mat-\d+\)"/.test(mel), "piso del canal de melamina");
   assert.strictEqual(RKVista.desdeEsquinero(Object.assign({}, v, { b01_gola_o_tirador: "2", c25tipopuerta: "0" }), { ancho: 1000, alto: 770, fondo: 900 }).gola, false);
 });
 

@@ -310,7 +310,7 @@
           "label": "Manija de la puerta",
           "tipo": "select",
           "default": "9",
-          "nota": "Va en la hoja del ala derecha, junto a la esquina (Berlín, en el canto de arriba de las dos hojas).",
+          "nota": "Una en cada hoja, junto a la esquina (Berlín, en el canto de arriba de las dos).",
           "opciones": [
             { "label": "Sin tirador", "valor": "1" },
             { "label": "Lateral negra", "valor": "7" },
@@ -344,7 +344,7 @@
             {
               "valor": "3",
               "si": [{ "attr": "d16_tirador_tipo", "excepto": ["1"] }],
-              "mensaje": "Arriba, del lado que abre: en la hoja del ala derecha queda junto a la esquina (el componente la refleja)."
+              "mensaje": "Arriba, del lado que abre: en las dos hojas queda junto a la esquina (el componente la refleja en la derecha)."
             }
           ],
           "opciones": [

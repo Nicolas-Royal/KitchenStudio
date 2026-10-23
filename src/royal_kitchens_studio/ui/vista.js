@@ -102,9 +102,11 @@ window.RKVista = (function () {
     const abierto = String(v.c25tipopuerta == null ? "1" : v.c25tipopuerta) === "0";
     // Gola: solo la L de arriba, a lo largo de las dos hojas.
     const gola = !abierto && String(v.b01_gola_o_tirador) === "2";
-    // Hondo de la gola (los refuerzos delanteros van detrás): aluminio 27, melamina 45.
-    const golaProf = String(v.g01_perfil_tipo) === "2" ? 45 : 27;
-    return { esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola, golaProf, esp: num(v.c01espestr, 18),
+    // Tipo de gola (1 aluminio, 2 melamina) y su hondo (los refuerzos
+    // delanteros van detrás): aluminio 27, melamina 45.
+    const golaTipo = String(v.g01_perfil_tipo) === "2" ? "2" : "1";
+    const golaProf = golaTipo === "2" ? 45 : 27;
+    return { esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola, golaTipo, golaProf, esp: num(v.c01espestr, 18),
              espPuerta: abierto ? 0 : num(v.c02esppuerta, 18),
              ancho: izq, zoclo: num(v.a02zocalo, 100), zocloVisible: true,
              zonas: [{ tipo: abierto ? "abierto" : "esquina", h: alto }],
@@ -412,76 +414,109 @@ window.RKVista = (function () {
     const top = Z + H;
     const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
     const cuerpo = d.material ? `fill="url(#${d._pat}${conVeta ? "-v" : ""})"` : 'fill="#ece8e1"';
-    const sombra = (w, h, a) => rect(0, 0, w, h, `fill="rgba(0,0,0,${a})"`);
     // Zoclo: tira bajo el cuerpo, con el material y la sombra de los frentes.
     const zoclo = (x, w) => Z > 0
       ? rect(x, H, w, Z, `fill="url(#${d._pat})"`) + rect(x, H, w, Z, `fill="url(#${d._pat}-hueco)" stroke="rgba(0,0,0,.3)" stroke-width="1"`) : "";
-    // Un frente: el canto del cuerpo, la gola arriba y la hoja (o el hueco).
-    const frente = (w, lado, conManija, luz) => {
-      let s = rect(0, 0, w, H, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, w);
-      let zy = GAP, zh = H - 2 * GAP;
-      if (d.gola) {
-        s += rect(GAP, GAP, w - 2 * GAP, GOLA - GAP, `fill="url(#${d._pat}-gola)"`) +
-          rect(GAP, GAP + GOLA - 8, w - 2 * GAP, 3, 'fill="rgba(255,255,255,.35)"');
-        zy += GOLA; zh -= GOLA;
-      }
+    // Medidas de arriba: estructura, refuerzo, hondo de la gola, espesor de
+    // puerta y cara de los refuerzos delanteros (detrás de la puerta y de la
+    // gola). Con gola la puerta baja GOLA (40 mm) y deja el canal en L.
+    const E = L.esp || 18, RF = 90, eP = L.espPuerta || 0;
+    const conGola = !!d.gola && !L.abierto, GZ = conGola ? GOLA : 0, G = conGola ? (L.golaProf || 27) : 0;
+    const fI = pI - (eP || 18) - G, fD = pD - (eP || 18) - G;
+    // Gola: aluminio con el tono del perfil; melamina, forrada con el material
+    // del mueble (el frente de la gola es un tablero de 18 mm, el aluminio un
+    // perfil delgado).
+    const melamina = conGola && L.golaTipo === "2";
+    const golaColor = d.golaColor || "#8a8e92";
+    const K = melamina ? E : 4; // grosor de la pared del fondo del canal
+    const golaFill = melamina && d.material ? `url(#${d._pat})` : golaColor;
+    const poli = (pts, attrs) => `<polygon points="${pts.map((p) => p.map((n) => n.toFixed(1)).join(",")).join(" ")}" ${attrs}/>`;
+    // Un frente: el canto del cuerpo y la hoja (o el hueco). Con gola la parte
+    // de arriba queda vacía: por ahí se ve el canal.
+    const frente = (w, lado, luz) => {
+      let s = rect(0, GZ, w, H - GZ, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, w);
+      const zy = GZ + GAP, zh = H - GZ - 2 * GAP;
       s += L.abierto
         ? rect(GAP + 18, zy, w - 2 * GAP - 36, zh, 'fill="#c9c4bb" stroke="rgba(0,0,0,.25)"') +
           rect(GAP + 18, zy + zh / 2, w - 2 * GAP - 36, 18, 'fill="#e6e1d8"')
-        : hoja(GAP, zy, w - 2 * GAP, zh, d, "puerta", lado, conManija);
-      return s + (luz ? sombra(w, top, luz) : "");
+        : hoja(GAP, zy, w - 2 * GAP, zh, d, "puerta", lado);
+      return s + (luz ? rect(0, GZ, w, top - GZ, `fill="rgba(0,0,0,${luz})"`) : "");
     };
     // Costado del extremo de cada ala, con su zoclo, en sombra para que las
-    // puertas manden.
-    const costado = (w) => rect(0, 0, w, H, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) +
-      rect(0, 0, w, H, 'fill="rgba(0,0,0,.2)"') + zoclo(0, w) + rect(0, H, w, Z, 'fill="rgba(0,0,0,.2)"');
-    // La manija va en la hoja del ala derecha, junto a la esquina; Berlín, en las dos.
-    const perfil = d.manijaPuerta && d.manijaPuerta.forma === "perfil";
+    // puertas manden; con gola, con la muesca arriba al frente (+muesca+ =
+    // [desde, hasta] a lo ancho de la cara).
+    const costado = (w, muesca) => {
+      const pts = muesca && GZ
+        ? (muesca[0] > 0 ? [[0, 0], [muesca[0], 0], [muesca[0], GZ], [w, GZ], [w, H], [0, H]]
+                         : [[0, GZ], [muesca[1], GZ], [muesca[1], 0], [w, 0], [w, H], [0, H]])
+        : [[0, 0], [w, 0], [w, H], [0, H]];
+      return poli(pts, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + poli(pts, 'fill="rgba(0,0,0,.2)"') +
+        zoclo(0, w) + rect(0, H, w, Z, 'fill="rgba(0,0,0,.2)"');
+    };
     const wIzq = LX - pD, wDer = LY - pI;
-    let out = "";
-    // Sombra en el piso: la planta en L, un poco corrida hacia el frente.
-    out += `<polygon points="${[[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]].map(([x, y]) => iso(x + 20, y + 20, 0).map((n) => n.toFixed(1)).join(",")).join(" ")}" fill="rgba(0,0,0,.12)"/>`;
-    out += cara([0, LX, top], 1, costado(pI));
-    out += cara([LY, pD, top], -1, costado(pD));
-    out += cara([pI, LX, top], -1, frente(wIzq, "izq", perfil, 0));
-    out += cara([pI, pD, top], 1, frente(wDer, "der", undefined, 0.07));
-    // Esquina interior: la arista donde se juntan los dos frentes.
-    const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top)];
-    out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
-    // Arriba va abierto (después lleva la cubierta): el interior en sombra,
-    // más oscuro hacia el fondo, y encima los cantos de respaldos y costados
-    // y los cuatro refuerzos, como los arma el componente: los de cada ala a
-    // lo largo de ella, los delanteros detrás de la gola, y los del ala
-    // derecha hasta la cara del delantero izquierdo.
-    const E = L.esp || 18, RF = 90, G = L.gola ? (L.golaProf || 27) : 0;
-    const plano = (pts, attrs) => `<polygon points="${pts.map(([x, y]) => iso(x, y, top).map((n) => n.toFixed(1)).join(",")).join(" ")}" ${attrs}/>`;
-    // Cada tabla de arriba se dibuja en el plano de la tapa (u = x, v = y) y
-    // una matriz la acuesta: la veta corre a lo largo de la pieza y sigue la
-    // perspectiva. El patrón base tiene la veta en x; el «-v», en y.
-    const [te, tf] = iso(0, 0, top);
-    const tapa = `matrix(${KX.toFixed(4)} ${KY.toFixed(4)} ${(-KX).toFixed(4)} ${KY.toFixed(4)} ${te.toFixed(1)} ${tf.toFixed(1)})`;
-    const tabla = (x0, y0, x1, y1) => {
+    const enZ = (z) => (pts, attrs) => poli(pts.map(([x, y]) => iso(x, y, z)), attrs);
+    // Tablas acostadas a la altura +z+ (la tapa, o la puerta bajada con gola):
+    // cada una en su plano (u = x, v = y) y una matriz la acuesta, así la veta
+    // corre a lo largo de la pieza y sigue la perspectiva. El patrón base
+    // tiene la veta en x; el «-v», en y.
+    const plano = (z) => { const [e, f] = iso(0, 0, z); return `matrix(${KX.toFixed(4)} ${KY.toFixed(4)} ${(-KX).toFixed(4)} ${KY.toFixed(4)} ${e.toFixed(1)} ${f.toFixed(1)})`; };
+    const tabla = (x0, y0, x1, y1, color, z) => {
       const largoEnX = x1 - x0 >= y1 - y0;
-      const fill = d.material ? `url(#${d._pat}${conVeta && !largoEnX ? "-v" : ""})` : "#ece8e1";
-      return `<g transform="${tapa}">` + rect(x0, y0, x1 - x0, y1 - y0, `fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"`) +
+      const fill = color || (d.material ? `url(#${d._pat}${conVeta && !largoEnX ? "-v" : ""})` : "#ece8e1");
+      return `<g transform="${plano(z == null ? top : z)}">` + rect(x0, y0, x1 - x0, y1 - y0, `fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"`) +
         rect(x0, y0, x1 - x0, y1 - y0, 'fill="rgba(255,255,255,.25)"') + "</g>";
     };
-    out += plano([[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]], `fill="url(#${d._pat}-interior)" stroke="rgba(0,0,0,.35)" stroke-width="1.5"`);
-    out += tabla(0, 0, E, LX) + tabla(E, 0, LY, E) + tabla(E, LX - E, pI, LX) + tabla(LY - E, E, LY, pD);
-    // Refuerzos: tablones con su grosor (la estructura, 18 mm), entre los
-    // costados y detrás de la puerta (y de la gola). Solo se ve el canto de los
-    // traseros, que mira al interior; el de los delanteros da a la puerta y
-    // queda tapado. Van de atrás hacia adelante para que se tapen bien.
-    const canto = (w, luz) => rect(0, 0, w, E, `fill="${d.material ? `url(#${d._pat})` : "#ece8e1"}" stroke="rgba(0,0,0,.4)" stroke-width="1"`) +
-      rect(0, 0, w, E, `fill="rgba(0,0,0,${luz})"`);
-    const fI = pI - (L.espPuerta || 18) - G, fD = pD - (L.espPuerta || 18) - G;
-    out += cara([E + RF, LX - E, top], -1, canto(LX - 2 * E, 0.28)) + tabla(E, E, E + RF, LX - E);
-    out += cara([fI, E + RF, top], 1, canto(LY - E - fI, 0.16)) + tabla(fI, E, LY - E, E + RF);
+    // Cara vertical de +w+ × +h+ (mm) con un material y su sombra.
+    const panel = (w, h, fill, luz) => rect(0, 0, w, h, `fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="1"`) +
+      rect(0, 0, w, h, `fill="rgba(0,0,0,${luz})"`);
+    const madera = d.material ? `url(#${d._pat})` : "#ece8e1";
+    let out = "";
+    // Sombra en el piso: la planta en L, un poco corrida hacia el frente.
+    out += enZ(0)([[20, 20], [LY + 20, 20], [LY + 20, pD + 20], [pI + 20, pD + 20], [pI + 20, LX + 20], [20, LX + 20]], 'fill="rgba(0,0,0,.12)"');
+    // --- Capa de fondo: todo lo que queda por dentro. Va antes que costados,
+    // frentes y tablas, que lo tapan donde corresponde y se ven sobresalir.
+    // El interior un grosor más abajo, más oscuro hacia atrás, con la cara de
+    // los respaldos hasta él (sin ella quedaba una raya sin pintar).
+    out += enZ(top - E)([[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]], `fill="url(#${d._pat}-interior)"`);
+    out += cara([E, LX - E, top], -1, panel(LX - 2 * E, E, madera, 0.55)) + cara([E, E, top], 1, panel(LY - 2 * E, E, madera, 0.6));
+    // Cantos de los refuerzos que miran al interior: los traseros y el
+    // delantero izquierdo donde cruza el ala derecha. El que da a la puerta
+    // queda tapado.
+    out += cara([E + RF, LX - E, top], -1, panel(LX - 2 * E, E, madera, 0.28));
+    out += cara([fI, E + RF, top], 1, panel(LY - E - fI, E, madera, 0.16));
+    if (fD - RF > E + RF) out += cara([fI, fD - RF, top], -1, panel(fD - RF - E - RF, E, madera, 0.28));
+    // Canal de la gola, en L y metido: la pared del fondo (el perfil o el
+    // frente de la gola) y el piso a la altura de la puerta bajada. Corre por
+    // fuera de los laterales, hasta el costado.
+    if (conGola) {
+      out += enZ(top - GZ)([[fI + K, fD + K], [LY, fD + K], [LY, pD - eP], [pI - eP, pD - eP], [pI - eP, LX], [fI + K, LX]], `fill="${golaFill}"`) +
+        enZ(top - GZ)([[fI + K, fD + K], [LY, fD + K], [LY, pD - eP], [pI - eP, pD - eP], [pI - eP, LX], [fI + K, LX]], `fill="rgba(0,0,0,${melamina ? 0.45 : 0.4})"`);
+      out += cara([fI + K, LX, top], -1, panel(LX - fD - K, GZ, golaFill, melamina ? 0.2 : 0.12)) +
+        cara([fI + K, fD + K, top], 1, panel(LY - fI - K, GZ, golaFill, melamina ? 0.3 : 0.22));
+      // Puntas de la pared del fondo, que se ven por la muesca de cada costado.
+      out += cara([fI, LX, top], 1, panel(K, GZ, golaFill, 0.3)) + cara([LY, fD + K, top], -1, panel(K, GZ, golaFill, 0.35));
+    }
+    // --- Cuerpo: costados (con su muesca si hay gola) y frentes.
+    out += cara([0, LX, top], 1, costado(pI, [fI, pI]));
+    out += cara([LY, pD, top], -1, costado(pD, [0, pD - fD]));
+    out += cara([pI, LX, top], -1, frente(wIzq, "izq", 0));
+    out += cara([pI, pD, top], 1, frente(wDer, "der", 0.07));
+    // Esquina interior: la arista donde se juntan los dos frentes.
+    const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top - GZ)];
+    out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
+    // Canto de arriba de las puertas, de costado a costado (la puerta tapa el
+    // canto de los laterales): al ras de la tapa o, con gola, abajo.
+    if (eP && !L.abierto) out += tabla(pI - eP, pD - eP, pI, LX, null, top - GZ) + tabla(pI, pD - eP, LY, pD, null, top - GZ);
+    // --- Arriba (va la cubierta): los cantos de respaldos y costados y los
+    // cuatro refuerzos, como los arma el componente: los de cada ala a lo
+    // largo de ella, los delanteros detrás de la puerta y de la gola, y los
+    // del ala derecha hasta la cara del delantero izquierdo.
+    out += tabla(0, 0, E, LX) + tabla(E, 0, LY, E) + tabla(E, LX - E, conGola ? fI : pI, LX) + tabla(LY - E, E, LY, conGola ? fD : pD);
+    out += tabla(E, E, E + RF, LX - E) + tabla(fI, E, LY - E, E + RF);
     out += tabla(fI - RF, E, fI, LX - E) + tabla(fI, fD - RF, LY - E, fD);
-    // Canto de arriba de las puertas, al ras de la tapa (con gola la puerta
-    // baja y ahí va el canal).
-    const eP = L.espPuerta || 0;
-    if (eP && !L.gola) out += tabla(pI - eP, pD - eP, pI, LX - E) + tabla(pI, pD - eP, LY - E, pD);
+    // Labio del canal: el canto del frente de la gola de melamina o el borde
+    // del perfil de aluminio, hasta el costado.
+    if (conGola) out += tabla(fI, fD, fI + K, LX, melamina ? null : golaColor) + tabla(fI, fD, LY, fD + K, melamina ? null : golaColor);
     // Encuadre: lo que ocupan las esquinas del mueble, con lugar para el texto.
     const ps = [[0, LX, 0], [0, LX, top], [pI, LX, 0], [LY, 0, 0], [LY, 0, top], [LY, pD, 0], [0, 0, top], [pI, pD, 0]].map((p) => iso(...p));
     const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1]);

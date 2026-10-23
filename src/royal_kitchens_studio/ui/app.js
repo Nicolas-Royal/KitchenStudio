@@ -271,9 +271,15 @@ function pintarPreviewProyecto() {
     return;
   }
   if (ejemplo === "esquinero") {
-    const lay = RKVista.desdeEsquinero({ c25tipopuerta: "1" }, { ancho: 1000, alto: 770, fondo: 1000 });
-    visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto-esquinero");
-    $("#pr-preview-note").textContent = "Ejemplo: esquinero de 1000 × 1000 mm con puerta en L, visto desde la esquina.";
+    // Con la gola del proyecto (solo L arriba, según su tipo) y, con gola, frente Lisa.
+    const fam = (S.opciones.familias || {}).esquinero || null;
+    const conGola = RKReglas.conGola(S.opciones, fam, g.gola);
+    const lay = RKVista.desdeEsquinero({ c25tipopuerta: "1", b01_gola_o_tirador: conGola ? "2" : "1" }, { ancho: 1000, alto: 770, fondo: 1000 });
+    if (conGola) Object.assign(lay, golaEsquinero(g.gola));
+    const d = conGola ? Object.assign({}, g, { frente: RKReglas.frenteGola(S.opciones) }) : g;
+    visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(d, conGola, RKReglas.colorGola(S.opciones, fam, g.gola))), "proyecto-esquinero");
+    const tipo = conGola ? (lay.golaTipo === "2" ? " y gola de melamina" : " y gola de aluminio") : "";
+    $("#pr-preview-note").textContent = `Ejemplo: esquinero de 1000 × 1000 mm con puerta en L${tipo}, visto desde la esquina.`;
     return;
   }
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
@@ -1003,7 +1009,17 @@ function svgModulo(m, avanzado, enLista) {
   // La gola elegida en el diseño cambia el dibujo aunque la receta no la traiga.
   const gola = golaDe(m, d);
   lay.gola = gola;
+  // El esquinero dibuja la gola según su tipo (aluminio o melamina).
+  if (lay.esquinero && gola) Object.assign(lay, golaEsquinero(d.gola, m.receta && m.receta.valores));
   return RKVista.svg(lay, disenoSvg(d, gola, colorGolaDe(m, d)));
+}
+
+/* Tipo de gola del esquinero para la vista: el de la gola elegida en el
+   diseño (golas[].valores) o, sin elección, el de la receta. */
+function golaEsquinero(id, valores) {
+  const o = RKReglas.golaOpcion(S.opciones, id);
+  const tipo = String((o && o.valores && o.valores.g01_perfil_tipo) || (valores && valores.g01_perfil_tipo) || "1");
+  return tipo === "2" ? { golaTipo: "2", golaProf: 45 } : { golaTipo: "1", golaProf: 27 };
 }
 
 function pintarPreviewModulo(m) {
