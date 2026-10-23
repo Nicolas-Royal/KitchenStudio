@@ -647,7 +647,8 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
 - **Manifiesto de esquinero (23/10/2026)**: `familias/esquinero.json` con las
   reglas del gabinete (`reglas_frentes`, `poda` por hoja, `nombres_piezas`:
   PUERTA IZQ/DER, LATERAL, RESPALDO IZQUIERDO/DERECHO, PISO, REFUERZO
-  DELANTERO/TRASERO y sus DERECHO, POLLO FRONTAL/DERECHO/POSTERIOR, AMARRE
+  DELANTERO/TRASERO IZQUIERDO y DERECHO (cada uno con su ala; AMARRE FRONTAL
+  igual), POLLO FRONTAL/DERECHO/POSTERIOR, AMARRE
   ZOCLO, bisagras y manijas) y `opciones.json → familias.esquinero` (frente,
   manija de puerta, espesor y material; sin gola, tarja ni cajones). «fondo»
   del diseño es el ancho derecho (`LenY`); `medidas_ui` renombra las medidas
@@ -659,8 +660,13 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   Vista previa `RKVista.desdeEsquinero` + `svgEsquinero`: el mueble en
   axonométrica visto desde la esquina (45° en planta, cámara a 25° de
   altura, más baja que una isométrica para que la tapa no pese más que las
-  puertas). Se ven los dos frentes, los costados de cada ala (en sombra), la
-  tapa en L y el zoclo. Cada cara se dibuja plana con lo mismo que el alzado
+  puertas). Se ven los dos frentes, los costados de cada ala (en sombra), el
+  zoclo y, arriba, el mueble abierto (va la cubierta): el interior oscuro con
+  degradado hacia el fondo (`<pat>-interior`), los cantos de respaldos y
+  costados y los cuatro refuerzos donde los pone el componente (traseros
+  contra cada respaldo; el delantero izquierdo cruza la esquina hasta el
+  respaldo derecho; con gola los delanteros se recorren 27 o 45 mm,
+  `golaProf`). Cada cara se dibuja plana con lo mismo que el alzado
   (`hoja`, estilo de frente, veta, manija, gola) y una `matrix` SVG la
   inclina, así la veta y los marcos (Mitered, Rectangular…) salen en
   perspectiva sin dibujo aparte. Cada hoja mide su ancho menos la profundidad
@@ -687,7 +693,10 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     (`b01tiposistema`, `i01`, `i03` alto 57/72 mm, `i11` 27 mm, `i21`, `i22`,
     `u21cantperfgol`, `gl_*`) y `u31profgola` = hondo de la gola elegida: los
     refuerzos delanteros (`AmarreSupFront`, `AmarreSupFrontR`) se recorren
-    detrás de ella, como en el gabinete.
+    detrás de ella, como en el gabinete. Los dos del ala derecha
+    (`AmarreSupFrontR`, `AmarreSupPostR`) se alargan lo mismo
+    (`+ u31profgola`) para seguir llegando al delantero izquierdo: antes
+    quedaban 27 mm (aluminio) o 45 mm (melamina) sin tocarlo.
   - Laterales con muesca: copias del lateral con gola del gabinete
     (`LateralGolaL/R`, `CEGolaLat`: cuerpo + tira al frente bajo la muesca),
     con la medida y el lugar de los del esquinero (el derecho girado −90°, la

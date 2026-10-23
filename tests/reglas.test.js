@@ -286,6 +286,9 @@ prueba('R-06e · esquinero: piso y entrepaños en L sin fusionar, una pieza para
   var nombre = function (ruta) { return man.esquinero.nombres_piezas.filter(function (r) { return JSON.stringify(r.ruta) === JSON.stringify(ruta); })[0].nombre; };
   assert.strictEqual(nombre(['Base', 'CE_Panel']), 'PISO');
   assert.strictEqual(nombre(['Repisa', 'CE_Panel']), 'ENTREPAÑO');
+  // Refuerzos de arriba: cada uno con su ala.
+  assert.deepStrictEqual(['AmarreSupFront', 'AmarreSupPost', 'AmarreSupFrontR', 'AmarreSupPostR'].map(function (n) { return nombre([n, 'Panel']); }),
+    ['REFUERZO DELANTERO IZQUIERDO', 'REFUERZO TRASERO IZQUIERDO', 'REFUERZO DELANTERO DERECHO', 'REFUERZO TRASERO DERECHO']);
 });
 
 prueba('R-07 · el esquinero no tiene separación entre puertas', function () {

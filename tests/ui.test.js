@@ -115,6 +115,12 @@ prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja dere
   const perfil = { forma: "perfil", color: "#123456" };
   assert.strictEqual([...RKVista.svg(lay, { frente: "1", manijaPuerta: perfil }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 2);
   assert.ok(RKVista.svg(lay, { frente: "1" }).includes("1000 × 900 · alto 770 mm"));
+  // Arriba va abierto: el interior con su degradado oscuro y, encima, 4 cantos y 4 refuerzos (dos polígonos cada uno).
+  const arriba = RKVista.svg(lay, { frente: "1" });
+  assert.ok(/fill="url\(#rk-mat-\d+-interior\)"/.test(arriba), "interior oscuro");
+  assert.strictEqual((arriba.match(/<polygon /g) || []).length, 1 + 1 + 8 * 2, "sombra, interior y 8 tablas");
+  // Con gola, los delanteros se recorren lo que mide la gola (27 aluminio, 45 melamina).
+  assert.strictEqual(RKVista.desdeEsquinero({ b01_gola_o_tirador: "2", g01_perfil_tipo: "2" }, { ancho: 1000, alto: 770, fondo: 900 }).golaProf, 45);
   // El estilo de frente (Mitered: ingletes) se dibuja en las dos hojas.
   assert.strictEqual(caras(RKVista.svg(lay, { frente: "3" })).filter((c) => /<path d="M[\d.]+ [\d.]+L/.test(c)).length, 2);
   // Con gola: el canal arriba de las dos hojas y sin manija.

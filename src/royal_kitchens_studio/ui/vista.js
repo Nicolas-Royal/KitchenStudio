@@ -102,7 +102,9 @@ window.RKVista = (function () {
     const abierto = String(v.c25tipopuerta == null ? "1" : v.c25tipopuerta) === "0";
     // Gola: solo la L de arriba, a lo largo de las dos hojas.
     const gola = !abierto && String(v.b01_gola_o_tirador) === "2";
-    return { esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola,
+    // Hondo de la gola (los refuerzos delanteros van detrás): aluminio 27, melamina 45.
+    const golaProf = String(v.g01_perfil_tipo) === "2" ? 45 : 27;
+    return { esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola, golaProf, esp: num(v.c01espestr, 18),
              ancho: izq, zoclo: num(v.a02zocalo, 100), zocloVisible: true,
              zonas: [{ tipo: abierto ? "abierto" : "esquina", h: alto }],
              etiqueta: `${Math.round(izq)} × ${Math.round(der)} · alto ${Math.round(alto)} mm` };
@@ -380,7 +382,9 @@ window.RKVista = (function () {
     return `<defs>${patronMaterial(d._pat, d.material)}${gradienteGola(d._pat + "-gola", d.golaColor)}` +
       `<linearGradient id="${d._pat}-hueco" x1="0" y1="0" x2="0" y2="1">` +
       `<stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity=".3"/>` +
-      `<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>`;
+      `<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>` +
+      `<linearGradient id="${d._pat}-interior" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="#1f1c19"/><stop offset=".6" stop-color="#3a352f"/><stop offset="1" stop-color="#5e5850"/></linearGradient></defs>`;
   }
 
   // ---- Esquinero en axonométrica ---------------------------------------------
@@ -443,9 +447,20 @@ window.RKVista = (function () {
     // Esquina interior: la arista donde se juntan los dos frentes.
     const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top)];
     out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
-    // Tapa: la L de arriba (va la cubierta), un poco más clara.
-    const tapa = [[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]].map(([x, y]) => iso(x, y, top).map((n) => n.toFixed(1)).join(",")).join(" ");
-    out += `<polygon points="${tapa}" ${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"/><polygon points="${tapa}" fill="rgba(255,255,255,.45)"/>`;
+    // Arriba va abierto (después lleva la cubierta): el interior en sombra,
+    // más oscuro hacia el fondo, y encima los cantos de respaldos y costados
+    // y los cuatro refuerzos, como los arma el componente: los de cada ala a
+    // lo largo de ella, los delanteros detrás de la gola, y los del ala
+    // derecha hasta la cara del delantero izquierdo.
+    const E = L.esp || 18, RF = 90, G = L.gola ? (L.golaProf || 27) : 0;
+    const plano = (pts, attrs) => `<polygon points="${pts.map(([x, y]) => iso(x, y, top).map((n) => n.toFixed(1)).join(",")).join(" ")}" ${attrs}/>`;
+    const tabla = (x0, y0, x1, y1) => plano([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], `${cuerpo} stroke="rgba(0,0,0,.4)" stroke-width="1"`) +
+      plano([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], 'fill="rgba(255,255,255,.3)"');
+    out += plano([[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]], `fill="url(#${d._pat}-interior)" stroke="rgba(0,0,0,.35)" stroke-width="1.5"`);
+    out += tabla(0, 0, E, LX) + tabla(E, 0, LY, E) + tabla(E, LX - E, pI, LX) + tabla(LY - E, E, LY, pD);
+    const fI = pI - G, fD = pD - G;
+    out += tabla(E, E, E + RF, LX - E) + tabla(fI - RF, E, fI, LX - E) +
+      tabla(fI, E, LY - E, E + RF) + tabla(fI, fD - RF, LY - E, fD);
     // Encuadre: lo que ocupan las esquinas del mueble, con lugar para el texto.
     const ps = [[0, LX, 0], [0, LX, top], [pI, LX, 0], [LY, 0, 0], [LY, 0, top], [LY, pD, 0], [0, 0, top], [pI, pD, 0]].map((p) => iso(...p));
     const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1]);
