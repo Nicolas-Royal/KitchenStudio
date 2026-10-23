@@ -25,6 +25,15 @@ window.RKReglas = (function () {
     return "";
   }
 
+  /* ¿La familia +fam+ (opciones.familias.<f>) deja fuera la opción +id+ de
+     +clave+ (p. ej. el esquinero no lleva Lateral negra: va en el canto de la
+     esquina y las de las dos hojas chocan)? Ni se elige ni la pone el diseño
+     del proyecto; el mueble conserva la suya. Igual a Catalogo.excluida?. */
+  function excluida(fam, clave, id) {
+    const h = fam && fam[clave];
+    return !!h && id != null && (h.excluir || []).map(String).includes(String(id));
+  }
+
   function material(op, mat, frente) {
     const m = buscar(op.materiales, mat), f = buscar(op.frentes, frente);
     return m && f && m.familia === "MDF" && f.solo_madera ? `${m.nombre} es MDF: solo se fabrica en puerta Lisa` : "";
@@ -132,5 +141,5 @@ window.RKReglas = (function () {
     return out.filter((e, i) => out.findIndex((x) => x.msg === e.msg) === i);
   }
 
-  return { USOS, manija, material, espesorPuerta, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
+  return { USOS, manija, excluida, material, espesorPuerta, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
 })();

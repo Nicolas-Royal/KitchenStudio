@@ -226,7 +226,8 @@ prueba('R-06b · esquinero: puerta en L con la manija que decide el manifiesto',
   var p = esq({ d17_tirador_posicion: '9', d18_tirador_orientacion: '1' });
   assert.ok(p.c25tipopuerta === '1' && p.l01_linea_frente === '1' && p.d16_tirador_tipo === '9', 'puerta en L, Lisa, Andrea');
   assert.ok(p.d17_tirador_posicion === '3' && p.d18_tirador_orientacion === '2', 'arriba, vertical');
-  assert.strictEqual(esq({ d16_tirador_tipo: '7' }).d17_tirador_posicion, '5', 'Lateral negra: centro-centro');
+  assert.ok(!campo('esquinero', 'd16_tirador_tipo').opciones.some(function (o) { return o.valor === '7'; }),
+    'sin Lateral negra: va en el canto de la esquina y las de las dos hojas chocan');
   var ber = esq({ d16_tirador_tipo: '21' });
   assert.ok(ber.d17_tirador_posicion === '2' && ber.d18_tirador_orientacion === '1', 'Berlín: canto de arriba, horizontal');
   // Sin puerta no hay frente, manija, bisagras ni márgenes; la profundidad no suma la puerta.

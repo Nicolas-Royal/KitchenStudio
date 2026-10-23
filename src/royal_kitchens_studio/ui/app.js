@@ -396,12 +396,14 @@ function disenoSvg(d, gola, golaColor) {
   };
 }
 
-/* Por qué la opción +o+ no se puede elegir con el resto del diseño +d+, o "".
+/* Por qué la opción +o+ no se puede elegir con el resto del diseño +d+ (en un
+   mueble, +fc+ = su mapeo de opciones.json), o "".
    Cada lado de una regla se bloquea: elegir Berlín con frente Mitered no se
    puede, y con Berlín elegido tampoco se puede pasar a Mitered. */
-function bloqueo(key, o, d) {
+function bloqueo(key, o, d, fc) {
   const op = S.opciones;
   const p = PICKERS.find((x) => x.key === key);
+  if (p.uso && RKReglas.excluida(fc, key, o.id)) return `${o.nombre} no va en este mueble`;
   if (p.uso) return RKReglas.manija(op, p.uso, o.id, d.frente);
   if (key === "material") return RKReglas.material(op, o.id, d.frente);
   if (key === "frente") {
@@ -441,7 +443,7 @@ function pintarPickers(box, d, editable, onCambio, extra) {
       `<strong>${esc(nombre)}</strong><span class="pick-sub">${esc(o && o.grupo ? o.grupo : notaManija(p, o))}</span>` +
       (editable && !fijo ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
     if (sinManija) setImg($("img", t), placeholder("Gola")); else fotoEn($("img", t), p.key, o);
-    if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio);
+    if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio, extra.fc);
     // Con una gola elegida, en la misma tarjeta: L-C o L-L (si la familia la
     // combina: el esquinero lleva solo la L de arriba).
     const famGola = extra.fc || golaFam();
@@ -473,8 +475,8 @@ function pintarTile(box, p, d, onCambio) {
 }
 
 let pk = null;
-function abrirPicker(p, d, onCambio) {
-  pk = { p, d, onCambio };
+function abrirPicker(p, d, onCambio, fc) {
+  pk = { p, d, onCambio, fc };
   $("#pk-title").textContent = p.titulo;
   $("#pk-search-wrap").hidden = !p.buscar;
   $("#pk-q").value = "";
@@ -505,7 +507,7 @@ function pintarPicker() {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "pk-item" + (String(d[p.key] || "") === id ? " active" : "");
-      const motivo = o ? bloqueo(p.key, o, d) : "";
+      const motivo = o ? bloqueo(p.key, o, d, pk.fc) : "";
       b.disabled = !!motivo;
       b.title = motivo || (o && o.color && !o.foto_abs && !(p.key === "material" && o.veta && texturaVeta()) ? "Tono aproximado: falta la foto" : "");
       b.innerHTML = `<div class="pk-photo"><img alt="" loading="lazy"></div><span class="pk-name">${esc(o ? o.nombre : "Como el módulo")}</span>` +
@@ -755,7 +757,7 @@ function disenoDe(m, enLista) {
   const d = modo === "original"
     ? Object.assign({ modo }, medidasBase(m), M.disenoOriginal(cfgFamilia(m), m.receta && m.receta.valores))
     : Object.assign({ modo: "personal" }, medidasBase(m), o, o.medidas || {});
-  return frenteConGola(m, d);
+  return frenteConGola(m, sinExcluidas(m, d));
 }
 
 /* El diseño del proyecto sobre +m+, tenga o no elección propia (es el que
@@ -766,7 +768,15 @@ function disenoGlobal(m) {
   const d = Object.assign({ modo: "global" }, medidasBase(m), { frente: g.frente, manija_puerta: g.manija_puerta, manija_cajon: g.manija_cajon, material: g.material, tarja,
     gola: g.gola || "", gola_combinacion: g.gola_combinacion || "1" });
   if (g.medidas.igualar && tieneReceta(m) && familiaDe(m) === "gabinete") { d.alto = g.medidas.alto; d.fondo = g.medidas.fondo; }
-  return frenteConGola(m, d);
+  return frenteConGola(m, sinExcluidas(m, d));
+}
+
+/* La manija que la familia deja fuera (el esquinero no lleva Lateral negra)
+   no la pone el proyecto: el mueble conserva la de su receta. */
+function sinExcluidas(m, d) {
+  const fc = cfgFamilia(m), orig = M.disenoOriginal(fc, m.receta && m.receta.valores);
+  Object.values(RKReglas.USOS).forEach((k) => { if (RKReglas.excluida(fc, k, d[k])) d[k] = orig[k]; });
+  return d;
 }
 
 function medidasBase(m) {

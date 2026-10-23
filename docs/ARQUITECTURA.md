@@ -240,6 +240,9 @@ Reglas de manija (`opciones.json` → `tiradores[]`, aplicadas en `Catalogo` y
 - `posicion.<uso>`: posición forzada. Lateral negra en puertas = 5
   (Centro-Centro: en los cantos del medio, escalonadas para no chocar;
   otras posiciones la mandan al canto de arriba).
+- `familias.<f>.manija_puerta.excluir` (o `manija_cajon`): ids que esa familia
+  no lleva (el esquinero, Lateral negra). Ni se eligen en el mueble ni los
+  pone el diseño del proyecto: el mueble conserva la suya.
 
 Posición, orientación y largo de la manija no se eligen (10/2026): los campos
 `d17/d18/d19` (zona 1), `d37/d38/d39` (zona 2) y `e02/e03/e04` (cajones) son
@@ -616,8 +619,20 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     siempre visibles (`e07cantpuerta` = 3 fijo).
   - Manija: una en cada hoja, junto a la esquina (las dos con
     `f21tipotirador = parent!f21tipotirador`; antes la izquierda solo llevaba
-    Berlín, como el esquinero viejo). Posición 3 (arriba del lado que abre, el componente la refleja), Lateral
-    negra 5, Berlín 2 horizontal: lo fija el manifiesto (`forzar`, oculto).
+    Berlín, como el esquinero viejo). Posición 3 (arriba del lado que abre, el
+    componente la refleja), Berlín 2 horizontal: lo fija el manifiesto
+    (`forzar`, oculto). **Sin Lateral negra**: va en el canto de la esquina y
+    las de las dos hojas chocan (−42/−24 mm). No está en `d16` del manifiesto
+    y `familias.esquinero.manija_puerta.excluir: ["7"]` hace que el diseño del
+    proyecto no la ponga (`Catalogo.excluida?` / `RKReglas.excluida`): el
+    selector del mueble la muestra bloqueada y el esquinero conserva la
+    manija de su receta (`sinExcluidas` en `app.js`, `cambios_receta` la
+    salta).
+    El eje de cada manija va a **70 mm** del canto de la esquina
+    (`f12_tirador_margen_izq_der` en la raíz de `ESQUINERO.skp`; el gabinete
+    usa 25): a 25 las dos manijas se cruzaban. Probado con Andrea, Barra
+    negra y Swarovski grande: no se tocan. La vista usa la misma distancia
+    (`MANIJA_ESQUINA`).
   - Opciones en la raíz con los nombres de la alacena: `c25tipopuerta`
     (0 sin puerta, 1 puerta en L), `l01–l12`, `d16–d19`,
     `f11/f12_tirador_margen_*`, `c21_material_tirador`, `f07/f08/f09/f13`

@@ -310,10 +310,9 @@
           "label": "Manija de la puerta",
           "tipo": "select",
           "default": "9",
-          "nota": "Una en cada hoja, junto a la esquina (Berlín, en el canto de arriba de las dos).",
+          "nota": "Una en cada hoja, a 70 mm del canto de la esquina para que no choquen (Berlín, en el canto de arriba de las dos). Sin Lateral negra: va en el canto de la esquina y las dos chocan.",
           "opciones": [
             { "label": "Sin tirador", "valor": "1" },
-            { "label": "Lateral negra", "valor": "7" },
             { "label": "New Chica", "valor": "8" },
             { "label": "Andrea", "valor": "9" },
             { "label": "Escolano", "valor": "10" },
@@ -339,7 +338,6 @@
           "default": "3",
           "habilitado_si": { "attr": "d16_tirador_tipo", "excepto": ["1"], "mensaje": "Sin tirador no hay pieza que posicionar." },
           "forzar": [
-            { "valor": "5", "si": [{ "attr": "d16_tirador_tipo", "valor": "7" }], "mensaje": "Lateral negra: va en el canto, a media altura." },
             { "valor": "2", "si": [{ "attr": "d16_tirador_tipo", "valor": "21" }], "mensaje": "Berlín va en el canto de arriba, a todo el ancho." },
             {
               "valor": "3",

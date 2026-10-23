@@ -947,7 +947,11 @@
         "requiere": {
           "attr": "b01_gola_o_tirador",
           "valor": "1"
-        }
+        },
+        "_doc_excluir": "Lateral negra (7) va en el canto de la esquina: las de las dos hojas chocan. Ni se elige ni la pone el diseño del proyecto; el esquinero conserva la suya.",
+        "excluir": [
+          "7"
+        ]
       },
       "espesor_puerta": {
         "attr": "c02esppuerta"

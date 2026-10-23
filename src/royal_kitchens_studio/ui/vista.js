@@ -219,8 +219,10 @@ window.RKVista = (function () {
   }
 
   /* Manija según su forma (opciones.json tiradores[].vista). +abajo+: la de la
-     alacena (va colgada, se abre desde abajo). */
-  function manija(v, x, y, w, h, tipo, lado, abajo) {
+     alacena (va colgada, se abre desde abajo). +canto+: distancia del eje al
+     canto que abre (25 mm; el esquinero, 70 para que las dos de la esquina
+     no choquen). */
+  function manija(v, x, y, w, h, tipo, lado, abajo, canto) {
     if (!v) return "";
     const c = v.color || "#aaa";
     const borde = `stroke="${shade(c, -0.35)}" stroke-width="1"`;
@@ -233,7 +235,7 @@ window.RKVista = (function () {
     //           en la alacena, abajo del lado que abre;
     //   cajón:  al centro del frente, horizontal;
     //   Avento: abajo al centro, horizontal.
-    const TOPE = 30, CANTO = 25;
+    const TOPE = 30, CANTO = canto || 25;
     const cx = cajon || avento ? x + w / 2 : (lado === "izq" ? x + w - CANTO : x + CANTO);
     // Altura de la pieza (+alto+) en la puerta o el Avento: a TOPE del canto de arriba o del de abajo.
     const yPieza = (alto) => (abajo || avento ? y + h - TOPE - alto : y + TOPE);
@@ -291,7 +293,7 @@ window.RKVista = (function () {
     return rect(x, y, w, h, `fill="${fill}" stroke="rgba(0,0,0,.35)" stroke-width="1.2"`) +
       rect(x + 1.5, y + 1.5, w - 3, h - 3, 'fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"') +
       estiloFrente(d.frente, x, y, w, h) +
-      (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado, d.abajo));
+      (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado, d.abajo, d.cantoManija));
   }
 
   /* "#rrggbb" mezclado con negro: f = 0 igual, 1 negro. */
@@ -399,6 +401,7 @@ window.RKVista = (function () {
      que el alzado (hoja, estilo de frente, veta, manija, gola, zoclo) y una
      matriz la inclina: la veta y los marcos se ven en perspectiva sin
      dibujarlos aparte. */
+  const MANIJA_ESQUINA = 70; // mm del eje de la manija al canto de la esquina
   const KX = Math.SQRT1_2, KY = Math.SQRT1_2 * Math.sin(25 * Math.PI / 180), KZ = Math.cos(25 * Math.PI / 180);
   const iso = (x, y, z) => [(x - y) * KX, (x + y) * KY - z * KZ];
 
@@ -412,6 +415,9 @@ window.RKVista = (function () {
   function svgEsquinero(L, d) {
     const { izq: LX, der: LY, profIzq: pI, profDer: pD, alto: H, zoclo: Z } = L;
     const top = Z + H;
+    // Las manijas van a 70 mm del canto de la esquina, como en ESQUINERO.skp
+    // (f12_tirador_margen_izq_der): a 25 chocaban las de las dos hojas.
+    d = Object.assign({}, d, { cantoManija: MANIJA_ESQUINA });
     const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
     const cuerpo = d.material ? `fill="url(#${d._pat}${conVeta ? "-v" : ""})"` : 'fill="#ece8e1"';
     // Zoclo: tira bajo el cuerpo, con el material y la sombra de los frentes.

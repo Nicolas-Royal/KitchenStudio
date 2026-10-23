@@ -60,6 +60,14 @@ module RoyalKitchens
         nil
       end
 
+      # ¿La familia (+cfg+ = opciones.familias.<f>) deja fuera la opción +id+
+      # de +clave+? (el esquinero no lleva Lateral negra: va en el canto de la
+      # esquina y las de las dos hojas chocan). Igual a RKReglas.excluida.
+      def excluida?(cfg, clave, id)
+        h = cfg && cfg[clave]
+        !!h && Array(h["excluir"]).map(&:to_s).include?(id.to_s)
+      end
+
       # Regla de la guía RK: MDF laminado solo existe en puerta Lisa.
       def error_material(opciones, material, frente)
         mat = buscar(opciones, "materiales", material)
@@ -152,7 +160,7 @@ module RoyalKitchens
         USOS.each do |uso, clave|
           h = cfg[clave]
           id = eleccion[clave].to_s
-          next if h.nil? || id.empty?
+          next if h.nil? || id.empty? || excluida?(cfg, clave, id)
           req = h["requiere"]
           actual = req && cambios.fetch(req["attr"], valores[req["attr"]])
           next if req && !actual.nil? && actual.to_s != req["valor"].to_s

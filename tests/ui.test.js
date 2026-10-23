@@ -117,8 +117,9 @@ prueba("vista: esquinero en isométrica desde la esquina, una manija en cada hoj
   // Junto a la esquina: en la hoja derecha (la cara empieza en la esquina) al inicio, en la izquierda al final.
   const xDe = (c) => parseFloat(/<rect x="([\d.-]+)"[^>]*fill="#123456"/.exec(c)[1]);
   const der = conManija.find((c) => c.startsWith("0.7071 0.2988")), izq = conManija.find((c) => c.startsWith("0.7071 -0.2988"));
-  assert.ok(xDe(der) < 60, "derecha junto a la esquina: " + xDe(der));
-  assert.ok(xDe(izq) > (1000 - 578) - 60, "izquierda junto a la esquina: " + xDe(izq));
+  // Eje a 70 mm del canto de la esquina (barra de 10 mm de ancho; la hoja empieza 3 mm adentro), como en ESQUINERO.skp.
+  assert.strictEqual(xDe(der), 3 + 70 - 5, "derecha a 70 mm de la esquina");
+  assert.strictEqual(xDe(izq), (1000 - 578) - 3 - 70 - 5, "izquierda a 70 mm de la esquina");
   // Berlín va en las dos hojas.
   const perfil = { forma: "perfil", color: "#123456" };
   assert.strictEqual([...RKVista.svg(lay, { frente: "1", manijaPuerta: perfil }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 2);
@@ -204,6 +205,16 @@ prueba("reglas: concha solo en cajones, Berlín solo con Lisa, Lateral negra al 
   assert.strictEqual(R.diseno(op, { frente: "1", manija_puerta: "15" }, true), "", "con gola no hay manija");
   const mdf = op.materiales.find((m) => m.familia === "MDF");
   assert.ok(/MDF/.test(R.diseno(op, { frente: "3", material: mdf.id }, false)));
+});
+
+prueba("esquinero sin Lateral negra: ni se elige ni la pone el proyecto", () => {
+  const f = op.familias;
+  assert.strictEqual(R.excluida(f.esquinero, "manija_puerta", "7"), true);
+  assert.strictEqual(R.excluida(f.esquinero, "manija_puerta", 7), true, "el id como número también");
+  assert.strictEqual(R.excluida(f.esquinero, "manija_puerta", "9"), false);
+  assert.strictEqual(R.excluida(f.gabinete, "manija_puerta", "7"), false, "el gabinete sí la lleva");
+  assert.strictEqual(R.excluida(f.esquinero, "manija_cajon", "7"), false, "sin mapeo de cajón no excluye");
+  assert.strictEqual(R.excluida(null, "manija_puerta", "7"), false);
 });
 
 prueba("espesor de puertas según el material: madera 22, MDF 18, sin material sin regla", () => {

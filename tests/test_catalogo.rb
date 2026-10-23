@@ -90,3 +90,12 @@ assert C.marcar_tablero(t, OP) && t.attrs["std_thicknesses"] == "18mm;22mm" && t
 t = MatFalso.new(mad["id"], "type" => 1)
 assert !C.marcar_tablero(t, OP) && t.attrs["type"] == 1, "un tipo puesto a mano no se toca"
 assert !C.marcar_tablero(MatFalso.new("CANTO EXTERIOR"), OP), "lo que no es del catálogo no se toca"
+
+# El esquinero no lleva Lateral negra (va en el canto de la esquina y las de
+# las dos hojas chocan): el proyecto no la pone y el mueble conserva la suya.
+ESQ = OP["familias"]["esquinero"]
+c = C.cambios_receta(ESQ, { "manija_puerta" => "7" }, OP, { "b01_gola_o_tirador" => "1", "d16_tirador_tipo" => "9" })
+assert !c.key?("d16_tirador_tipo"), "esquinero: Lateral negra del proyecto no se aplica"
+c = C.cambios_receta(ESQ, { "manija_puerta" => "21" }, OP, { "b01_gola_o_tirador" => "1" })
+assert c["d16_tirador_tipo"] == "21", "esquinero: otra manija sí"
+assert C.excluida?(ESQ, "manija_puerta", 7) && !C.excluida?(CFG, "manija_puerta", "7"), "solo el esquinero la excluye"
