@@ -666,7 +666,13 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   costados y los cuatro refuerzos donde los pone el componente (traseros
   contra cada respaldo; el delantero izquierdo cruza la esquina hasta el
   respaldo derecho; con gola los delanteros se recorren 27 o 45 mm,
-  `golaProf`). Cada cara se dibuja plana con lo mismo que el alzado
+  `golaProf`). Cada tabla de arriba se dibuja en el plano de la tapa y una
+  `matrix` la acuesta, así la veta corre a lo largo de la pieza y sigue la
+  perspectiva (patrón base si es larga en x, `-v` si es larga en y). Los
+  refuerzos van entre los costados y detrás de la puerta (`espPuerta`) y de
+  la gola, con su grosor: solo se ve el canto de los traseros, que mira al
+  interior; el de los delanteros da a la puerta y no se dibuja. Sin gola,
+  arriba de cada puerta va su canto al ras de la tapa. Cada cara se dibuja plana con lo mismo que el alzado
   (`hoja`, estilo de frente, veta, manija, gola) y una `matrix` SVG la
   inclina, así la veta y los marcos (Mitered, Rectangular…) salen en
   perspectiva sin dibujo aparte. Cada hoja mide su ancho menos la profundidad

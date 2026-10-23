@@ -105,6 +105,7 @@ window.RKVista = (function () {
     // Hondo de la gola (los refuerzos delanteros van detrás): aluminio 27, melamina 45.
     const golaProf = String(v.g01_perfil_tipo) === "2" ? 45 : 27;
     return { esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola, golaProf, esp: num(v.c01espestr, 18),
+             espPuerta: abierto ? 0 : num(v.c02esppuerta, 18),
              ancho: izq, zoclo: num(v.a02zocalo, 100), zocloVisible: true,
              zonas: [{ tipo: abierto ? "abierto" : "esquina", h: alto }],
              etiqueta: `${Math.round(izq)} × ${Math.round(der)} · alto ${Math.round(alto)} mm` };
@@ -454,13 +455,33 @@ window.RKVista = (function () {
     // derecha hasta la cara del delantero izquierdo.
     const E = L.esp || 18, RF = 90, G = L.gola ? (L.golaProf || 27) : 0;
     const plano = (pts, attrs) => `<polygon points="${pts.map(([x, y]) => iso(x, y, top).map((n) => n.toFixed(1)).join(",")).join(" ")}" ${attrs}/>`;
-    const tabla = (x0, y0, x1, y1) => plano([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], `${cuerpo} stroke="rgba(0,0,0,.4)" stroke-width="1"`) +
-      plano([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], 'fill="rgba(255,255,255,.3)"');
+    // Cada tabla de arriba se dibuja en el plano de la tapa (u = x, v = y) y
+    // una matriz la acuesta: la veta corre a lo largo de la pieza y sigue la
+    // perspectiva. El patrón base tiene la veta en x; el «-v», en y.
+    const [te, tf] = iso(0, 0, top);
+    const tapa = `matrix(${KX.toFixed(4)} ${KY.toFixed(4)} ${(-KX).toFixed(4)} ${KY.toFixed(4)} ${te.toFixed(1)} ${tf.toFixed(1)})`;
+    const tabla = (x0, y0, x1, y1) => {
+      const largoEnX = x1 - x0 >= y1 - y0;
+      const fill = d.material ? `url(#${d._pat}${conVeta && !largoEnX ? "-v" : ""})` : "#ece8e1";
+      return `<g transform="${tapa}">` + rect(x0, y0, x1 - x0, y1 - y0, `fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"`) +
+        rect(x0, y0, x1 - x0, y1 - y0, 'fill="rgba(255,255,255,.25)"') + "</g>";
+    };
     out += plano([[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]], `fill="url(#${d._pat}-interior)" stroke="rgba(0,0,0,.35)" stroke-width="1.5"`);
     out += tabla(0, 0, E, LX) + tabla(E, 0, LY, E) + tabla(E, LX - E, pI, LX) + tabla(LY - E, E, LY, pD);
-    const fI = pI - G, fD = pD - G;
-    out += tabla(E, E, E + RF, LX - E) + tabla(fI - RF, E, fI, LX - E) +
-      tabla(fI, E, LY - E, E + RF) + tabla(fI, fD - RF, LY - E, fD);
+    // Refuerzos: tablones con su grosor (la estructura, 18 mm), entre los
+    // costados y detrás de la puerta (y de la gola). Solo se ve el canto de los
+    // traseros, que mira al interior; el de los delanteros da a la puerta y
+    // queda tapado. Van de atrás hacia adelante para que se tapen bien.
+    const canto = (w, luz) => rect(0, 0, w, E, `fill="${d.material ? `url(#${d._pat})` : "#ece8e1"}" stroke="rgba(0,0,0,.4)" stroke-width="1"`) +
+      rect(0, 0, w, E, `fill="rgba(0,0,0,${luz})"`);
+    const fI = pI - (L.espPuerta || 18) - G, fD = pD - (L.espPuerta || 18) - G;
+    out += cara([E + RF, LX - E, top], -1, canto(LX - 2 * E, 0.28)) + tabla(E, E, E + RF, LX - E);
+    out += cara([fI, E + RF, top], 1, canto(LY - E - fI, 0.16)) + tabla(fI, E, LY - E, E + RF);
+    out += tabla(fI - RF, E, fI, LX - E) + tabla(fI, fD - RF, LY - E, fD);
+    // Canto de arriba de las puertas, al ras de la tapa (con gola la puerta
+    // baja y ahí va el canal).
+    const eP = L.espPuerta || 0;
+    if (eP && !L.gola) out += tabla(pI - eP, pD - eP, pI, LX - E) + tabla(pI, pD - eP, LY - E, pD);
     // Encuadre: lo que ocupan las esquinas del mueble, con lugar para el texto.
     const ps = [[0, LX, 0], [0, LX, top], [pI, LX, 0], [LY, 0, 0], [LY, 0, top], [LY, pD, 0], [0, 0, top], [pI, pD, 0]].map((p) => iso(...p));
     const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1]);
