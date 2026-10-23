@@ -94,6 +94,36 @@ prueba("vista: alacena sin zoclo, con su puerta o Avento y la manija abajo", () 
   assert.ok(ys.length === 1 && ys[0] > 600, "Avento D unido: una manija, abajo");
 });
 
+prueba("vista: esquinero en isométrica desde la esquina, manija en la hoja derecha junto a ella", () => {
+  const v = { c25tipopuerta: "1", a0101profizq: "578", a0102profder: "578", a02zocalo: "100" };
+  const lay = RKVista.desdeEsquinero(v, { ancho: 1000, alto: 770, fondo: 900 });
+  assert.deepStrictEqual([lay.esquinero, lay.izq, lay.der, lay.profIzq, lay.profDer, lay.alto, lay.zoclo, lay.abierto],
+    [true, 1000, 900, 578, 578, 770, 100, false]);
+  assert.strictEqual(RKVista.desdeEsquinero({ c25tipopuerta: "0" }, { ancho: 1000, alto: 770, fondo: 1000 }).zonas[0].tipo, "abierto");
+  // Una profundidad mayor que el ala de enfrente no deja la hoja en negativo.
+  assert.strictEqual(RKVista.desdeEsquinero({ a0101profizq: "950" }, { ancho: 1000, alto: 770, fondo: 900 }).profIzq, 800);
+  // Cuatro caras inclinadas (dos costados y dos frentes); el frente derecho (matriz con y creciente) es el que lleva la manija.
+  const caras = (svg) => svg.split('<g transform="matrix(').slice(1);
+  const barra = { forma: "barra", color: "#123456" };
+  const s = caras(RKVista.svg(lay, { frente: "1", manijaPuerta: barra }));
+  assert.strictEqual(s.length, 4);
+  const conManija = s.filter((c) => c.includes('fill="#123456"'));
+  assert.ok(conManija.length === 1 && conManija[0].startsWith("0.7071 0.2988"), "una manija, en el frente del ala derecha");
+  const x = parseFloat(/<rect x="([\d.-]+)"[^>]*fill="#123456"/.exec(conManija[0])[1]);
+  assert.ok(x < 60, "junto a la esquina (inicio de la cara): " + x);
+  // Berlín va en las dos hojas.
+  const perfil = { forma: "perfil", color: "#123456" };
+  assert.strictEqual([...RKVista.svg(lay, { frente: "1", manijaPuerta: perfil }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 2);
+  assert.ok(RKVista.svg(lay, { frente: "1" }).includes("1000 × 900 · alto 770 mm"));
+  // El estilo de frente (Mitered: ingletes) se dibuja en las dos hojas.
+  assert.strictEqual(caras(RKVista.svg(lay, { frente: "3" })).filter((c) => /<path d="M[\d.]+ [\d.]+L/.test(c)).length, 2);
+  // Con gola: el canal arriba de las dos hojas y sin manija.
+  const g = RKVista.desdeEsquinero(Object.assign({}, v, { b01_gola_o_tirador: "2" }), { ancho: 1000, alto: 770, fondo: 900 });
+  assert.strictEqual(g.gola, true);
+  assert.strictEqual([...RKVista.svg(g, { frente: "1", manijaPuerta: barra }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 0);
+  assert.strictEqual(RKVista.desdeEsquinero(Object.assign({}, v, { b01_gola_o_tirador: "2", c25tipopuerta: "0" }), { ancho: 1000, alto: 770, fondo: 900 }).gola, false);
+});
+
 const CAT = path.join(__dirname, "..", "src", "royal_kitchens_studio", "catalogo");
 const op = JSON.parse(fs.readFileSync(path.join(CAT, "opciones.json"), "utf8"));
 prueba("opciones.json: cada material tiene tono y cada manija (salvo «sin») su forma", () => {
@@ -401,6 +431,10 @@ prueba("muebles: frentes de la alacena y su nombre nuevo", () => {
   assert.deepStrictEqual(RKVista.desdeAlacena({ d01_cantidad_zonas: "2" }, { ancho: 800, alto: 900 }).zonas.map((x) => x.h), [450, 450], "0 = la mitad");
   // Un Avento también cuenta para el consecutivo.
   assert.strictEqual(MU.nombreNuevo("ALA", 800, "1AS", ["ALA-800-2AS-004"]), "ALA-800-1AS-005");
+  // Esquinero: puerta en L (PL) o abierto; el código sin número también cuenta.
+  assert.deepStrictEqual(MU.frentesEsquinero({ c25tipopuerta: "1" }), { texto: "puerta en L", codigo: "PL" });
+  assert.deepStrictEqual(MU.frentesEsquinero({ c25tipopuerta: "0" }), { texto: "abierto", codigo: "A" });
+  assert.strictEqual(MU.nombreNuevo("ESQ", 1000, "PL", ["ESQ-1000-PL-002", "ALA-800-A-003"]), "ESQ-1000-PL-004");
   // Sin cajones lo fijo son las puertas.
   assert.strictEqual(MU.alcance(op.familias.alacena, false, false, false).fijo[0], "puertas");
 });

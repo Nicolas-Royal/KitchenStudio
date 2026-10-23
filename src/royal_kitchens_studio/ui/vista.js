@@ -89,6 +89,25 @@ window.RKVista = (function () {
     return { ancho, alto, zoclo: 0, zocloVisible: false, gola: false, abajo: true, zonas };
   }
 
+  /* Esquinero en L, en isométrica vista desde la esquina (svgEsquinero).
+     +medidas+: ancho (izquierdo), alto del cuerpo y fondo (= ancho derecho);
+     las profundidades de cada ala salen de la receta. Cada hoja mide su ancho
+     menos la profundidad del ala de enfrente. Sin puerta (c25 = 0), abierto. */
+  function desdeEsquinero(v, medidas) {
+    const izq = medidas.ancho || num(v.LenX, 1000);
+    const der = medidas.fondo || num(v.LenY, 1000);
+    const alto = medidas.alto || num(v.LenZ, 770);
+    const profIzq = Math.min(num(v.a0101profizq, 578), der - 100);
+    const profDer = Math.min(num(v.a0102profder, 578), izq - 100);
+    const abierto = String(v.c25tipopuerta == null ? "1" : v.c25tipopuerta) === "0";
+    // Gola: solo la L de arriba, a lo largo de las dos hojas.
+    const gola = !abierto && String(v.b01_gola_o_tirador) === "2";
+    return { esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola,
+             ancho: izq, zoclo: num(v.a02zocalo, 100), zocloVisible: true,
+             zonas: [{ tipo: abierto ? "abierto" : "esquina", h: alto }],
+             etiqueta: `${Math.round(izq)} × ${Math.round(der)} · alto ${Math.round(alto)} mm` };
+  }
+
   /* Sin receta (módulos del catálogo): se adivina por sus etiquetas. */
   function desdeEtiquetas(mod) {
     const s = mod.specs || {};
@@ -291,6 +310,7 @@ window.RKVista = (function () {
      {forma,color}|null, material: {color, foto, veta}|null, gola, golaColor }. */
   function svg(layout, d) {
     d = Object.assign({ gola: layout.gola }, d, { abajo: !!layout.abajo, _pat: "rk-mat-" + (++serie) });
+    if (layout.esquinero) return svgEsquinero(layout, d);
     const W = layout.ancho, H = layout.alto, Z = layout.zoclo;
     const M = 40;
     let out = "";
@@ -348,15 +368,93 @@ window.RKVista = (function () {
     });
     const vb = `${-M} ${-M} ${W + 2 * M} ${H + Z + 2 * M}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vista previa del frente">` +
-      `<defs>${patronMaterial(d._pat, d.material)}${gradienteGola(d._pat + "-gola", d.golaColor)}` +
-      `<linearGradient id="${d._pat}-hueco" x1="0" y1="0" x2="0" y2="1">` +
-      `<stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity=".3"/>` +
-      `<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>` +
+      defs(d) +
       `<ellipse cx="${W / 2}" cy="${H + Z + 6}" rx="${W * 0.6}" ry="10" fill="rgba(0,0,0,.12)"/>` +
       out +
-      `<text x="${W / 2}" y="${H + Z + 30}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" fill="#4a5568">${Math.round(W)} × ${Math.round(H)} mm</text>` +
+      `<text x="${W / 2}" y="${H + Z + 30}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" fill="#4a5568">${esc(layout.etiqueta || `${Math.round(W)} × ${Math.round(H)} mm`)}</text>` +
       `</svg>`;
   }
 
-  return { desdeValores, desdeAlacena, desdeEtiquetas, svg, num, filtroVeta };
+  /* Material, gola y sombra del zoclo: lo que comparten las dos vistas. */
+  function defs(d) {
+    return `<defs>${patronMaterial(d._pat, d.material)}${gradienteGola(d._pat + "-gola", d.golaColor)}` +
+      `<linearGradient id="${d._pat}-hueco" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity=".3"/>` +
+      `<stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>`;
+  }
+
+  // ---- Esquinero en axonométrica ---------------------------------------------
+  /* Vista desde la esquina: 45° en planta y la cámara a unos 25° de altura
+     (más baja que una isométrica, para que la tapa no pese más que las
+     puertas). Planta (mm): el ala izquierda corre a lo largo de y (frente en
+     x = profIzq) y la derecha a lo largo de x (frente en y = profDer); la
+     esquina interior queda al centro. Cada cara se dibuja plana con lo mismo
+     que el alzado (hoja, estilo de frente, veta, manija, gola, zoclo) y una
+     matriz la inclina: la veta y los marcos se ven en perspectiva sin
+     dibujarlos aparte. */
+  const KX = Math.SQRT1_2, KY = Math.SQRT1_2 * Math.sin(25 * Math.PI / 180), KZ = Math.cos(25 * Math.PI / 180);
+  const iso = (x, y, z) => [(x - y) * KX, (x + y) * KY - z * KZ];
+
+  /* Grupo que lleva el plano (u a lo ancho, v hacia abajo) a la cara que
+     empieza arriba en +o+ y avanza en x (dir 1) o en -y (dir -1). */
+  function cara(o, dir, contenido) {
+    const [e, f] = iso(o[0], o[1], o[2]);
+    return `<g transform="matrix(${KX.toFixed(4)} ${(dir * KY).toFixed(4)} 0 ${KZ.toFixed(4)} ${e.toFixed(1)} ${f.toFixed(1)})">${contenido}</g>`;
+  }
+
+  function svgEsquinero(L, d) {
+    const { izq: LX, der: LY, profIzq: pI, profDer: pD, alto: H, zoclo: Z } = L;
+    const top = Z + H;
+    const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
+    const cuerpo = d.material ? `fill="url(#${d._pat}${conVeta ? "-v" : ""})"` : 'fill="#ece8e1"';
+    const sombra = (w, h, a) => rect(0, 0, w, h, `fill="rgba(0,0,0,${a})"`);
+    // Zoclo: tira bajo el cuerpo, con el material y la sombra de los frentes.
+    const zoclo = (x, w) => Z > 0
+      ? rect(x, H, w, Z, `fill="url(#${d._pat})"`) + rect(x, H, w, Z, `fill="url(#${d._pat}-hueco)" stroke="rgba(0,0,0,.3)" stroke-width="1"`) : "";
+    // Un frente: el canto del cuerpo, la gola arriba y la hoja (o el hueco).
+    const frente = (w, lado, conManija, luz) => {
+      let s = rect(0, 0, w, H, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, w);
+      let zy = GAP, zh = H - 2 * GAP;
+      if (d.gola) {
+        s += rect(GAP, GAP, w - 2 * GAP, GOLA - GAP, `fill="url(#${d._pat}-gola)"`) +
+          rect(GAP, GAP + GOLA - 8, w - 2 * GAP, 3, 'fill="rgba(255,255,255,.35)"');
+        zy += GOLA; zh -= GOLA;
+      }
+      s += L.abierto
+        ? rect(GAP + 18, zy, w - 2 * GAP - 36, zh, 'fill="#c9c4bb" stroke="rgba(0,0,0,.25)"') +
+          rect(GAP + 18, zy + zh / 2, w - 2 * GAP - 36, 18, 'fill="#e6e1d8"')
+        : hoja(GAP, zy, w - 2 * GAP, zh, d, "puerta", lado, conManija);
+      return s + (luz ? sombra(w, top, luz) : "");
+    };
+    // Costado del extremo de cada ala, con su zoclo, en sombra para que las
+    // puertas manden.
+    const costado = (w) => rect(0, 0, w, H, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) +
+      rect(0, 0, w, H, 'fill="rgba(0,0,0,.2)"') + zoclo(0, w) + rect(0, H, w, Z, 'fill="rgba(0,0,0,.2)"');
+    // La manija va en la hoja del ala derecha, junto a la esquina; Berlín, en las dos.
+    const perfil = d.manijaPuerta && d.manijaPuerta.forma === "perfil";
+    const wIzq = LX - pD, wDer = LY - pI;
+    let out = "";
+    // Sombra en el piso: la planta en L, un poco corrida hacia el frente.
+    out += `<polygon points="${[[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]].map(([x, y]) => iso(x + 20, y + 20, 0).map((n) => n.toFixed(1)).join(",")).join(" ")}" fill="rgba(0,0,0,.12)"/>`;
+    out += cara([0, LX, top], 1, costado(pI));
+    out += cara([LY, pD, top], -1, costado(pD));
+    out += cara([pI, LX, top], -1, frente(wIzq, "izq", perfil, 0));
+    out += cara([pI, pD, top], 1, frente(wDer, "der", undefined, 0.07));
+    // Esquina interior: la arista donde se juntan los dos frentes.
+    const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top)];
+    out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
+    // Tapa: la L de arriba (va la cubierta), un poco más clara.
+    const tapa = [[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]].map(([x, y]) => iso(x, y, top).map((n) => n.toFixed(1)).join(",")).join(" ");
+    out += `<polygon points="${tapa}" ${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"/><polygon points="${tapa}" fill="rgba(255,255,255,.45)"/>`;
+    // Encuadre: lo que ocupan las esquinas del mueble, con lugar para el texto.
+    const ps = [[0, LX, 0], [0, LX, top], [pI, LX, 0], [LY, 0, 0], [LY, 0, top], [LY, pD, 0], [0, 0, top], [pI, pD, 0]].map((p) => iso(...p));
+    const xs = ps.map((p) => p[0]), ys = ps.map((p) => p[1]);
+    const M = 50, x0 = Math.min(...xs) - M, x1 = Math.max(...xs) + M, y0 = Math.min(...ys) - M, y1 = Math.max(...ys) + 70;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0.toFixed(0)} ${y0.toFixed(0)} ${(x1 - x0).toFixed(0)} ${(y1 - y0).toFixed(0)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Vista previa del esquinero">` +
+      defs(d) + out +
+      `<text x="${((x0 + x1) / 2).toFixed(0)}" y="${(y1 - 22).toFixed(0)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" fill="#4a5568">${esc(L.etiqueta)}</text>` +
+      `</svg>`;
+  }
+
+  return { desdeValores, desdeAlacena, desdeEsquinero, desdeEtiquetas, svg, num, filtroVeta };
 })();

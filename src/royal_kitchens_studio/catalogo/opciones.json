@@ -920,6 +920,49 @@
         }
       }
     },
+    "esquinero": {
+      "_doc": "Componente ESQUINERO.skp (23/10/2026): la puerta en L son dos hojas de la puerta del gabinete. Gola solo L arriba (aluminio o melamina del gabinete, sin combinación). Sin tarja ni cajones; la posición de la manija la fija el manifiesto. «fondo» es el ancho derecho (LenY): las profundidades de cada ala son del mueble.",
+      "medidas": {
+        "ancho": "LenX",
+        "alto": "LenZ",
+        "fondo": "LenY"
+      },
+      "medidas_ui": {
+        "ancho": { "label": "Ancho izquierdo", "presets": [800, 900, 1000, 1100, 1200] },
+        "fondo": { "label": "Ancho derecho", "presets": [800, 900, 1000, 1100, 1200] }
+      },
+      "frente": {
+        "attr": "l01_linea_frente"
+      },
+      "gola": {
+        "attr": "b01_gola_o_tirador",
+        "valor": "2",
+        "perfil": "g01_perfil_tipo",
+        "color_aluminio": "c23_material_gola_aluminio"
+      },
+      "manija_puerta": {
+        "attrs": [
+          "d16_tirador_tipo"
+        ],
+        "requiere": {
+          "attr": "b01_gola_o_tirador",
+          "valor": "1"
+        }
+      },
+      "espesor_puerta": {
+        "attr": "c02esppuerta"
+      },
+      "material": {
+        "attr": "c16matpuertape",
+        "extra": {
+          "c22matpuertade": "{material}",
+          "c15matestrpe": "{material}",
+          "c17matfondope": "{material}",
+          "c21matestrde": "{material}",
+          "c23matfondode": "{material}"
+        }
+      }
+    },
     "gabinete": {
       "medidas": {
         "ancho": "LenX",

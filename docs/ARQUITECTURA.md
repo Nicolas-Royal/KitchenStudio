@@ -15,7 +15,7 @@ KitchenCreator (fueron los motores de 0.1–0.3).
 | Manifiestos de familia | `familias.rb` + `familias/*.json` | 2a |
 | Formulario: visibilidad, validación, aplanado, importación | `ui/receta.js` (`window.RCC_CORE`) | 2a |
 | Generar en la escena / guardar en el catálogo | `generador.rb` + `motor/` | 2b |
-| Componente base | `componentes/GABINETE.skp` (alacena y esquinero: al activar esas familias) | 2b |
+| Componente base | `componentes/GABINETE.skp`, `ALACENA.skp` y `ESQUINERO.skp` | 2b |
 | CSV/Excel y plantilla | `Generador.importar_archivo`, `exportar_plantilla` | 2b |
 | Catálogo de muebles, insertar, material en el modelo | `biblioteca.rb`, `Catalogo.asegurar_material` | 2c |
 
@@ -490,12 +490,11 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
 
 ## Límites conocidos
 
-- Studio genera **gabinete** y **alacena** (`FAMILIAS_ACTIVAS` en
-  `ui/app.js`): las listas, «+ nuevo» y el CSV filtran el resto (esquinero).
+- Studio genera **gabinete**, **alacena** y **esquinero** (`FAMILIAS_ACTIVAS`
+  en `ui/app.js`): las listas, «+ nuevo» y el CSV.
 
-- Tarja, frente, manija y material se aplican de verdad en **gabinete** y
-  **alacena** (familias con mapeo en `opciones.json`; la alacena sin tarja).
-  Esquinero: medidas y «Avanzado».
+- Tarja, frente, manija y material se aplican de verdad en las tres familias
+  (mapeo en `opciones.json`; tarja solo en el gabinete).
 - **`componentes/ALACENA.skp` (20/10/2026)**: la alacena del componente
   anterior (KitchenCreator) con la puerta del gabinete trasplantada
   (`Pu.Manijas`: 10 líneas de frente y las 15 manijas del catálogo). La
@@ -588,8 +587,8 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     con las dos zonas.
   - «Así se verá» del diseño global tiene ejemplos de muestra (`EJEMPLOS` en
     `app.js`): gabinete (el de siempre), alacena (800 mm, Avento S arriba y
-    puerta doble abajo, sin gola) y esquinero apagado («pronto») hasta que
-    Studio lo genere.
+    puerta doble abajo, sin gola) y esquinero (1000 × 1000, puerta en L,
+    visto desde la esquina).
   - Las abatibles traían `u01open = 90` (abiertas) en el componente; quedaron
     en 0 (cerradas). Valores base del componente: una zona, abatible, sin
     entrepaño.
@@ -600,4 +599,111 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
     puerta (el corte lateral lo suma; sin él su ancho salía `NaN` y se iba a
     la esquina) y cada vista mide al menos lo que su título, con el dibujo
     centrado (en una alacena alta el corte queda angosto).
+- **`componentes/ESQUINERO.skp` (23/10/2026)**: el esquinero de
+  KitchenCreator con el zócalo corregido (`pollo1`/`pollo2`: los pollos de
+  cada ala con la misma fórmula y las profundidades reales; el respaldo viejo
+  `ESQUINERO2.skp` no) y la puerta del gabinete trasplantada en L
+  («PUERTA ESQUINERO - Pu.Manijas», copia de la zona 1 del gabinete: 10 líneas
+  de frente, 15 manijas, Berlín **arriba**). Se quitaron los 5 estilos viejos
+  (lisa, italiana, vidrio, vidrio-madera, uñero) y `EstiloPuerta`.
+  - Geometría de la L (las fórmulas del esquinero viejo): el contenedor mide
+    `v21tamlenxpu1` × `v21tamlenypu1`; la hoja izquierda (`PuertaIZQ`) cierra
+    el frente izquierdo, ancho `u28anchopuizq = LenX − f13 − f15margpu2`,
+    bisagra en el costado izquierdo (`rotz = −u01open`); la derecha
+    (`PuertaDER`) cierra el ala derecha, ancho `u29anchopuder = LenY − c02 −
+    f04 − f14`, en `x = LenX − c02`, `y = −LenY + f14`, girada 90°
+    (`rotz = −90 + u01open`), bisagra en el costado del ala. Las dos hojas
+    siempre visibles (`e07cantpuerta` = 3 fijo).
+  - Manija: solo en la hoja derecha, junto a la esquina, como en el esquinero
+    viejo (la izquierda tiene `f21tipotirador = IF(parent!f21tipotirador=21,
+    21,1)`): Berlín es un perfil del canto de arriba y va en las dos.
+    Posición 3 (arriba del lado que abre, el componente la refleja), Lateral
+    negra 5, Berlín 2 horizontal: lo fija el manifiesto (`forzar`, oculto).
+  - Opciones en la raíz con los nombres de la alacena: `c25tipopuerta`
+    (0 sin puerta, 1 puerta en L), `l01–l12`, `d16–d19`,
+    `f11/f12_tirador_margen_*`, `c21_material_tirador`, `f07/f08/f09/f13`
+    de bisagras y `f02_montaje`. Sin gola (`g01gola = 0`).
+  - **Techo duplicado**: el base traía `TECHO #3`, copia exacta de `BASE #3`
+    (mismas fórmulas, z 100–118 mm): un segundo piso encimado que salía en el
+    despiece. Se borró; arriba van los refuerzos delantero y trasero de cada
+    ala (`e22tipotecho = 4`).
+  - Entrepaño: `c24entrepano` en la raíz (como las otras familias) y
+    `entrepano = c24entrepano` (lo lee `Estructura`). Antes el manifiesto
+    escribía `c24entrepano` y el componente no lo tenía: la repisa salía
+    siempre. Repisas en L: las dos mitades se unen en una pieza
+    (`reglas_union`, ENTREPAÑO).
+- **Manifiesto de esquinero (23/10/2026)**: `familias/esquinero.json` con las
+  reglas del gabinete (`reglas_frentes`, `poda` por hoja, `nombres_piezas`:
+  PUERTA IZQ/DER, LATERAL, RESPALDO IZQUIERDO/DERECHO, PISO, REFUERZO
+  DELANTERO/TRASERO y sus DERECHO, POLLO FRONTAL/DERECHO/POSTERIOR, AMARRE
+  ZOCLO, bisagras y manijas) y `opciones.json → familias.esquinero` (frente,
+  manija de puerta, espesor y material; sin gola, tarja ni cajones). «fondo»
+  del diseño es el ancho derecho (`LenY`); `medidas_ui` renombra las medidas
+  en la página del mueble (Ancho izquierdo / Ancho derecho, con sus presets).
+  Las profundidades suman la puerta si va por fuera. Nombre nuevo
+  `ESQ-1000-PL-001` (PL = puerta en L, A = abierto); el consecutivo acepta
+  códigos sin número.
+- **Esquinero en la interfaz (23/10/2026)**: activo en `FAMILIAS_ACTIVAS`.
+  Vista previa `RKVista.desdeEsquinero` + `svgEsquinero`: el mueble en
+  axonométrica visto desde la esquina (45° en planta, cámara a 25° de
+  altura, más baja que una isométrica para que la tapa no pese más que las
+  puertas). Se ven los dos frentes, los costados de cada ala (en sombra), la
+  tapa en L y el zoclo. Cada cara se dibuja plana con lo mismo que el alzado
+  (`hoja`, estilo de frente, veta, manija, gola) y una `matrix` SVG la
+  inclina, así la veta y los marcos (Mitered, Rectangular…) salen en
+  perspectiva sin dibujo aparte. Cada hoja mide su ancho menos la profundidad
+  del ala de enfrente; la manija va en la hoja del ala derecha junto a la
+  esquina y Berlín en las dos. Se usa en la tarjeta, la página del mueble,
+  «Avanzado» y el ejemplo de «Así se verá». Probado en SketchUp con el generador del repo: un
+  esquinero sale en ~2.5 s, y con diseño (Rectangular Flat Panel, Paola,
+  Encino Paja: 22 mm) toma frente, manija y material en todo el mueble.
+- **Gola en el esquinero (23/10/2026)**: solo la **L de arriba**, de aluminio
+  o de melamina, con las piezas del gabinete (`ACC_GolaAluminioL` con el
+  perfil «Gola L 1209-073» y `MP.PerfilMelaminaL`: piso y frente del material
+  del mueble). Sin combinación L-C/L-L ni posición (siempre por fuera de los
+  laterales, `i02posperfilgo` = 4).
+  - En `Estructura`: «GOLA ALUMINIO L ESQUINERO» y «GOLA MELAMINA L
+    ESQUINERO» con la colocación de ACA07/ACA09 (biblioteca de
+    ModuleUnifier, hechas para el esquinero): el contenedor va en el frente
+    del ala izquierda (`y = LenY − a0104profeizq`, arriba) y mide
+    `LenX − a0105profeder + prof` × `LenY − a0104profeizq + prof`; un tramo por
+    ala, el derecho girado −90°. Aluminio: los dos tramos completos (se cortan
+    a 45°). Melamina a tope: el piso del tramo derecho empieza donde acaba el
+    izquierdo (`LenY − prof`) y su frente llega hasta el frente del izquierdo
+    (`u01extfrente = prof − espesor`).
+  - Las variables de gola de `Estructura` son las del gabinete
+    (`b01tiposistema`, `i01`, `i03` alto 57/72 mm, `i11` 27 mm, `i21`, `i22`,
+    `u21cantperfgol`, `gl_*`) y `u31profgola` = hondo de la gola elegida: los
+    refuerzos delanteros (`AmarreSupFront`, `AmarreSupFrontR`) se recorren
+    detrás de ella, como en el gabinete.
+  - Laterales con muesca: copias del lateral con gola del gabinete
+    (`LateralGolaL/R`, `CEGolaLat`: cuerpo + tira al frente bajo la muesca),
+    con la medida y el lugar de los del esquinero (el derecho girado −90°, la
+    muesca hacia la abertura del ala). Con gola se ocultan `LateralL/R`.
+    En OpenCutList cuentan como LATERAL IZQUIERDA/DERECHA (una pieza:
+    `piezas_unicas` CEGolaLat, más el tablero completo en la capa OCL).
+  - **Tira bajo la muesca (23/10/2026)**: `s02_cortefrontal` es
+    `IF(b01tiposistema=1, c01espestr, u31profgola)`, como en el gabinete.
+    Con `u31profgola` a secas valía 0 sin gola, el DC aplastaba a 0 mm las
+    caras de `PInt.P1–P4` y ya no las recuperaba: la tira salía de 15–25 mm y
+    quedaba una ranura entre ella y el cuerpo del lateral. Se cambiaron por
+    copias sanas de las del gabinete, cada una con su propia definición, y
+    sus `lenx/leny/lenz` (y nominales) se igualaron a su geometría: el DC
+    escala con «nuevo ÷ valor guardado», así que un valor guardado distinto
+    de la geometría arrastra el error. Probado: melamina 45, aluminio 27,
+    sin gola y de vuelta, siempre a tope con el cuerpo.
+  - Raíz: opciones del gabinete (`b01_gola_o_tirador`, `g01_perfil_tipo`
+    1 aluminio / 2 melamina, `c23_material_gola_aluminio`, `g14–g16`,
+    `g41–g43`, `k05_margen_sup_gola` = 40 mm). Con gola el frente baja
+    `k05` (`s01/s02altofachinf`) y la puerta pone `g01gola = 1`: sin manijas.
+  - Manifiesto: «Gola o tirador» (solo con puerta), grupo «Gola» (tipo,
+    color del aluminio, margen), frente Lisa forzado, manija y poda de
+    manijas solo con tirador, nombres GOLA ALUMINIO L / GOLA MELAMINA L
+    PISO y FRENTE y laterales con gola, `piezas_unicas` CEGolaLat. Nombre
+    `ESQ-1000-900-PL-GA-E` (GA aluminio, GM melamina). `opciones.json →
+    familias.esquinero.gola` sin `combinacion`: el diseño del proyecto le
+    pone la gola y en su página no sale L-C/L-L. La vista dibuja el canal
+    sobre las dos hojas.
+  - Probado en SketchUp (generador del repo, flujo de «Insertar»): aluminio
+    oscuro y melamina en Encino Paja, ~2.4 s cada uno.
 - Materiales sin foto: se ven y se crean con un tono aproximado.

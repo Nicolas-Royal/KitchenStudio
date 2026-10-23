@@ -91,3 +91,18 @@ ala = G.valores_componente(RoyalKitchens::Studio::Familias.manifiesto("alacena")
 assert ala["d36_z2_tirador_tipo"] == "=d16_tirador_tipo", "la manija de la zona 2 es la de la zona 1"
 fila = { "d16_tirador_tipo" => "17", "d36_z2_tirador_tipo" => "14" }.merge(ala)
 assert fila["d36_z2_tirador_tipo"] == "=d16_tirador_tipo", "una receta vieja no pisa la manija única"
+
+# Esquinero (23/10/2026): puerta en L con la puerta del gabinete. La manija la
+# fija el manifiesto aunque la fila no la traiga; el zócalo va aparte del cuerpo.
+ESQ = RoyalKitchens::Studio::Familias.manifiesto("esquinero")
+assert File.exist?(G.componente(ESQ)), "el componente base del esquinero viene con Studio"
+esq = { "c25tipopuerta" => "1", "b01_gola_o_tirador" => "1", "d16_tirador_tipo" => "9" }
+f = G.aplicar_forzados(ESQ, esq)
+assert f["d17_tirador_posicion"] == "3" && f["d18_tirador_orientacion"] == "2", "esquinero: manija arriba del lado que abre, vertical"
+f = G.aplicar_forzados(ESQ, esq.merge("d16_tirador_tipo" => "21"))
+assert f["d17_tirador_posicion"] == "2" && f["d18_tirador_orientacion"] == "1", "esquinero: Berlín arriba, horizontal"
+assert !G.aplicar_forzados(ESQ, esq.merge("c25tipopuerta" => "0")).key?("d17_tirador_posicion"), "esquinero sin puerta: sin manija"
+assert G.capturado_mm(ESQ, { "LenZ" => "870mm", "a02zocalo" => "100mm" }, "LenZ") == 770, "esquinero: alto del cuerpo sin zócalo"
+# Esquinero con gola (solo L arriba): frente Lisa y sin manija aunque la fila los traiga.
+f = G.aplicar_forzados(ESQ, esq.merge("b01_gola_o_tirador" => "2", "l01_linea_frente" => "5"))
+assert f["l01_linea_frente"] == "1" && !f.key?("d17_tirador_posicion"), "esquinero con gola: Lisa y sin manija"

@@ -47,8 +47,8 @@ function setImg(img, url, fallback) {
 
 // Categoría del catálogo -> familia del manifiesto (para «Avanzado»).
 const FAMILIA_DE_CATEGORIA = { Gabinetes: "gabinete", Alacenas: "alacena", Esquineros: "esquinero" };
-// Familias que Studio genera; el esquinero viene después.
-const FAMILIAS_ACTIVAS = ["gabinete", "alacena"];
+// Familias que Studio genera.
+const FAMILIAS_ACTIVAS = ["gabinete", "alacena", "esquinero"];
 // Biblioteca::CATEGORIAS en Ruby: las primeras de S.categorias, siempre visibles en el filtro.
 const CATEGORIAS_FIJAS = 5;
 const M = window.RKMuebles; // ui/muebles.js
@@ -256,8 +256,8 @@ function pintarProyecto() {
   $("#pr-aplicar").onclick = () => { ocupado(true, "Buscando los muebles insertados…"); bridge("insertados"); };
 }
 
-/* Muebles de ejemplo de «Así se verá» (el esquinero, cuando Studio lo genere). */
-const EJEMPLOS = [["gabinete", "Gabinete"], ["alacena", "Alacena"], ["esquinero", "Esquinero · pronto", true]];
+/* Muebles de ejemplo de «Así se verá». */
+const EJEMPLOS = [["gabinete", "Gabinete"], ["alacena", "Alacena"], ["esquinero", "Esquinero"]];
 
 function pintarPreviewProyecto() {
   const g = S.proyecto.global;
@@ -268,6 +268,12 @@ function pintarPreviewProyecto() {
     const lay = RKVista.desdeAlacena({ d01_cantidad_zonas: "2", c25tipopuerta: "6", d31_z2_contenido: "1", d35_z2_cant_puertas: "3" }, { ancho: 800, alto: 900 });
     visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto-alacena");
     $("#pr-preview-note").textContent = "Ejemplo: alacena de 800 mm con Avento S arriba y puerta doble abajo (las alacenas no llevan gola).";
+    return;
+  }
+  if (ejemplo === "esquinero") {
+    const lay = RKVista.desdeEsquinero({ c25tipopuerta: "1" }, { ancho: 1000, alto: 770, fondo: 1000 });
+    visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(g, false)), "proyecto-esquinero");
+    $("#pr-preview-note").textContent = "Ejemplo: esquinero de 1000 × 1000 mm con puerta en L, visto desde la esquina.";
     return;
   }
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
@@ -430,8 +436,10 @@ function pintarPickers(box, d, editable, onCambio, extra) {
       (editable && !fijo ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
     if (sinManija) setImg($("img", t), placeholder("Gola")); else fotoEn($("img", t), p.key, o);
     if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio);
-    // Con una gola elegida, en la misma tarjeta: L-C o L-L.
-    if (p.key === "gola" && o && RKReglas.conGola(S.opciones, golaFam(), o.id)) {
+    // Con una gola elegida, en la misma tarjeta: L-C o L-L (si la familia la
+    // combina: el esquinero lleva solo la L de arriba).
+    const famGola = extra.fc || golaFam();
+    if (p.key === "gola" && o && RKReglas.conGola(S.opciones, famGola, o.id) && famGola.gola.combinacion) {
       const caja = document.createElement("div");
       caja.className = "pick-con-seg";
       const seg = document.createElement("div");
@@ -519,9 +527,10 @@ function pintarSeg(box, opciones, actual, onCambio, deshabilitado) {
   });
 }
 
-/* Fila de medida: chips con presets + campo libre en mm. */
-function filaMedida(k, valor, onCambio, deshabilitado, etiqueta) {
-  const d = Object.assign({ label: k, presets: [] }, (S.opciones.medidas || {})[k]);
+/* Fila de medida: chips con presets + campo libre en mm. +propia+: etiqueta y
+   presets de la familia (opciones.json → familias.<f>.medidas_ui). */
+function filaMedida(k, valor, onCambio, deshabilitado, etiqueta, propia) {
+  const d = Object.assign({ label: k, presets: [] }, (S.opciones.medidas || {})[k], propia);
   const row = document.createElement("div");
   row.className = "dim-row";
   row.innerHTML = `<span class="dim-label">${esc(etiqueta || d.label)}</span><div class="dim-presets"></div>` +
@@ -606,7 +615,7 @@ function pintarLista() {
   if (!lista.length) {
     const vacio = q ? "Sin resultados"
       : Object.values(S.car).some((v) => v.length) && enPanel.length ? "Ningún mueble tiene esas características · quita alguna de la barra"
-      : !enPanel.length ? "Aún no hay muebles · crea uno con + Gabinete, + Alacena o desde CSV y guárdalo en el catálogo"
+      : !enPanel.length ? "Aún no hay muebles · crea uno con + Gabinete, + Alacena, + Esquinero o desde CSV y guárdalo en el catálogo"
       : S.cat && !FAMILIAS_ACTIVAS.includes(FAMILIA_DE_CATEGORIA[S.cat] || "gabinete") ? `${S.cat}: todavía no disponible en Studio`
       : `No hay ${S.clase === "usuario" ? "muebles creados por usuario" : S.clase === "catalogo" ? "muebles de catálogo" : "muebles"}${S.cat ? " en " + S.cat : ""}`;
     grid.innerHTML = `<p class="empty">${esc(vacio)}</p>`;
@@ -852,8 +861,10 @@ function pintarDiseno(m, d, real) {
   const md = $("#md-medidas");
   md.innerHTML = "";
   const totales = !real;
+  // La familia puede renombrar sus medidas (esquinero: «fondo» es el ancho derecho).
+  const ui = (fc && fc.medidas_ui) || {};
   ["ancho", "alto", "fondo"].forEach((k) => md.appendChild(filaMedida(k, d[k], (v) => set(k, v), !personal,
-    totales && k !== "ancho" ? (k === "alto" ? "Alto total" : "Fondo total") : null)));
+    ui[k] ? null : totales && k !== "ancho" ? (k === "alto" ? "Alto total" : "Fondo total") : null, ui[k])));
 
   // Tarja solo donde se puede aplicar de verdad (creación con receta).
   $("#md-tarja-wrap").hidden = !(fc && fc.tarja && real);
@@ -882,9 +893,10 @@ function grupoInterior(man) {
 }
 
 /* Frentes de arriba abajo ({ texto, codigo }): del gráfico de entrepaños
-   (gabinete) o, en la alacena, de su tipo de puerta. */
+   (gabinete) o, en la alacena y el esquinero, de su tipo de puerta. */
 function frentesDe(man, valores) {
   if (man && man.familia === "alacena") return M.frentesAlacena(valores);
+  if (man && man.familia === "esquinero") return M.frentesEsquinero(valores);
   const g = grupoInterior(man);
   if (g) return M.resumenFrentes(S.rcc.geomFrentes(man, valores, g.visual));
   return { texto: "", codigo: "" };
@@ -959,29 +971,34 @@ function pintarInterior(m, d, editable) {
   refrescar();
 }
 
-/* Distribución de la vista desde las variables de la familia (gabinete o
-   alacena), o null si la familia no tiene dibujo propio. */
+/* Distribución de la vista desde las variables de la familia (gabinete,
+   alacena o esquinero), o null si la familia no tiene dibujo propio. */
 function layoutDe(fam, v, medidas) {
   if (fam === "gabinete") return RKVista.desdeValores(v, medidas);
   if (fam === "alacena") return RKVista.desdeAlacena(v, medidas);
+  if (fam === "esquinero") return RKVista.desdeEsquinero(v, medidas);
   return null;
 }
 
+// Medidas de la vista en «Avanzado» cuando el campo está vacío.
+const MEDIDAS_VISTA = { gabinete: [600, 770], alacena: [800, 700], esquinero: [1000, 770] };
+
 /* Alzado SVG del módulo: con su diseño efectivo, o con las variables de
-   «Avanzado» (+avanzado+, gabinete y alacena). */
+   «Avanzado» (+avanzado+, familias activas). */
 function svgModulo(m, avanzado, enLista) {
   const fam = familiaDe(m);
   if (avanzado && S.av[m.id] && FAMILIAS_ACTIVAS.includes(fam)) {
     const st = S.av[m.id];
     const v = st.reg.valores;
-    const ala = fam === "alacena";
-    const lay = layoutDe(fam, v, ala ? { ancho: RKVista.num(v.LenX, 800), alto: RKVista.num(v.LenZ, 700) }
-      : { ancho: RKVista.num(v.LenX, 600), alto: RKVista.num(v.LenZ, 770) });
-    return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: ala ? v.d16_tirador_tipo : v.d16_z1_tirador_tipo,
+    const [ancho, alto] = MEDIDAS_VISTA[fam];
+    const lay = layoutDe(fam, v, { ancho: RKVista.num(v.LenX, ancho), alto: RKVista.num(v.LenZ, alto) });
+    // La manija de puertas es el primer attr que mapea su familia (d16_z1… en el gabinete).
+    const mp = (((S.opciones.familias || {})[fam] || {}).manija_puerta || {}).attrs || [];
+    return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: v[mp[0]],
       manija_cajon: v.e01_tirador_tipo, material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
   }
   const d = disenoDe(m, enLista);
-  const lay = (m.receta && layoutDe(fam, m.receta.valores, { ancho: d.ancho, alto: d.alto })) ||
+  const lay = (m.receta && layoutDe(fam, m.receta.valores, { ancho: d.ancho, alto: d.alto, fondo: d.fondo })) ||
     RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
   // La gola elegida en el diseño cambia el dibujo aunque la receta no la traiga.
   const gola = golaDe(m, d);
@@ -1226,7 +1243,7 @@ function csvChoque(i) {
   return m ? `Ya existe «${m.name}» en el catálogo: cámbiale el nombre en «Editar» para no reemplazarlo` : "";
 }
 
-// Solo se generan las filas de familias activas (gabinete y alacena), sin
+// Solo se generan las filas de familias activas (gabinete, alacena y esquinero), sin
 // errores, cuyo nombre no pise a otro mueble y que no se hayan generado ya.
 function csvUsable(f, i) {
   const hecho = S.csv.hechos[i];

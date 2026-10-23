@@ -12,8 +12,8 @@ module RoyalKitchens
       module_function
 
       DIR = File.join(__dir__, "familias").freeze
-      # Orden de la plantilla de importación. La interfaz trabaja gabinete y
-      # alacena (FAMILIAS_ACTIVAS en app.js); el esquinero viene después.
+      # Orden de la plantilla de importación. La interfaz trabaja las tres
+      # (FAMILIAS_ACTIVAS en app.js).
       IDS = %w[gabinete alacena esquinero].freeze
 
       def ruta(familia)

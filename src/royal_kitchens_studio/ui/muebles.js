@@ -158,6 +158,11 @@ window.RKMuebles = (function () {
     return { texto: zonas.map((z) => z.texto).join(" + "), codigo: zonas.map((z) => z.codigo).join("-") };
   }
 
+  /* El esquinero: «puerta en L» (PL) o abierto (A). */
+  function frentesEsquinero(v) {
+    return String((v || {}).c25tipopuerta) === "0" ? { texto: "abierto", codigo: "A" } : { texto: "puerta en L", codigo: "PL" };
+  }
+
   // ---- Identidad: que dos muebles no se pisen ----------------------------------
   /* Id de un mueble a partir de su nombre, igual que Biblioteca.slug en Ruby:
      «GAB 600», «GAB-600» y «gab_600» son el MISMO mueble (cr-gab-600). */
@@ -182,8 +187,8 @@ window.RKMuebles = (function () {
     (usados || []).forEach((n) => {
       ids[idDe(n)] = true;
       // Solo cuentan los nombres con este formato (frentes y luego el consecutivo):
-      // en «GAB-600» el 600 es el ancho, no un consecutivo.
-      const m = /-(?:\d+[A-Z]+|A)-(\d{3,})$/.exec(String(n || ""));
+      // en «GAB-600» el 600 es el ancho, no un consecutivo. Frentes sin número: A, PL.
+      const m = /-(?:\d*[A-Z]+)-(\d{3,})$/.exec(String(n || ""));
       if (m) mayor = Math.max(mayor, parseInt(m[1], 10));
     });
     const base = [String(prefijo || "MUE").toUpperCase(), ancho > 0 ? String(Math.round(ancho)) : "", codigo || ""].filter(Boolean).join("-");
@@ -192,5 +197,5 @@ window.RKMuebles = (function () {
     return nombre;
   }
 
-  return { idDe, choque, CLASES, clase, etiqueta, modo, modos, disenoOriginal, alcance, filtrar, conteos, facetas, resumenFrentes, frentesAlacena, nombreNuevo };
+  return { idDe, choque, CLASES, clase, etiqueta, modo, modos, disenoOriginal, alcance, filtrar, conteos, facetas, resumenFrentes, frentesAlacena, frentesEsquinero, nombreNuevo };
 })();

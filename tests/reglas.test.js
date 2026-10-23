@@ -218,14 +218,42 @@ prueba('R-06d · alacena por zonas: arriba y abajo, con puertas o Avento S y una
   assert.ok(errores('alacena', { LenX: '800', LenY: '330', LenZ: '900', d01_cantidad_zonas: '2', d02_alto_zona_superior: '950' }).length > 0, 'zona de arriba más alta que el mueble');
 });
 
-prueba('R-06b · el vidrio completo y el uñero no llevan tirador (esquinero)', function () {
-  ['3', '5'].forEach(function (diseno) {
-    var f = plano('esquinero', { EstiloPuerta: diseno });
-    ['puerta>f21tipotirador', 'puerta>f22postirador', 'puerta>f23orienttirador']
-      .forEach(function (a) { assert.ok(!(a in f), 'esquinero con diseño ' + diseno + ' no debería inyectar ' + a); });
-  });
-  // Una puerta lisa sí lo lleva: la condición no puede apagar el grupo entero.
-  assert.ok('puerta>f21tipotirador' in plano('esquinero', { EstiloPuerta: '1' }), 'esquinero liso sí lleva tirador');
+prueba('R-06b · esquinero: puerta en L con la manija que decide el manifiesto', function () {
+  var esq = function (extra) {
+    return plano('esquinero', Object.assign({ LenX: '1000', LenY: '1000', LenZ: '770', a0101profizq: '578', a0102profder: '578' }, extra));
+  };
+  // Puerta: arriba del lado que abre (en la hoja del ala derecha, junto a la esquina), vertical.
+  var p = esq({ d17_tirador_posicion: '9', d18_tirador_orientacion: '1' });
+  assert.ok(p.c25tipopuerta === '1' && p.l01_linea_frente === '1' && p.d16_tirador_tipo === '9', 'puerta en L, Lisa, Andrea');
+  assert.ok(p.d17_tirador_posicion === '3' && p.d18_tirador_orientacion === '2', 'arriba, vertical');
+  assert.strictEqual(esq({ d16_tirador_tipo: '7' }).d17_tirador_posicion, '5', 'Lateral negra: centro-centro');
+  var ber = esq({ d16_tirador_tipo: '21' });
+  assert.ok(ber.d17_tirador_posicion === '2' && ber.d18_tirador_orientacion === '1', 'Berlín: canto de arriba, horizontal');
+  // Sin puerta no hay frente, manija, bisagras ni márgenes; la profundidad no suma la puerta.
+  var sin = esq({ c25tipopuerta: '0' });
+  ['l01_linea_frente', 'd16_tirador_tipo', 'd17_tirador_posicion', 'f07_bisagra_angulo', 'f11margsupcaj']
+    .forEach(function (a) { assert.ok(!(a in sin), 'sin puerta no debería inyectar ' + a); });
+  assert.strictEqual(sin.a0101profizq, '578mm');
+  assert.strictEqual(p.a0101profizq, '596mm', 'puerta exterior: se suma su espesor');
+  assert.strictEqual(esq({ f02_montaje: '2' }).a0102profder, '578mm', 'puerta interior: no se suma');
+  // El zócalo va aparte del cuerpo; nombre con los dos anchos.
+  assert.strictEqual(p.LenZ, '870mm');
+  var n = function (c) { return T.autoNombre(man.esquinero, registro('esquinero', Object.assign({ LenX: '1000', LenY: '900' }, c)).valores); };
+  assert.strictEqual(n({}), 'ESQ-1000-900-PL-E');
+  assert.strictEqual(n({ c25tipopuerta: '0', c24entrepano: '1' }), 'ESQ-1000-900-A');
+  assert.ok(errores('esquinero', { LenX: '500', LenY: '1000', LenZ: '770', a0101profizq: '578', a0102profder: '578' }).length > 0,
+    'el ala derecha no cabe en un ancho izquierdo de 500');
+  // Gola (solo L arriba): frente Lisa, sin manija ni margen superior propio; aluminio o melamina.
+  var g = esq({ b01_gola_o_tirador: '2', l01_linea_frente: '5', g01_perfil_tipo: '2' });
+  assert.ok(g.b01_gola_o_tirador === '2' && g.l01_linea_frente === '1' && g.g01_perfil_tipo === '2' && g.k05_margen_sup_gola === '40mm');
+  ['d16_tirador_tipo', 'd17_tirador_posicion', 'd18_tirador_orientacion', 'f11margsupcaj', 'c23_material_gola_aluminio']
+    .forEach(function (a) { assert.ok(!(a in g), 'con gola de melamina no debería inyectar ' + a); });
+  assert.strictEqual(esq({ b01_gola_o_tirador: '2' }).c23_material_gola_aluminio, 'Gris mate');
+  assert.deepStrictEqual(campo('esquinero', 'g01_perfil_tipo').opciones.map(function (o) { return o.valor; }), ['1', '2']);
+  assert.strictEqual(campo('esquinero', 'g03_combinacion'), null, 'el esquinero no combina perfiles: solo L');
+  assert.ok(!('b01_gola_o_tirador' in esq({ c25tipopuerta: '0' })), 'sin puerta no hay gola');
+  assert.strictEqual(n({ b01_gola_o_tirador: '2' }), 'ESQ-1000-900-PL-GA-E');
+  assert.strictEqual(n({ b01_gola_o_tirador: '2', g01_perfil_tipo: '2', c24entrepano: '1' }), 'ESQ-1000-900-PL-GM');
 });
 
 prueba('R-06c · alacena: la manija va abajo y la decide el manifiesto', function () {
