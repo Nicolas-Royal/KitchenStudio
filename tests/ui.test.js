@@ -167,6 +167,42 @@ prueba("vista: esquinero en isométrica desde la esquina, una manija en cada hoj
   assert.strictEqual(RKVista.desdeEsquinero(Object.assign({}, v, { b01_gola_o_tirador: "2", c25tipopuerta: "0" }), { ancho: 1000, alto: 770, fondo: 900 }).gola, false);
 });
 
+prueba("vista: gabinete y alacena en axonométrica desde el frente, como el esquinero", () => {
+  // 30° en planta: frente (avanza en x) y costado derecho (avanza en -y); tablas acostadas en la tapa.
+  const FRENTE = "0.8660 0.2113 0 0.9063", COSTADO = "0.5000 -0.3660 0 0.9063", TAPA = "0.8660 0.2113 -0.5000 0.3660";
+  const grupos = (svg) => svg.split('<g transform="matrix(').slice(1);
+  const de = (svg, m) => grupos(svg).filter((c) => c.startsWith(m));
+  const gab = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
+    d31_z2_contenido: "2", d32_z2_cant_cajones: "3", LenY: "580" }, { ancho: 600, alto: 770 });
+  assert.deepStrictEqual([gab.fondo, gab.esp, gab.espPuerta, gab.techo], [580, 18, 18, "4"]);
+  const barra = { forma: "barra", color: "#123456" };
+  const s = RKVista.svg(gab, { frente: "1", manijaPuerta: barra, manijaCajon: barra });
+  // El frente lleva las 2 hojas y los 3 cajones con su manija; el costado, en sombra, ninguna.
+  const frente = de(s, FRENTE).find((c) => c.includes('fill="#123456"'));
+  assert.strictEqual((frente.match(/fill="#123456"/g) || []).length, 5);
+  assert.strictEqual(de(s, COSTADO).filter((c) => c.includes("<polygon")).length, 1, "un costado");
+  // Arriba abierto: interior oscuro debajo de todo; canto de la puerta, 2 laterales, respaldo y 2 refuerzos.
+  assert.ok(s.indexOf("-interior)") < s.indexOf(FRENTE + " "), "el interior va antes que el frente");
+  assert.strictEqual(de(s, TAPA).length, 6);
+  const sinTrasero = RKVista.svg(RKVista.desdeValores({ i03_tipo_techo: "2" }, { ancho: 600, alto: 770 }), { frente: "1" });
+  assert.strictEqual(de(sinTrasero, TAPA).length, 5, "amarre frontal: un solo refuerzo");
+  const techo = RKVista.svg(RKVista.desdeValores({ i03_tipo_techo: "5" }, { ancho: 600, alto: 770 }), { frente: "1" });
+  assert.ok(!techo.includes("-interior)") && de(techo, TAPA).length === 2, "techo completo: cerrado");
+  // Con gola: el frente empieza 40 mm abajo, el costado lleva la muesca y el canal va metido con el tono del perfil.
+  const g = RKVista.desdeValores({ b01_gola_o_tirador: "2", g01_perfil_tipo: "2" }, { ancho: 600, alto: 770 });
+  assert.deepStrictEqual([g.golaTipo, g.golaProf], ["2", 45]);
+  const gs = RKVista.svg(Object.assign({}, g, { golaTipo: "1", golaProf: 27 }), { frente: "1", golaColor: "#2a2c2e" });
+  assert.ok(de(gs, FRENTE).some((c) => /^[^>]*><rect x="0\.0" y="40\.0"/.test(c)), "frente 40 mm abajo");
+  assert.ok(/<polygon points="(?:[\d.-]+,[\d.-]+ ){5}[\d.-]+,[\d.-]+"/.test(de(gs, COSTADO).join("")), "costado con muesca");
+  assert.ok(/<polygon [^>]*fill="#2a2c2e"/.test(gs) && de(gs, TAPA).some((c) => c.includes('fill="#2a2c2e"')), "piso y labio del perfil");
+  // Alacena: cerrada con su techo, sin zoclo ni interior; la manija abajo.
+  const al = RKVista.desdeAlacena({ c25tipopuerta: "1", d15_cant_puertas: "3" }, { ancho: 800, alto: 700, fondo: 330 });
+  assert.deepStrictEqual([al.fondo, al.techo], [330, "5"]);
+  const as = RKVista.svg(al, { frente: "1" });
+  assert.ok(!as.includes("-interior)") && de(as, TAPA).length === 2, "techo y canto de las puertas");
+  assert.ok(as.includes("800 × 700 · fondo 330 mm"));
+});
+
 const CAT = path.join(__dirname, "..", "src", "royal_kitchens_studio", "catalogo");
 const op = JSON.parse(fs.readFileSync(path.join(CAT, "opciones.json"), "utf8"));
 prueba("opciones.json: cada material tiene tono y cada manija (salvo «sin») su forma", () => {
@@ -277,9 +313,13 @@ prueba("gola en el diseño: selector único (sin gola, melamina, aluminio claro/
   assert.strictEqual(R.colorGola(op, fam, "aluminio_claro"), "#c4c8cc");
   assert.strictEqual(R.colorGola(op, fam, "", { g01_perfil_tipo: "2" }), op.golas[1].color);
   assert.strictEqual(R.colorGola(op, fam, "", { g01_perfil_tipo: "1", c23_material_gola_aluminio: "Champagne mate" }), "#cdb991");
+  // La gola de arriba va metida en L con el tono elegido; la de entre zonas, el canal con su degradado.
   const lay = RKVista.desdeValores({ b01_gola_o_tirador: "2" }, { ancho: 600, alto: 770 });
   const svg = RKVista.svg(lay, { golaColor: "#2a2c2e" });
-  assert.ok(svg.includes("-gola)") && svg.includes(`stop-color="#131415"`), "canal con degradado del tono elegido");
+  assert.ok(/<polygon [^>]*fill="#2a2c2e"/.test(svg) && !svg.includes("-gola)\""), "arriba: canal en L del tono elegido");
+  const dos = RKVista.desdeValores({ b01_gola_o_tirador: "2", d01_cantidad_zonas: "2", d31_z2_contenido: "2" }, { ancho: 600, alto: 770 });
+  const svg2 = RKVista.svg(dos, { golaColor: "#2a2c2e" });
+  assert.ok(svg2.includes("-gola)\"") && svg2.includes(`stop-color="#131415"`), "entre zonas: canal con degradado del tono elegido");
   assert.ok(MU.alcance(fam, true, false, true).cambia.includes("gola"), "la gola del proyecto se aplica");
 });
 

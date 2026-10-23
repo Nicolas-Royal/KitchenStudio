@@ -196,7 +196,7 @@ src/royal_kitchens_studio/
   ui/index.html secciones: proyectos, proyecto, catálogo, módulo, csv, ajustes
   ui/proyectos.js RKProyectos: filtrar/ordenar la lista, fechas, candado, sincronía; puro
   ui/app.js     controlador
-  ui/vista.js   RKVista: alzado SVG («Así se verá»); puro, se prueba en node
+  ui/vista.js   RKVista: el mueble en axonométrica SVG («Así se verá»); puro, se prueba en node
   ui/visor.js   RKVisor: marco con zoom/desplazamiento sobre el viewBox del SVG
   ui/receta.js  RCC_CORE: reglas de las recetas (validar, aplanar, nombre, importar); puro
   ui/reglas.js  RKReglas: manija por uso, Berlín/Lisa, MDF; puro
@@ -696,7 +696,7 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   canal a esa altura, la pared del fondo y su labio arriba; los costados
   llevan la muesca y por ella se ven las puntas del canal. Según su tipo
   (`golaTipo`, de la gola elegida en el diseño o de la receta,
-  `golaEsquinero` en `app.js`): aluminio con el color del perfil y pared
+  `golaVista` en `app.js`): aluminio con el color del perfil y pared
   delgada (4 mm), melamina con el material del mueble y el tablero de 18 mm
   del frente de la gola. Cada cara se dibuja plana con lo mismo que el alzado
   (`hoja`, estilo de frente, veta, manija, gola) y una `matrix` SVG la
@@ -706,6 +706,27 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   «Avanzado» y el ejemplo de «Así se verá». Probado en SketchUp con el generador del repo: un
   esquinero sale en ~2.5 s, y con diseño (Rectangular Flat Panel, Paola,
   Encino Paja: 22 mm) toma frente, manija y material en todo el mueble.
+- **La misma vista en gabinete y alacena (23/10/2026)**: `svgCaja` (todo lo
+  que no es esquinero; ya no hay alzado plano). La caja vista desde el
+  frente y un poco de la derecha (30° en planta, `DESDE_FRENTE`; el
+  esquinero, 45°, `DESDE_ESQUINA`; `proyeccion(grados)` da `iso`, `cara` y
+  `plano`): el frente con sus zonas (`zonasFrente`: puertas, Avento,
+  cajones, hueco), el costado derecho en sombra y el zoclo. Comparten con
+  el esquinero las piezas (`piezas`: costado con muesca, tablas acostadas
+  con su veta, caras de canto, encuadre) y la gola (`golaDe`). El gabinete
+  va abierto arriba con el interior oscuro y los refuerzos de su tipo de
+  techo (`i03_tipo_techo`: 2 delantero, 3 trasero, 4 los dos; 5 techo
+  completo = cerrado), detrás de la puerta y de la gola; con gola, la de
+  arriba es el canal en L metido (aluminio o melamina, `golaTipo`) y la de
+  entre zonas sigue siendo el canal plano con degradado. La alacena va
+  cerrada con su techo y sin sombra en el piso (colgada). La profundidad
+  sale de `LenY` o de las medidas del mueble (`fondo`; «Avanzado» usa
+  `MEDIDAS_VISTA`: 600, 350, 1000) y los espesores de `c01/c02` de cada
+  familia. El interior oscuro llega solo hasta el refuerzo delantero (más
+  adelante asomaba por la punta abierta del canal de la gola). En «Diseño
+  del proyecto» la vista lleva su propio alto (`#pr-preview`: entre 480 y
+  720 px, 66vh) y la sección crece hacia abajo en vez de ajustarse a la
+  ventana, donde quedaba aplastada.
 - **Gola en el esquinero (23/10/2026)**: solo la **L de arriba**, de aluminio
   o de melamina, con las piezas del gabinete (`ACC_GolaAluminioL` con el
   perfil «Gola L 1209-073» y `MP.PerfilMelaminaL`: piso y frente del material

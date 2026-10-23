@@ -275,7 +275,7 @@ function pintarPreviewProyecto() {
     const fam = (S.opciones.familias || {}).esquinero || null;
     const conGola = RKReglas.conGola(S.opciones, fam, g.gola);
     const lay = RKVista.desdeEsquinero({ c25tipopuerta: "1", b01_gola_o_tirador: conGola ? "2" : "1" }, { ancho: 1000, alto: 770, fondo: 1000 });
-    if (conGola) Object.assign(lay, golaEsquinero(g.gola));
+    if (conGola) Object.assign(lay, golaVista(g.gola));
     const d = conGola ? Object.assign({}, g, { frente: RKReglas.frenteGola(S.opciones) }) : g;
     visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(d, conGola, RKReglas.colorGola(S.opciones, fam, g.gola))), "proyecto-esquinero");
     const tipo = conGola ? (lay.golaTipo === "2" ? " y gola de melamina" : " y gola de aluminio") : "";
@@ -285,7 +285,8 @@ function pintarPreviewProyecto() {
   const alto = g.medidas.igualar ? g.medidas.alto : 770;
   const conGola = RKReglas.conGola(S.opciones, golaFam(), g.gola);
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
-    d31_z2_contenido: "2", d32_z2_cant_cajones: conGola ? "2" : "3", b01_gola_o_tirador: conGola ? "2" : "1", a02_alto_zoclo: "100mm" }, { ancho: 700, alto });
+    d31_z2_contenido: "2", d32_z2_cant_cajones: conGola ? "2" : "3", b01_gola_o_tirador: conGola ? "2" : "1", a02_alto_zoclo: "100mm" }, { ancho: 700, alto, fondo: g.medidas.igualar ? g.medidas.fondo : 600 });
+  if (conGola) Object.assign(lay, golaVista(g.gola));
   // Con gola el frente es Lisa, como lo va a insertar.
   const d = conGola ? Object.assign({}, g, { frente: RKReglas.frenteGola(S.opciones) }) : g;
   visor("#pr-preview").mostrar(RKVista.svg(lay, disenoSvg(d, conGola, RKReglas.colorGola(S.opciones, golaFam(), g.gola))), "proyecto");
@@ -997,7 +998,7 @@ function layoutDe(fam, v, medidas) {
 }
 
 // Medidas de la vista en «Avanzado» cuando el campo está vacío.
-const MEDIDAS_VISTA = { gabinete: [600, 770], alacena: [800, 700], esquinero: [1000, 770] };
+const MEDIDAS_VISTA = { gabinete: [600, 770, 600], alacena: [800, 700, 350], esquinero: [1000, 770, 1000] };
 
 /* Alzado SVG del módulo: con su diseño efectivo, o con las variables de
    «Avanzado» (+avanzado+, familias activas). */
@@ -1006,8 +1007,8 @@ function svgModulo(m, avanzado, enLista) {
   if (avanzado && S.av[m.id] && FAMILIAS_ACTIVAS.includes(fam)) {
     const st = S.av[m.id];
     const v = st.reg.valores;
-    const [ancho, alto] = MEDIDAS_VISTA[fam];
-    const lay = layoutDe(fam, v, { ancho: RKVista.num(v.LenX, ancho), alto: RKVista.num(v.LenZ, alto) });
+    const [ancho, alto, fondo] = MEDIDAS_VISTA[fam];
+    const lay = layoutDe(fam, v, { ancho: RKVista.num(v.LenX, ancho), alto: RKVista.num(v.LenZ, alto), fondo: RKVista.num(v.LenY, fondo) });
     // La manija de puertas es el primer attr que mapea su familia (d16_z1… en el gabinete).
     const mp = (((S.opciones.familias || {})[fam] || {}).manija_puerta || {}).attrs || [];
     return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: v[mp[0]],
@@ -1019,14 +1020,14 @@ function svgModulo(m, avanzado, enLista) {
   // La gola elegida en el diseño cambia el dibujo aunque la receta no la traiga.
   const gola = golaDe(m, d);
   lay.gola = gola;
-  // El esquinero dibuja la gola según su tipo (aluminio o melamina).
-  if (lay.esquinero && gola) Object.assign(lay, golaEsquinero(d.gola, m.receta && m.receta.valores));
+  // La gola se dibuja según su tipo (aluminio o melamina).
+  if (gola) Object.assign(lay, golaVista(d.gola, m.receta && m.receta.valores));
   return RKVista.svg(lay, disenoSvg(d, gola, colorGolaDe(m, d)));
 }
 
-/* Tipo de gola del esquinero para la vista: el de la gola elegida en el
+/* Tipo de gola para la vista (aluminio o melamina): el de la gola elegida en el
    diseño (golas[].valores) o, sin elección, el de la receta. */
-function golaEsquinero(id, valores) {
+function golaVista(id, valores) {
   const o = RKReglas.golaOpcion(S.opciones, id);
   const tipo = String((o && o.valores && o.valores.g01_perfil_tipo) || (valores && valores.g01_perfil_tipo) || "1");
   return tipo === "2" ? { golaTipo: "2", golaProf: 45 } : { golaTipo: "1", golaProf: 27 };

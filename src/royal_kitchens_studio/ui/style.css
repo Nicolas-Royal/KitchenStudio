@@ -469,7 +469,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .visor-ctrl .icon-btn:hover .ico { transform: none; }
 .visor-zoom { position: absolute; left: 12px; bottom: 10px; pointer-events: none; opacity: 0; transition: opacity var(--dur-base); }
 .visor.is-zoom .visor-zoom { opacity: 1; }
-#pr-preview { aspect-ratio: auto; height: min(520px, 62vh); }
 
 /* Miniatura de tarjeta: el mismo alzado, sin foto. */
 .preview-mini {
@@ -805,22 +804,23 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Madera sin foto: la textura de veta teñida (filtro SVG): que llene la foto. */
 .pick-photo img.veta, .pk-photo img.veta { object-fit: cover; }
 
-/* ---- Diseño del proyecto: todo en una pantalla ----------------------- */
-/* Como la página del módulo: la sección ocupa el alto del escenario y la
-   vista previa se estira; nada pide desplazarse a 1240 × 800. */
-.sec-fit { height: 100%; gap: 12px; }
+/* ---- Diseño del proyecto ---------------------------------------------- */
+/* La sección crece hacia abajo (el escenario se desplaza): «Así se verá»
+   lleva su propio alto, más vertical que ancho, para que el mueble en 3D
+   no quede chico; ajustada a la ventana quedaba aplastada. */
+.sec-fit { min-height: 100%; gap: 12px; }
 .pr-head { padding: 0 2px; gap: 6px 24px; align-items: flex-end; }
 .pr-head h1 { font-size: 22px; }
 .pr-lead { margin: 0 0 3px; max-width: 52ch; }
-.pr-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; }
-.pr-panel { overflow: auto; padding: 16px 18px; }
+.pr-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.pr-panel { padding: 16px 18px; }
 .pr-panel > h3:first-child { margin: 0 0 10px; }
 .pr-medidas-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 4px; }
 .pr-medidas-head h3 { margin: 0; }
-.pr-vista { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 16px 18px; }
+.pr-vista { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
 .pr-vista-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .pr-vista-head h3, .pr-vista-head .hint { margin: 0; }
-#pr-preview { flex: 1; min-height: 200px; height: auto; aspect-ratio: auto; }
+#pr-preview { flex: none; height: clamp(480px, 66vh, 720px); aspect-ratio: auto; }
 .pr-aplicar { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: var(--radius-md); box-shadow: var(--shadow-raised); }
 .pr-aplicar-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .pr-aplicar-txt .hint { margin: 0; }
