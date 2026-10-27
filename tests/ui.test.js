@@ -108,7 +108,9 @@ prueba("vista: esquinero en isométrica desde la esquina, una manija en cada hoj
   const grupos = (svg) => svg.split('<g transform="matrix(').slice(1);
   // Los cantos de los refuerzos también van en una matriz: son las caras de 18 mm de alto.
   const esCanto = (c) => /^[^>]*><rect x="0\.0" y="0\.0" width="[\d.]+" height="18\.0"/.test(c);
-  const caras = (svg) => grupos(svg).filter((c) => !c.startsWith(TAPA) && !esCanto(c));
+  // Y los respaldos por dentro, que se ven por arriba de la tapa al piso (770 − 18).
+  const esRespaldo = (c) => /^[^>]*><rect x="0\.0" y="0\.0" width="[\d.]+" height="752\.0"/.test(c);
+  const caras = (svg) => grupos(svg).filter((c) => !c.startsWith(TAPA) && !esCanto(c) && !esRespaldo(c));
   const barra = { forma: "barra", color: "#123456" };
   const s = caras(RKVista.svg(lay, { frente: "1", manijaPuerta: barra }));
   assert.strictEqual(s.length, 4);
@@ -124,24 +126,41 @@ prueba("vista: esquinero en isométrica desde la esquina, una manija en cada hoj
   const perfil = { forma: "perfil", color: "#123456" };
   assert.strictEqual([...RKVista.svg(lay, { frente: "1", manijaPuerta: perfil }).matchAll(/<rect [^>]*fill="#123456"/g)].length, 2);
   assert.ok(RKVista.svg(lay, { frente: "1" }).includes("1000 × 900 · alto 770 mm"));
-  // Arriba va abierto: el interior con su degradado oscuro y, encima, 4 cantos y 4 refuerzos acostados en la tapa.
+  // Arriba va abierto: por dentro, madera en sombra (respaldos y piso en L) y, encima, 4 cantos y 4 refuerzos acostados en la tapa.
   const arriba = RKVista.svg(lay, { frente: "1" });
-  assert.ok(/fill="url\(#rk-mat-\d+-interior\)"/.test(arriba), "interior oscuro");
-  assert.strictEqual((arriba.match(/<polygon /g) || []).length, 6, "sombra, interior y los dos costados (cuerpo y sombra)");
-  // El fondo es una capa de abajo: va antes que los frentes y que las tablas, y un grosor más abajo.
-  const iInt = arriba.indexOf("-interior)"), iFrente = arriba.indexOf('<g transform="matrix(0.7071 -0.2988'), iTabla = arriba.indexOf(TAPA);
-  assert.ok(iInt < iFrente && iInt < iTabla, "interior antes que frentes y tablas");
-  assert.strictEqual(grupos(arriba).filter((c) => c.startsWith(TAPA)).length, 10, "4 cantos de pared, 4 refuerzos y el canto de las 2 puertas");
+  assert.ok(!/-interior\)"/.test(arriba.split("</defs>")[1]), "ya no el interior oscuro: madera");
+  assert.strictEqual((arriba.match(/<polygon /g) || []).length, 6, "sombra, piso en L y los dos costados (cuerpo y sombra)");
+  // El interior es una capa de abajo: va antes que los frentes y que la tapa.
+  const iInt = arriba.indexOf('fill="rgba(0,0,0,0.4)" stroke'), iCuerpo = arriba.indexOf('stroke="rgba(0,0,0,.35)"');
+  assert.ok(iInt > 0 && iInt < iCuerpo, "interior (hasta el piso) antes que costados y frentes");
+  assert.strictEqual(grupos(arriba).filter((c) => c.startsWith(TAPA)).length, 12, "el piso (2 mitades), 4 cantos de pared, 4 refuerzos y el canto de las 2 puertas");
   // Los refuerzos se ven como tablones: el canto que mira al interior (los dos traseros y el delantero
   // izquierdo donde cruza el ala derecha); del frente no se ve (da a la puerta).
-  assert.strictEqual(grupos(arriba).filter(esCanto).length, 5, "cara interior de los 2 respaldos y 3 cantos de refuerzo hacia el interior");
+  assert.strictEqual(grupos(arriba).filter(esCanto).length, 3, "3 cantos de refuerzo hacia el interior");
+  assert.strictEqual(grupos(arriba).filter(esRespaldo).length, 2, "cara interior de los 2 respaldos, hasta el piso");
+  // Sin puerta no hay arista de la esquina (cruzaba los entrepaños), y los
+  // entrepaños se ven también por arriba: cada uno una tabla en L sin costura.
+  const abierto = RKVista.desdeEsquinero({ c25tipopuerta: "0", c24entrepano: "0", "divisor>f01cantdiv": "2" }, { ancho: 1000, alto: 770, fondo: 900 });
+  const sa = RKVista.svg(abierto, { frente: "1" });
+  assert.ok(!sa.includes("<line "), "sin la arista del medio");
+  assert.ok(arriba.includes("<line "), "con puertas, la arista donde se juntan");
+  const vano = sa.indexOf("<clipPath"), repisasL = (s) => (s.match(/<polygon points="(?:[\d.-]+,[\d.-]+ ){5}[\d.-]+,[\d.-]+" fill="rgba\(0,0,0,0\.28\)"/g) || []).length;
+  assert.strictEqual(repisasL(sa.slice(0, vano)), 2, "las 2 repisas en L por arriba");
+  assert.strictEqual(repisasL(sa.slice(vano)), 2, "y por el hueco");
+  // Sin puerta, el refuerzo delantero va al ras del frente (578 − 90); con puerta, detrás de ella (578 − 18 − 90):
+  // si dejaba el lugar de la puerta se veía una franja oscura además de su canto.
+  assert.ok(/<rect x="488\.0" y="18\.0" width="90\.0"/.test(sa), "sin puerta, al ras");
+  assert.ok(/<rect x="470\.0" y="18\.0" width="90\.0"/.test(arriba), "con puerta, detrás de ella");
   // La veta corre a lo largo de cada tabla: las largas en y llevan el patrón girado (-v), las largas en x el base.
   const conVeta = { color: "#8b5a3c", veta: true, textura: { url: "veta.png", ancho: 1800, alto: 400, luminancia: 215 } };
   const tablas = grupos(RKVista.svg(lay, { frente: "1", material: conVeta })).filter((c) => c.startsWith(TAPA)).map((c) => {
     const [, w, h, pat] = /width="([\d.]+)" height="([\d.]+)" fill="url\(#rk-mat-\d+(-v)?\)"/.exec(c) || [];
     return parseFloat(w) >= parseFloat(h) ? !pat : pat === "-v";
   });
-  assert.ok(tablas.length === 10 && tablas.every(Boolean), "veta a lo largo: " + tablas);
+  assert.ok(tablas.length === 12 && tablas.every(Boolean), "veta a lo largo: " + tablas);
+  // Los respaldos por dentro, parados como los costados: veta vertical.
+  const sv = RKVista.svg(lay, { frente: "1", material: conVeta });
+  assert.strictEqual(grupos(sv).filter((c) => esRespaldo(c) && /height="752\.0" fill="url\(#rk-mat-\d+-v\)"/.test(c)).length, 2, "respaldos con veta vertical");
   // Con gola, los delanteros se recorren lo que mide la gola (27 aluminio, 45 melamina).
   assert.strictEqual(RKVista.desdeEsquinero({ b01_gola_o_tirador: "2", g01_perfil_tipo: "2" }, { ancho: 1000, alto: 770, fondo: 900 }).golaProf, 45);
   // El estilo de frente (Mitered: ingletes) se dibuja en las dos hojas.
@@ -181,13 +200,18 @@ prueba("vista: gabinete y alacena en axonométrica desde el frente, como el esqu
   const frente = de(s, FRENTE).find((c) => c.includes('fill="#123456"'));
   assert.strictEqual((frente.match(/fill="#123456"/g) || []).length, 5);
   assert.strictEqual(de(s, COSTADO).filter((c) => c.includes("<polygon")).length, 1, "un costado");
-  // Arriba abierto: interior oscuro debajo de todo; canto de la puerta, 2 laterales, respaldo y 2 refuerzos.
-  assert.ok(s.indexOf("-interior)") < s.indexOf(FRENTE + " "), "el interior va antes que el frente");
-  assert.strictEqual(de(s, TAPA).length, 6);
+  // Arriba abierto: interior de madera debajo de todo; el piso, canto de la puerta, 2 laterales, respaldo y 2 refuerzos.
+  const PISO = 'fill="rgba(0,0,0,.4)" stroke="rgba(0,0,0,.4)"';
+  assert.ok(s.indexOf(PISO) > 0 && s.indexOf(PISO) < s.indexOf('stroke="rgba(0,0,0,.35)"'), "el interior va antes que costado y frente");
+  assert.strictEqual(de(s, TAPA).length, 7);
+  // Respaldo y lateral por dentro, parados: veta vertical, de la tapa al piso (cuerpo de 770 − 18).
+  const conVeta = { color: "#8b5a3c", veta: true, textura: { url: "veta.png", ancho: 1800, alto: 400, luminancia: 215 } };
+  const sv = RKVista.svg(gab, { frente: "1", material: conVeta });
+  assert.strictEqual((sv.match(/height="752\.0" fill="url\(#rk-mat-\d+-v\)"/g) || []).length, 2, "respaldo y lateral con veta vertical");
   const sinTrasero = RKVista.svg(RKVista.desdeValores({ i03_tipo_techo: "2" }, { ancho: 600, alto: 770 }), { frente: "1" });
-  assert.strictEqual(de(sinTrasero, TAPA).length, 5, "amarre frontal: un solo refuerzo");
+  assert.strictEqual(de(sinTrasero, TAPA).length, 6, "amarre frontal: un solo refuerzo");
   const techo = RKVista.svg(RKVista.desdeValores({ i03_tipo_techo: "5" }, { ancho: 600, alto: 770 }), { frente: "1" });
-  assert.ok(!techo.includes("-interior)") && de(techo, TAPA).length === 2, "techo completo: cerrado");
+  assert.ok(!techo.includes(PISO) && de(techo, TAPA).length === 2, "techo completo: cerrado");
   // Con gola: el frente empieza 40 mm abajo, el costado lleva la muesca y el canal va metido con el tono del perfil.
   const g = RKVista.desdeValores({ b01_gola_o_tirador: "2", g01_perfil_tipo: "2" }, { ancho: 600, alto: 770 });
   assert.deepStrictEqual([g.golaTipo, g.golaProf], ["2", 45]);
@@ -199,20 +223,21 @@ prueba("vista: gabinete y alacena en axonométrica desde el frente, como el esqu
   const al = RKVista.desdeAlacena({ c25tipopuerta: "1", d15_cant_puertas: "3" }, { ancho: 800, alto: 700, fondo: 330 });
   assert.deepStrictEqual([al.fondo, al.techo], [330, "5"]);
   const as = RKVista.svg(al, { frente: "1" });
-  assert.ok(!as.includes("-interior)") && de(as, TAPA).length === 2, "techo y canto de las puertas");
+  assert.ok(!as.includes(PISO) && de(as, TAPA).length === 2, "techo y canto de las puertas");
   assert.ok(as.includes("800 × 700 · fondo 330 mm"));
 });
 
-prueba("vista: zona sin frente = hueco oscuro, con los entrepaños y divisores que se ven por él", () => {
+prueba("vista: zona sin frente = el interior de madera, con los entrepaños y divisores que se ven por él", () => {
   const TAPA = "0.8660 0.2113 -0.5000 0.3660";
+  const PISO = 'fill="rgba(0,0,0,.4)" stroke="rgba(0,0,0,.4)"';
   const grupos = (svg) => svg.split('<g transform="matrix(').slice(1);
-  // Hueco para horno arriba (600) y un cajón abajo; sin repisas: solo el interior oscuro, sin recorte.
+  // Hueco para horno arriba (600) y un cajón abajo: el interior por arriba y, recortado, por el hueco.
   const horno = RKVista.desdeValores({ d01_cantidad_zonas: "2", d02_alto_zona_superior: "600", d11_z1_contenido: "3",
     d31_z2_contenido: "2", d32_z2_cant_cajones: "1" }, { ancho: 600, alto: 770 });
   const s = RKVista.svg(horno, { frente: "1" });
   assert.ok(!s.includes('fill="#c9c4bb"'), "ya no es el hueco gris");
-  assert.ok((s.match(/fill="url\(#rk-mat-\d+-interior\)"/g) || []).length >= 2, "arriba y en el hueco, el interior oscuro");
-  assert.ok(!s.includes("<clipPath"), "sin repisas no hay nada que recortar");
+  assert.strictEqual(s.split(PISO).length - 1, 2, "arriba y en el hueco, el mismo interior");
+  assert.ok(s.indexOf("<clipPath") < s.lastIndexOf(PISO), "el del hueco, recortado a su boca");
   // Con un entrepaño (retiro 50) a media zona y un divisor al ras: se dibujan recortados a la boca del hueco.
   const conRep = Object.assign({}, horno, { repisas: [{ z: 450, retiro: 50, divisor: false }, { z: 300, retiro: 0, divisor: true }] });
   const r = RKVista.svg(conRep, { frente: "1" });
@@ -221,15 +246,23 @@ prueba("vista: zona sin frente = hueco oscuro, con los entrepaños y divisores q
   assert.strictEqual(grupos(recorte).filter((c) => c.startsWith(TAPA)).length >= 2, true, "una cara de arriba por repisa");
   // El divisor llega al frente del cuerpo; el entrepaño se queda 50 mm atrás (su canto en y = fondo − puerta − retiro).
   const cantos = grupos(recorte).filter((c) => c.startsWith("0.8660 0.2113 0 0.9063"));
-  assert.strictEqual(cantos.length, 2, "el canto de cada una");
+  assert.strictEqual(cantos.length, 3, "el respaldo y el canto de cada una");
   // Detrás de una puerta no se dibujan: sin hueco, no hay recorte aunque haya repisas.
   const puertas = Object.assign(RKVista.desdeValores({ d01_cantidad_zonas: "1", d11_z1_contenido: "1" }, { ancho: 600, alto: 770 }),
     { repisas: [{ z: 380, retiro: 50 }] });
   assert.ok(!RKVista.svg(puertas, { frente: "1" }).includes("<clipPath"));
-  // Alacena de microondas: hueco abajo, con el interior oscuro.
+  // Alacena de microondas: hueco abajo, con el interior de madera (cerrada: solo por el hueco).
   const micro = RKVista.desdeAlacena({ LenZ: "900", d01_cantidad_zonas: "2", d02_alto_zona_superior: "500", c25tipopuerta: "1",
     d15_cant_puertas: "3", d31_z2_contenido: "0" }, { ancho: 600, alto: 900 });
-  assert.ok(/fill="url\(#rk-mat-\d+-interior\)"/.test(RKVista.svg(micro, { frente: "1" })));
+  assert.strictEqual(RKVista.svg(micro, { frente: "1" }).split(PISO).length - 1, 1);
+  // Las dos zonas sin frente: un solo hueco, sin la franja de división flotando en medio.
+  const dos = RKVista.desdeAlacena({ LenZ: "800", d01_cantidad_zonas: "2", d02_alto_zona_superior: "500", c25tipopuerta: "0", d31_z2_contenido: "0" },
+    { ancho: 700, alto: 800, fondo: 330 });
+  const huecos = [...RKVista.svg(dos, { frente: "1" }).matchAll(/<rect x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="([\d.]+)" fill="url\(#rk-mat-\d+-interior\)"/g)]
+    .map((m) => [parseFloat(m[1]), parseFloat(m[1]) + parseFloat(m[2])]);
+  assert.deepStrictEqual(huecos, [[18, 500], [500, 782]], "pegados: de la tapa al piso");
+  // Con la de arriba con puerta, la división sí se ve (la mitad de su canto bajo la puerta).
+  assert.strictEqual([...RKVista.svg(micro, { frente: "1" }).matchAll(/<rect x="[\d.]+" y="([\d.]+)"[^>]*fill="url\(#rk-mat-\d+-interior\)"/g)][0][1], "509.0");
   // Esquinero sin puerta: dos huecos y sus entrepaños en L repartidos iguales.
   const esq = RKVista.desdeEsquinero({ c25tipopuerta: "0", c24entrepano: "0", f01cantdiv: "2", a0101profizq: "578", a0102profder: "578" },
     { ancho: 1000, alto: 770, fondo: 1000 });
@@ -488,6 +521,26 @@ prueba("entrepaños: lo que escribe el gráfico lo lee la geometría y la fila",
   assert.ok(Math.abs(G.espacios.reduce((a, b) => a + b, 0) + 2 * G.esp - G.alto) < 0.01);
   assert.ok(!G.repisas[0].divisor && G.repisas[1].divisor);
   assert.strictEqual(rcc.flatten(m, reg)[V.espacios[0]], Math.round(e[0]) + "mm");
+});
+
+prueba("entrepaños del esquinero: gráfico solo de entrepaños, a la altura que se fije", () => {
+  const m = man.esquinero, g = m.grupos.find((x) => x.visual), V = g.visual;
+  assert.strictEqual(g.id, "divisores");
+  assert.ok(!V.retiros, "sin divisores: no hay retiro por repisa");
+  const reg = { familia: "esquinero", valores: rcc.defaultValores(m) };
+  const id = (attr) => rcc.fieldByAttr(m, attr).id;
+  [["LenX", "1000"], ["LenY", "1000"], ["LenZ", "770"], ["a0101profizq", "578"], ["a0102profder", "578"]].forEach(([a, v]) => { reg.valores[id(a)] = v; });
+  reg.valores[id(V.cantidad)] = "2";
+  reg.valores[id(V.modo)] = V.modo_personalizado;
+  reg.valores[id(V.espacios[0])] = "200";
+  const G = rcc.geomEntrepanos(m, reg.valores, V);
+  assert.ok(G.on && G.n === 2 && G.soloEntrepanos);
+  assert.strictEqual(G.espacios[0], 200);
+  assert.ok(G.repisas.every((r) => !r.divisor && r.retiro === V.retiro_auto_mm), "margen frontal vacío = el de la vista");
+  reg.valores[id(V.retiro)] = "35";
+  assert.ok(rcc.geomEntrepanos(m, reg.valores, V).repisas.every((r) => r.retiro === 35));
+  reg.valores[id(V.activo.attr)] = "1";
+  assert.ok(!rcc.geomEntrepanos(m, reg.valores, V).on, "«Entrepaño: No» apaga el gráfico");
 });
 
 prueba("muebles: origen y de dónde sale el diseño en el proyecto", () => {

@@ -79,6 +79,8 @@ window.RKEntrepanos = (function () {
       return b;
     }
     const cantidad = () => parseInt(reg.valores[campo(V.cantidad).id], 10) || 1;
+    // Sin `retiros` (esquinero) solo hay entrepaños: ni divisores ni retiro por repisa.
+    const soloEnt = !V.retiros;
 
     // ---- barra: cantidad, modo y leyenda ----------------------------------
     const lblN = el("span", "visual-n");
@@ -92,7 +94,7 @@ window.RKEntrepanos = (function () {
       cambio();
     });
     const ley = el("span", "visual-leyenda");
-    ley.innerHTML = '<i class="sw sw-ent"></i>Entrepaño<i class="sw sw-div"></i>Divisor' +
+    ley.innerHTML = '<i class="sw sw-ent"></i>Entrepaño' + (soloEnt ? "" : '<i class="sw sw-div"></i>Divisor') +
       '<i class="sw sw-caj"></i>Cajón<i class="sw sw-fre"></i>Frente';
     barra.append(bMenos, lblN, bMas, bIguales, ley);
 
@@ -108,7 +110,7 @@ window.RKEntrepanos = (function () {
         const lbl = w.querySelector(".field-label");
         if (lbl) lbl.textContent = G.on && j === G.n ? "Espacio " + (j + 1) + " · arriba de todo" : f.label;
       });
-      V.retiros.forEach((a) => {
+      (V.retiros || []).forEach((a) => {
         const f = campo(a), w = f && filaDe(f.id), sel = w && w.querySelector("select");
         if (!sel) return;
         Array.prototype.forEach.call(sel.options, (o) => {
@@ -185,7 +187,7 @@ window.RKEntrepanos = (function () {
           const y = Y(r.zCuerpo + G.esp);
           g.appendChild(rect(X(G.esp), y - 6, G.ancho * s, tPx + 12, "vs-hit"));
           g.appendChild(rect(X(G.esp) + il, y, G.ancho * s - il - id, tPx, "vs-tabla", { rx: 1.5 }));
-          g.appendChild(svg("title", {}, `${nombre(r)} · arrastra para mover · clic para cambiar a ${otro(r)}`));
+          g.appendChild(svg("title", {}, `${nombre(r)} · arrastra para mover` + (soloEnt ? "" : ` · clic para cambiar a ${otro(r)}`)));
           g.addEventListener("pointerdown", (ev) => empezar(ev, "alto", r.i, A));
           A.appendChild(g);
         });
@@ -218,9 +220,10 @@ window.RKEntrepanos = (function () {
           const xa = XC(G.fondoCuerpo - G.reserva), xb = XC(r.retiro);
           const g = svg("g", { class: clase(r) + " es-lado" });
           g.appendChild(rect(xa, y, Math.max(4, xb - xa), tPx, "vs-tabla", { rx: 1.5 }));
-          g.appendChild(svg("title", {}, `${nombre(r)} · ${fmt(r.profundidad)} mm de fondo · clic para cambiar a ${otro(r)}`));
-          g.addEventListener("click", () => { if (!drag || !drag.movio) alternarTipo(r.i); });
+          g.appendChild(svg("title", {}, `${nombre(r)} · ${fmt(r.profundidad)} mm de fondo` + (soloEnt ? "" : ` · clic para cambiar a ${otro(r)}`)));
           C.appendChild(g);
+          if (soloEnt) return;   // el retiro es el margen frontal del grupo: no se arrastra
+          g.addEventListener("click", () => { if (!drag || !drag.movio) alternarTipo(r.i); });
           const h = svg("g", { class: "vs-tirador" });
           h.appendChild(rect(xb - 8, y - 6, 16, tPx + 12, "vs-hit"));
           h.appendChild(svg("circle", { cx: xb, cy: y + tPx / 2, r: 4.5 }));
@@ -242,7 +245,8 @@ window.RKEntrepanos = (function () {
       let msg = G.on
         ? `Interior ${fmt(G.ancho)} × ${fmt(G.alto)} × ${fmt(G.prof)} mm · repisas de ${fmt(G.esp)} mm · ` +
           (G.personal ? "altos personalizados (los vacíos se reparten el resto)" : "separaciones iguales") +
-          ` · ƒ = retiro por fórmula (${fmt(G.retiroFormula)} mm)`
+          (soloEnt ? ` · retiro del frente ${fmt(G.repisas.length ? G.repisas[0].retiro : 0)} mm`
+            : ` · ƒ = retiro por fórmula (${fmt(G.retiroFormula)} mm)`)
         : "Activa «Entrepaño: Sí» para acomodar repisas. Los frentes y cajones se dibujan como referencia.";
       if (G.exceso > 1) msg += ` — se pasan ${fmt(G.exceso)} mm`;
       if (choques.length) msg += ` — ${choques.length} ${choques.length === 1 ? "choque" : "choques"} (en rojo)`;
@@ -253,6 +257,7 @@ window.RKEntrepanos = (function () {
     }
 
     function alternarTipo(i) {
+      if (soloEnt) return;
       const f = campo(V.retiros[i]);
       if (!geom || !f || !rcc.fieldEnabled(f, manifest, reg.valores)) return;
       const r = geom.G.repisas[i];

@@ -503,12 +503,16 @@
     var espacios = crudos.map(function (v) { return v > 0 ? v : auto; });
 
     var latIzq = num(V.lateral_izq), latDer = num(V.lateral_der);
+    // Sin `retiros` (esquinero) solo hay entrepaños: todos con el mismo retiro
+    // (V.retiro; vacío = V.retiro_auto_mm) y nunca divisor.
+    var soloEnt = !V.retiros;
+    var retiroComun = soloEnt ? (num(V.retiro) > 0 ? num(V.retiro) : (V.retiro_auto_mm || 0)) : 0;
     var repisas = [], z = 0;
     for (var i = 0; i < n; i++) {
       z += espacios[i];
-      var retiro = retiroRepisa(manifest, valores, V, V.retiros[i]);
-      var f = fieldByAttr(manifest, V.retiros[i]);
-      var divisor = retiro < 0.5;
+      var retiro = soloEnt ? retiroComun : retiroRepisa(manifest, valores, V, V.retiros[i]);
+      var f = soloEnt ? null : fieldByAttr(manifest, V.retiros[i]);
+      var divisor = !soloEnt && retiro < 0.5;
       repisas.push({ i: i, z: z, zCuerpo: esp + z, divisor: divisor, retiro: retiro,
                      formula: !!f && valorCapturado(f, valores) === '',
                      profundidad: prof - retiro,
@@ -519,7 +523,7 @@
     }
     var usado = espacios.reduce(function (s, v) { return s + v; }, 0) + n * esp;
     return { on: on, cuerpo: cuerpo, fondoCuerpo: fondoC, alto: alto, ancho: ancho, prof: prof,
-             reserva: reserva, esp: esp, n: n, personal: personal,
+             reserva: reserva, esp: esp, n: n, personal: personal, soloEntrepanos: soloEnt,
              espacios: espacios, crudos: crudos, repisas: repisas, libre: libre, fijos: fijos,
              retiroFormula: retiroFormulaMm(manifest, valores, V),
              // Lo fijado que no cabe: si hay espacios en 0, ellos absorben (y quedan

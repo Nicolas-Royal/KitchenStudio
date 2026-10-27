@@ -1019,7 +1019,8 @@ function pintarInterior(m, d, editable) {
     $("#md-interior-reset").hidden = !o.interior;
     const errs = erroresInterior(man, g, reg);
     nota.textContent = errs.length ? errs.map((e) => e.msg).join(" ")
-      : on ? "Arrastra una repisa para moverla; clic para cambiar entre entrepaño y divisor. Solo cambia este mueble en este proyecto." : "";
+      : on ? "Arrastra una repisa para moverla" + (V.retiros ? "; clic para cambiar entre entrepaño y divisor" : "") +
+        ". Solo cambia este mueble en este proyecto." : "";
     nota.classList.toggle("bad", errs.length > 0);
   };
   // Se guarda solo lo del grupo, ya como valores de fila: es lo que Ruby aplica a la receta.
@@ -1089,7 +1090,8 @@ function svgModulo(m, avanzado, enLista) {
    frente), con el mismo cálculo que su gráfico en «Avanzado»
    (RCC_CORE.geomEntrepanos sobre los valores del formulario +valores+): z =
    canto de abajo desde el piso del cuerpo, retiro desde el frente (0 =
-   divisor). El esquinero no tiene gráfico: los reparte RKVista.desdeEsquinero. */
+   divisor). En el esquinero (solo entrepaños en L) reemplazan a los de
+   RKVista.desdeEsquinero, que solo sabe de separaciones iguales. */
 function conRepisas(lay, fam, valores) {
   const man = S.manifiestos[fam], g = man && S.rcc && grupoInterior(man);
   if (!g || !lay) return lay;

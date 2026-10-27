@@ -460,7 +460,26 @@
         { "id": "f03espacio6", "attr": "divisor>f03espacio6", "label": "Espacio 6", "tipo": "numero", "unidad": "mm", "default": "", "placeholder": "auto", "auto": true, "vacio": "0mm",
           "visible_si": { "attr": "divisor>f01cantdiv", "min": 6 },
           "habilitado_si": { "todas": [{ "attr": "c24entrepano", "valor": "0" }, { "attr": "divisor>f02tipomedida", "valor": "2" }], "mensaje": "Solo con separación «Personalizado»." } }
-      ]
+      ],
+      "visual": {
+        "tipo": "entrepanos",
+        "_doc": "Solo entrepaños (en L, sin divisores): sin `retiros`, todas las repisas llevan el margen frontal (`retiro`); vacío = `retiro_auto_mm`, lo que ya dibujaba la vista. El corte lateral es el del ala izquierda.",
+        "activo": { "attr": "c24entrepano", "valor": "0" },
+        "ancho": "LenX",
+        "alto": "LenZ",
+        "profundidad": "a0101profizq",
+        "espesor_estructura": "c01espestr",
+        "espesor_puerta": "c02esppuerta",
+        "fondo": "c03espfondo",
+        "cantidad": "divisor>f01cantdiv",
+        "modo": "divisor>f02tipomedida",
+        "modo_personalizado": "2",
+        "espacios": ["divisor>f03espacio1", "divisor>f03espacio2", "divisor>f03espacio3", "divisor>f03espacio4", "divisor>f03espacio5", "divisor>f03espacio6"],
+        "retiro": "divisor>e31_marg1",
+        "retiro_auto_mm": 20,
+        "lateral_izq": "divisor>e33_marg3",
+        "lateral_der": "divisor>e34_marg4"
+      }
     },
     {
       "id": "espesores",

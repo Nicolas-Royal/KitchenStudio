@@ -313,8 +313,8 @@ window.RKVista = (function () {
       (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado, d.abajo, d.cantoManija));
   }
 
-  /* Hueco sin frente: el mismo interior oscuro de arriba, más oscuro hacia
-     el fondo de arriba, con el canto de alrededor en sombra. */
+  /* Hueco sin frente: oscuro, con el canto de alrededor en sombra. Encima se
+     dibuja recortado el interior de madera (porHueco); esto queda de fondo. */
   function hueco(d, x, y, w, h) {
     return rect(x, y, w, h, `fill="url(#${d._pat}-interior)" stroke="rgba(0,0,0,.45)" stroke-width="1.5"`);
   }
@@ -357,6 +357,9 @@ window.RKVista = (function () {
   function zonasFrente(layout, d, W, golaArriba, vanos) {
     let out = "", y = 0;
     const E = layout.esp || 18, ultima = layout.zonas.length - 1;
+    // Dos zonas seguidas sin frente son un solo hueco: entre ellas no hay
+    // pieza, y la franja del medio quedaba flotando.
+    const abierta = (z) => !!z && (layout.verInterior || z.tipo === "abierto");
     layout.zonas.forEach((z, i) => {
       let zy = y + GAP, zh = z.h - 2 * GAP;
       if (d.gola) {
@@ -368,8 +371,10 @@ window.RKVista = (function () {
       }
       // Frentes de esta zona: los de siempre o, con verInterior, su contorno.
       const dz = layout.verInterior ? Object.assign({}, d, { _fantasma: true }) : d;
-      if (layout.verInterior || z.tipo === "abierto") {
-        const v = { x0: E, x1: W - E, y0: d.gola ? zy : y + (i === 0 ? E : E / 2), y1: y + z.h - (i === ultima ? E : E / 2) };
+      if (abierta(z)) {
+        const arriba = i === 0 ? E : abierta(layout.zonas[i - 1]) ? 0 : E / 2;
+        const abajo = i === ultima ? E : abierta(layout.zonas[i + 1]) ? 0 : E / 2;
+        const v = { x0: E, x1: W - E, y0: d.gola ? zy : y + arriba, y1: y + z.h - abajo };
         out += hueco(d, v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
         if (vanos) vanos.push(v);
       }
@@ -470,10 +475,13 @@ window.RKVista = (function () {
     // cada una en su plano y una matriz la acuesta, así la veta corre a lo
     // largo de la pieza y sigue la perspectiva. El patrón base tiene la veta
     // en x; el «-v», en y.
-    const tabla = (x0, y0, x1, y1, color, z) => {
+    // +sinBorde+: para armar una tabla de varias (la repisa en L), que se
+    // contornea entera.
+    const tabla = (x0, y0, x1, y1, color, z, sinBorde) => {
       const largoEnX = x1 - x0 >= y1 - y0;
       const fill = color || (d.material ? `url(#${d._pat}${conVeta && !largoEnX ? "-v" : ""})` : "#ece8e1");
-      return `<g transform="${pr.plano(z == null ? top : z)}">` + rect(x0, y0, x1 - x0, y1 - y0, `fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="1.5"`) +
+      const borde = sinBorde ? "" : ' stroke="rgba(0,0,0,.4)" stroke-width="1.5"';
+      return `<g transform="${pr.plano(z == null ? top : z)}">` + rect(x0, y0, x1 - x0, y1 - y0, `fill="${fill}"${borde}`) +
         rect(x0, y0, x1 - x0, y1 - y0, 'fill="rgba(255,255,255,.25)"') + "</g>";
     };
     // Cara vertical de +w+ × +h+ (mm) con un material y su sombra.
@@ -537,8 +545,10 @@ window.RKVista = (function () {
     // gola). Con gola la puerta baja GOLA (40 mm) y deja el canal en L.
     const E = L.esp || 18, RF = 90, eP = L.espPuerta || 0;
     const conGola = !!d.gola && !L.abierto, GZ = conGola ? GOLA : 0, G = conGola ? (L.golaProf || 27) : 0;
-    const fI = pI - (eP || 18) - G, fD = pD - (eP || 18) - G;
-    const { top, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe, porHueco, repisa } = piezas(d, DESDE_ESQUINA, H, Z, GZ);
+    // Sin puerta el refuerzo va al ras del frente: si dejaba el lugar de la
+    // puerta, por ahí se veía la pared de adentro (una franja oscura).
+    const fI = pI - eP - G, fD = pD - eP - G;
+    const { top, conVeta, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe, porHueco } = piezas(d, DESDE_ESQUINA, H, Z, GZ);
     const { melamina, color: golaColor, K, fill: golaFill } = golaDe(L, d, E);
     // Un frente: el canto del cuerpo y la hoja o, sin puerta, el hueco oscuro
     // entre piso, techo y costado (+boca+ = [desde, hasta] a lo ancho). Con
@@ -557,10 +567,24 @@ window.RKVista = (function () {
     out += enZ(0)([[20, 20], [LY + 20, 20], [LY + 20, pD + 20], [pI + 20, pD + 20], [pI + 20, LX + 20], [20, LX + 20]], 'fill="rgba(0,0,0,.12)"');
     // --- Capa de fondo: todo lo que queda por dentro. Va antes que costados,
     // frentes y tablas, que lo tapan donde corresponde y se ven sobresalir.
-    // El interior un grosor más abajo, más oscuro hacia atrás, con la cara de
-    // los respaldos hasta él (sin ella quedaba una raya sin pintar).
-    out += enZ(top - E)([[0, 0], [LY, 0], [LY, pD], [pI, pD], [pI, LX], [0, LX]], `fill="url(#${d._pat}-interior)"`);
-    out += cara([E, LX - E, top], -1, panel(LX - 2 * E, E, madera, 0.55)) + cara([E, E, top], 1, panel(LY - 2 * E, E, madera, 0.6));
+    // Por dentro todo es madera del material, con la veta como va cada pieza:
+    // los respaldos parados (veta vertical, como los costados), el piso y los
+    // entrepaños en L acostados (cada mitad con la veta a lo largo, sin
+    // costura). En sombra, más oscuro arriba. Es lo mismo que se ve por
+    // arriba y por los huecos del frente.
+    const piso = Z + E, vetaV = d.material ? `url(#${d._pat}${conVeta ? "-v" : ""})` : madera;
+    const pared = (w, luz) => panel(w, top - piso, vetaV, luz) + rect(0, 0, w, top - piso, `fill="url(#${d._pat}-hueco)"`);
+    // Una tabla en L acostada a la altura +z+, del respaldo hasta (+xf+, +yf+).
+    const tablaL = (z, xf, yf, luz) => tabla(E, E, xf, LX - E, null, z, true) + tabla(xf, E, LY - E, yf, null, z, true) +
+      enZ(z)([[E, E], [LY - E, E], [LY - E, yf], [xf, yf], [xf, LX - E], [E, LX - E]], `fill="rgba(0,0,0,${luz})" stroke="rgba(0,0,0,.4)" stroke-width="1.5"`);
+    let adentro = cara([E, LX - E, top], -1, pared(LX - 2 * E, 0.12)) + cara([E, E, top], 1, pared(LY - 2 * E, 0.2)) +
+      tablaL(piso, pI, pD, 0.4); // hasta el frente: sin la raya oscura donde va la puerta
+    (L.repisas || []).slice().sort((a, b) => a.z - b.z).forEach((r) => {
+      const zt = Z + r.z + E, xf = pI - eP - (r.retiro || 0), yf = pD - eP - (r.retiro || 0);
+      adentro += tablaL(zt, xf, yf, 0.28) +
+        cara([xf, LX - E, zt], -1, panel(LX - E - yf, E, madera, 0.15)) + cara([xf, yf, zt], 1, panel(LY - E - xf, E, madera, 0.22));
+    });
+    out += adentro;
     // Cantos de los refuerzos que miran al interior: los traseros y el
     // delantero izquierdo donde cruza el ala derecha. El que da a la puerta
     // queda tapado.
@@ -583,25 +607,23 @@ window.RKVista = (function () {
     out += cara([LY, pD, top], -1, costado(pD, [0, pD - fD]));
     out += cara([pI, LX, top], -1, frente(wIzq, "izq", 0, [E, wIzq]));
     out += cara([pI, pD, top], 1, frente(wDer, "der", 0.07, [0, wDer - E]));
-    // Sin puerta, los entrepaños en L que se ven por los dos huecos: a su
-    // altura, del respaldo a su retiro del frente.
-    if ((L.abierto || L.verInterior) && (L.repisas || []).length) {
-      let s = "";
-      L.repisas.slice().sort((a, b) => a.z - b.z).forEach((r) => {
-        const zt = Z + r.z + E, xf = pI - eP - (r.retiro || 0), yf = pD - eP - (r.retiro || 0);
-        s += repisa(E, E, xf, LX - E, zt) + repisa(xf, E, LY - E, yf, zt) +
-          cara([xf, LX - E, zt], -1, panel(LX - E - yf, E, madera, 0.15)) + cara([xf, yf, zt], 1, panel(LY - E - xf, E, madera, 0.22));
-      });
+    // Sin puerta, el mismo interior también por los dos huecos.
+    if (L.abierto || L.verInterior) {
       const z1 = top - E, z0 = Z + E;
       out += porHueco(`${d._pat}-vano`, [[[pI, LX - E, z1], [pI, pD, z1], [pI, pD, z0], [pI, LX - E, z0]],
-                                         [[pI, pD, z1], [LY - E, pD, z1], [LY - E, pD, z0], [pI, pD, z0]]], s);
+                                         [[pI, pD, z1], [LY - E, pD, z1], [LY - E, pD, z0], [pI, pD, z0]]], adentro);
     }
-    // Esquina interior: la arista donde se juntan los dos frentes.
-    const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top - GZ)];
-    out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
+    // Esquina interior: la arista donde se juntan las dos puertas. Sin ellas
+    // no hay arista: cruzaba los entrepaños por el medio.
+    if (!L.abierto && !L.verInterior) {
+      const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top - GZ)];
+      out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
+    }
     // Canto de arriba de las puertas, de costado a costado (la puerta tapa el
     // canto de los laterales): al ras de la tapa o, con gola, abajo.
-    if (eP && !L.abierto && !L.verInterior) out += tabla(pI - eP, pD - eP, pI, LX, null, top - GZ) + tabla(pI, pD - eP, LY, pD, null, top - GZ);
+    // Mientras se editan los entrepaños también: las puertas siguen ahí, y sin
+    // su canto se veía la pared por el lugar que ocupan.
+    if (eP && !L.abierto) out += tabla(pI - eP, pD - eP, pI, LX, null, top - GZ) + tabla(pI, pD - eP, LY, pD, null, top - GZ);
     // --- Arriba (va la cubierta): los cantos de respaldos y costados y los
     // cuatro refuerzos, como los arma el componente: los de cada ala a lo
     // largo de ella, los delanteros detrás de la puerta y de la gola, y los
@@ -631,7 +653,7 @@ window.RKVista = (function () {
     const conGola = !!d.gola, GZ = conGola ? GOLA : 0, G = conGola ? (L.golaProf || 27) : 0;
     // Cara de los refuerzos delanteros: detrás de la puerta y de la gola.
     const f = P - eP - G;
-    const { top, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe, porHueco, repisa } = piezas(d, DESDE_FRENTE, H, Z, GZ);
+    const { top, conVeta, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe, porHueco, repisa } = piezas(d, DESDE_FRENTE, H, Z, GZ);
     const { melamina, color: golaColor, K, fill: golaFill } = golaDe(L, d, E);
     const techo = L.techo || "4";
     const cerrado = techo === "5";
@@ -639,14 +661,26 @@ window.RKVista = (function () {
     // Sombra en el piso, un poco corrida hacia el frente (la alacena va
     // colgada: sin sombra).
     if (Z > 0 || !L.abajo) out += enZ(0)([[20, 20], [W + 20, 20], [W + 20, P + 20], [20, P + 20]], 'fill="rgba(0,0,0,.12)"');
-    // --- Capa de fondo (abierto): el interior un grosor más abajo, la cara
-    // del respaldo y de la lateral izquierda hasta él y el canto del refuerzo
-    // trasero; el del delantero da a la puerta y no se ve. El interior llega
-    // solo hasta el refuerzo delantero: más adelante asomaba por la punta
-    // abierta del canal de la gola.
+    // --- Interior, como el del esquinero: madera del material en sombra, con
+    // la veta como va cada pieza. Respaldo y lateral izquierda parados (veta
+    // vertical, como los costados), el piso y los entrepaños y divisores
+    // acostados, de abajo hacia arriba (la de arriba tapa a la de abajo). Es
+    // lo que se ve por arriba (sin techo) y por los huecos sin frente.
+    // Lateral y piso llegan al frente (P): el hueco sin puerta se dibuja en ese
+    // plano, y si paraban donde va la puerta asomaba una raya oscura.
+    const piso = Z + E, yF = P - eP, vetaV = d.material ? `url(#${d._pat}${conVeta ? "-v" : ""})` : madera;
+    const pared = (w, luz) => panel(w, top - piso, vetaV, luz) + rect(0, 0, w, top - piso, `fill="url(#${d._pat}-hueco)"`);
+    let adentro = cara([E, E, top], 1, pared(W - 2 * E, 0.2)) + cara([E, P, top], -1, pared(P - E, 0.12)) +
+      tabla(E, E, W - E, P, null, piso, true) +
+      enZ(piso)([[E, E], [W - E, E], [W - E, P], [E, P]], 'fill="rgba(0,0,0,.4)" stroke="rgba(0,0,0,.4)" stroke-width="1.5"');
+    (L.repisas || []).slice().sort((a, b) => a.z - b.z).forEach((r) => {
+      const zt = Z + r.z + E, yf = yF - (r.retiro || 0);
+      adentro += repisa(E, E, W - E, yf, zt) + cara([E, yf, zt], 1, panel(W - 2 * E, E, madera, r.divisor ? 0.05 : 0.15));
+    });
+    // Sin techo se ve desde arriba, con el canto del refuerzo trasero; el del
+    // delantero da a la puerta y no se ve.
     if (!cerrado) {
-      out += enZ(top - E)([[0, 0], [W, 0], [W, f], [0, f]], `fill="url(#${d._pat}-interior)"`);
-      out += cara([E, E, top], 1, panel(W - 2 * E, E, madera, 0.6)) + cara([E, f, top], -1, panel(f - E, E, madera, 0.55));
+      out += adentro;
       if (techo === "3" || techo === "4") out += cara([E, E + RF, top], 1, panel(W - 2 * E, E, madera, 0.28));
     }
     // Canal de la gola: el piso a la altura de la puerta bajada, la pared del
@@ -663,22 +697,15 @@ window.RKVista = (function () {
     const vanos = [];
     out += cara([0, P, top], 1, rect(0, GZ, W, H - GZ, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, W) +
       zonasFrente(L, d, W, conGola, vanos));
-    // Entrepaños y divisores que se ven por los huecos sin frente: a su altura,
-    // del respaldo a su retiro del frente del cuerpo (el divisor, al ras), de
-    // abajo hacia arriba (la de arriba tapa a la de abajo). Detrás de una
-    // puerta o un cajón no se dibujan.
-    if (vanos.length && (L.repisas || []).length) {
-      const yF = P - eP;
-      let s = "";
-      L.repisas.slice().sort((a, b) => a.z - b.z).forEach((r) => {
-        const zt = Z + r.z + E, yf = yF - (r.retiro || 0);
-        s += repisa(E, E, W - E, yf, zt) + cara([E, yf, zt], 1, panel(W - 2 * E, E, madera, r.divisor ? 0.05 : 0.15));
-      });
-      out += porHueco(`${d._pat}-vano`, vanos.map((v) => [[v.x0, P, top - v.y0], [v.x1, P, top - v.y0], [v.x1, P, top - v.y1], [v.x0, P, top - v.y1]]), s);
+    // El mismo interior por los huecos sin frente; detrás de una puerta o un
+    // cajón no se dibuja.
+    if (vanos.length) {
+      out += porHueco(`${d._pat}-vano`, vanos.map((v) => [[v.x0, P, top - v.y0], [v.x1, P, top - v.y0], [v.x1, P, top - v.y1], [v.x0, P, top - v.y1]]), adentro);
     }
     // Canto de arriba de las puertas, de costado a costado: al ras de la tapa
     // o, con gola, abajo.
-    if (eP && !L.verInterior) out += tabla(0, P - eP, W, P, null, top - GZ);
+    // También mientras se editan los entrepaños (las puertas siguen ahí).
+    if (eP) out += tabla(0, P - eP, W, P, null, top - GZ);
     // --- Arriba: el techo entero, o los cantos de laterales y respaldo y los
     // refuerzos (delantero detrás de la puerta y de la gola, trasero junto al
     // respaldo).
