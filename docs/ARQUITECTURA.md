@@ -66,9 +66,14 @@ arma cada mueble como «Avanzado» con `ui/receta.js` (defaults, forzados,
 `suma` de puerta y zoclo, nombre automático y divisores), se detiene si hay
 errores o nombres repetidos y escribe `dist/catalogo_base.json`; en SketchUp
 `tools/publicar_catalogo.rb` (`PublicarCatalogo.todo`) guarda cada uno solo
-como receta con clase `catalogo` por `Generador.generar` (sin geometría: 44
-muebles en 0.3 s; uno que ya existe no se toca), y `apartar_pruebas` mueve a
-`_pruebas/` lo que no está en la lista. Para que no choquen los nombres, la
+como receta con clase `catalogo` por `Generador.generar` (sin geometría: 70
+muebles en 0.3 s; uno que ya existe no se toca), `apartar_pruebas` mueve a
+`_pruebas/` lo que no está en la lista y `apartar_anterior` mueve todo a
+`_anterior/` para rehacerlo. **Versión final (27/10/2026)**: los frentes de
+cajón solo miden 383 (Grande) o 190 (CH); `catalogo_base.js` rechaza otro
+alto. Para que cuadren, gabinete y esquinero miden 782 de cuerpo (frente de
+769 con el margen de 13 = 2 G, CH+CH+G o 4 CH, con 3 mm entre frentes).
+Con gola (40 mm) esos altos no se cumplen: queda pendiente. Para que no choquen los nombres, la
 alacena lleva el alto (`ALA-800-700-P2-E`) y el gabinete el código de tarja
 (`-TJ`, `i06_trasera`).
 

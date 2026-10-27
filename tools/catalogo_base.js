@@ -31,6 +31,10 @@ const manifiesto = (f) => man[f] || (man[f] = JSON.parse(fs.readFileSync(path.jo
 const medidas = (g) => g.medidas ? g.medidas.map(([x, y]) => ({ LenX: String(x), LenY: String(y) }))
                                  : g.anchos.map((a) => ({ LenX: String(a) }));
 
+// Únicos frentes de cajón de Royal Kitchens (con tirador): Grande y CH. Dos CH
+// y su separación (190 + 3 + 190) miden lo mismo que un Grande.
+const ALTOS_CAJON = { 383: "G", 190: "CH" };
+
 const recetas = [], problemas = [];
 spec.grupos.filter((g) => todos || g.activo !== false).forEach((g) => {
   const m = manifiesto(g.familia);
@@ -40,7 +44,11 @@ spec.grupos.filter((g) => todos || g.activo !== false).forEach((g) => {
     const errores = T.erroresConfig(m, valores);
     const nombre = T.autoNombre(m, valores);
     if (errores.length) problemas.push(`${g.nombre} ${med.LenX}: ${errores.map((e) => e.msg).join(" · ")}`);
-    recetas.push({ grupo: g.nombre, familia: g.familia, nombre, valores: T.flatten(m, reg), divisores: T.nombresDivisores(m, reg) });
+    const cajones = m.reglas_cajones ? T.presupuestosCajones(m, valores).map((p) => p.altos.map((a) => Math.round(a * 100) / 100)) : [];
+    cajones.flat().filter((a) => !ALTOS_CAJON[a]).forEach((a) =>
+      problemas.push(`${g.nombre} ${med.LenX}: frente de cajón de ${a} mm (solo ${Object.keys(ALTOS_CAJON).join(" o ")})`));
+    recetas.push({ grupo: g.nombre, familia: g.familia, nombre, cajones: cajones.flat().map((a) => ALTOS_CAJON[a] || a).join("+"),
+                   valores: T.flatten(m, reg), divisores: T.nombresDivisores(m, reg) });
   });
 });
 
@@ -48,7 +56,7 @@ const vistos = {};
 recetas.forEach((r) => { (vistos[r.nombre] = vistos[r.nombre] || []).push(r.grupo); });
 Object.entries(vistos).filter(([, gs]) => gs.length > 1).forEach(([n, gs]) => problemas.push(`Nombre repetido ${n}: ${gs.join(" / ")}`));
 
-recetas.forEach((r) => console.log(`${r.nombre.padEnd(28)} ${r.grupo}`));
+recetas.forEach((r) => console.log(`${r.nombre.padEnd(28)} ${(r.cajones || "").padEnd(10)} ${r.grupo}`));
 console.log(`\n${recetas.length} muebles`);
 if (problemas.length) {
   console.error("\nProblemas:\n  " + problemas.join("\n  "));

@@ -6,6 +6,7 @@
 #  Uso (consola Ruby de SketchUp, con Studio cargado):
 #     load "<repo>/tools/publicar_catalogo.rb"
 #     RoyalKitchens::PublicarCatalogo.apartar_pruebas   # una vez: lo que no es del catálogo base
+#     RoyalKitchens::PublicarCatalogo.apartar_anterior  # al rehacerlo: todo a _anterior/
 #     RoyalKitchens::PublicarCatalogo.todo
 #
 #  - Cada mueble se guarda solo como receta (<nombre>.json, sin geometría) con
@@ -39,6 +40,16 @@ module RoyalKitchens
       movidos = Dir.glob(File.join(carpeta, "*.{json,skp,png}")).reject { |f| base.include?(File.basename(f, ".*")) }
       FileUtils.mkdir_p(destino) unless movidos.empty?
       movidos.each { |f| FileUtils.mv(f, File.join(destino, File.basename(f))) }
+      "#{movidos.size} archivos a #{destino}"
+    end
+
+    # Para rehacer el catálogo: mueve a <carpeta>/_anterior todas las recetas
+    # sueltas (con el mismo nombre, `todo` no las tocaría).
+    def apartar_anterior
+      destino = File.join(carpeta, "_anterior")
+      movidos = Dir.glob(File.join(carpeta, "*.{json,skp,png}"))
+      FileUtils.mkdir_p(destino) unless movidos.empty?
+      movidos.each { |f| FileUtils.mv(f, File.join(destino, File.basename(f)), force: true) }
       "#{movidos.size} archivos a #{destino}"
     end
 
