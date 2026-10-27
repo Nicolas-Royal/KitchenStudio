@@ -58,6 +58,20 @@ y solo sirve de etiqueta y filtro):
 Desde CSV (10/2026) cada fila se **inserta siempre en la escena**; «Guardar
 también en el catálogo» la guarda además como receta, con clase `usuario`.
 
+**Catálogo base (23/10/2026)**: la lista vive en el repo,
+`tools/catalogo_base.json` (grupos por configuración con sus anchos; todos
+Lisa y con manija, porque el diseño del proyecto los cambia al insertar;
+`activo: false` = propuesto, aún no publicado). `node tools/catalogo_base.js`
+arma cada mueble como «Avanzado» con `ui/receta.js` (defaults, forzados,
+`suma` de puerta y zoclo, nombre automático y divisores), se detiene si hay
+errores o nombres repetidos y escribe `dist/catalogo_base.json`; en SketchUp
+`tools/publicar_catalogo.rb` (`PublicarCatalogo.todo`) guarda cada uno solo
+como receta con clase `catalogo` por `Generador.generar` (sin geometría: 44
+muebles en 0.3 s; uno que ya existe no se toca), y `apartar_pruebas` mueve a
+`_pruebas/` lo que no está en la lista. Para que no choquen los nombres, la
+alacena lleva el alto (`ALA-800-700-P2-E`) y el gabinete el código de tarja
+(`-TJ`, `i06_trasera`).
+
 **Diseño** en un proyecto (`proyecto.modulos[id]`, `RKMuebles.modo`). Todos
 parten de «Este proyecto»:
 
@@ -727,6 +741,52 @@ antes; SketchUp puede mostrar su aviso «la operación está tardando».
   del proyecto» la vista lleva su propio alto (`#pr-preview`: entre 480 y
   720 px, 66vh) y la sección crece hacia abajo en vez de ajustarse a la
   ventana, donde quedaba aplastada.
+- **Huecos sin frente (23/10/2026)**: una zona «Sin frente» (gabinete),
+  «Sin puerta» (alacena) o el esquinero sin puerta se dibuja con el mismo
+  interior oscuro de arriba (`hueco`, `<pat>-interior`), entre laterales,
+  techo y piso, en vez del rectángulo gris con una franja. Si el mueble
+  lleva entrepaños o divisores, los que caen en el hueco se dibujan en 3D
+  recortados a su boca (`porHueco`, un `clipPath` con las esquinas
+  proyectadas): la cara de arriba en sombra (`repisa`) y el canto, a su
+  altura y del respaldo a su retiro del frente del cuerpo (el divisor, al
+  ras), de abajo hacia arriba; detrás de una puerta o un cajón no se
+  dibujan. Las alturas y retiros salen del mismo cálculo que el gráfico de
+  «Avanzado» (`conRepisas` en `app.js` → `RCC_CORE.geomEntrepanos`, con el
+  ajuste del proyecto y las medidas del diseño: `layout.repisas = [{ z,
+  retiro, divisor }]`, z = canto de abajo desde el piso del cuerpo). El
+  esquinero no tiene gráfico: `desdeEsquinero` reparte sus entrepaños en L
+  iguales (c24, f01) con 20 mm de retiro.
+- **«Sin frente» en el mueble (23/10/2026)**: opción del selector «Tipo de
+  frente» solo en la página del mueble (`PICKERS.frente.lista(fc)` agrega
+  `FRENTE_SIN_OPC` si la familia tiene `opciones.familias.<f>.sin_frente`;
+  el diseño del proyecto no la ofrece, para no abrir todos los muebles). El
+  id es `"sin"` (`RKReglas.FRENTE_SIN` = `Catalogo::FRENTE_SIN`): al
+  insertar, `cambios_receta` pone `sin_frente.valores` (gabinete: zonas 1 y
+  2 «Sin frente» y sin gola; alacena: sin puerta en las dos zonas;
+  esquinero: sin puerta) y no pone línea de frente ni manijas. Las manijas
+  quedan fijas («Sin frente: sin manija»), no lleva gola y la vista y
+  «Avanzado» parten de la receta con esos valores. Los entrepaños se
+  conservan: en el componente las repisas dependen solo de h01 / c24
+  (Estructura!e5entrepano), y el grupo «Entrepaños y divisores» del
+  gabinete se activa con alguna zona de puerta **o sin frente** (antes solo
+  con puerta: `quitar_apagados` borraba h01 y el gabinete abierto salía sin
+  repisas). Probado en SketchUp: gabinete y alacena sin frente con su
+  entrepaño.
+- **Sin frentes mientras se editan los entrepaños (23/10/2026, apagado)**:
+  se decidió no usarlo por ahora; queda listo para el futuro
+  (`VER_INTERIOR_AL_EDITAR = false` en `app.js`; RKVista sigue entendiendo
+  `layout.verInterior`). Hoy el hueco oscuro solo sale con «Sin frente» en
+  el mueble o una zona sin frente. Cómo funcionaba encendido: con el
+  mouse sobre la sección de entrepaños (página del mueble,
+  `#md-interior-wrap`, y en «Avanzado» la sección `.adv-interior`) o el foco
+  en uno de sus campos, la vista dibuja todas las zonas como hueco con sus
+  repisas y los frentes solo como contorno punteado, con el aviso «Sin
+  frentes mientras editas entrepaños» arriba (`layout.verInterior`,
+  `S.verInterior` = id del mueble, `zonaInterior` en `app.js`). Al salir
+  regresan tras 1.2 s, no al soltar el botón: casi todo ahí son clics
+  sueltos (+/−, entrepaño ↔ divisor, un alto) o un arrastre corto, y lo que
+  importa es ver cómo quedó; si solo durara mientras se mantiene
+  presionado, no se alcanzaría a ver.
 - **Gola en el esquinero (23/10/2026)**: solo la **L de arriba**, de aluminio
   o de melamina, con las piezas del gabinete (`ACC_GolaAluminioL` con el
   perfil «Gola L 1209-073» y `MP.PerfilMelaminaL`: piso y frente del material

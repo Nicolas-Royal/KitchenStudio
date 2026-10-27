@@ -3,7 +3,7 @@
   "titulo": "Alacena",
   "descripcion": "Alacena (gabinete superior): puerta abatible o Avento con las líneas de frente y las manijas del catálogo.",
   "componente_base": "componentes/ALACENA.skp",
-  "nombre_patron": "ALA-{LenX}-{c25tipopuerta}{d15_cant_puertas}{d21_avento_cant_puertas}[-Z2{d31_z2_contenido}{d35_z2_cant_puertas}{d41_z2_avento_cant_puertas}]{c24entrepano}",
+  "nombre_patron": "ALA-{LenX}-{LenZ}-{c25tipopuerta}{d15_cant_puertas}{d21_avento_cant_puertas}[-Z2{d31_z2_contenido}{d35_z2_cant_puertas}{d41_z2_avento_cant_puertas}]{c24entrepano}",
   "nombre_codigos": {
     "c25tipopuerta": { "0": "A", "1": "P", "6": "AS", "10": "AD" },
     "d15_cant_puertas": { "1": "1I", "2": "1D", "3": "2" },

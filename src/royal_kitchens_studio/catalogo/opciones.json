@@ -901,6 +901,13 @@
       "frente": {
         "attr": "l01_linea_frente"
       },
+      "sin_frente": {
+        "_doc": "«Sin frente» en el tipo de frente del mueble (no en el diseño del proyecto): abierto, sin puertas ni cajones ni manijas ni gola. Catalogo.cambios_receta y RKReglas.sinFrente.",
+        "valores": {
+          "c25tipopuerta": "0",
+          "d31_z2_contenido": "0"
+        }
+      },
       "manija_puerta": {
         "attrs": [
           "d16_tirador_tipo"
@@ -933,6 +940,13 @@
       },
       "frente": {
         "attr": "l01_linea_frente"
+      },
+      "sin_frente": {
+        "_doc": "«Sin frente» en el tipo de frente del mueble (no en el diseño del proyecto): abierto, sin puertas ni cajones ni manijas ni gola. Catalogo.cambios_receta y RKReglas.sinFrente.",
+        "valores": {
+          "c25tipopuerta": "0",
+          "b01_gola_o_tirador": "1"
+        }
       },
       "gola": {
         "attr": "b01_gola_o_tirador",
@@ -980,6 +994,14 @@
       },
       "frente": {
         "attr": "l01_linea_frente"
+      },
+      "sin_frente": {
+        "_doc": "«Sin frente» en el tipo de frente del mueble (no en el diseño del proyecto): abierto, sin puertas ni cajones ni manijas ni gola. Catalogo.cambios_receta y RKReglas.sinFrente.",
+        "valores": {
+          "b01_gola_o_tirador": "1",
+          "d11_z1_contenido": "3",
+          "d31_z2_contenido": "3"
+        }
       },
       "gola": {
         "attr": "b01_gola_o_tirador",

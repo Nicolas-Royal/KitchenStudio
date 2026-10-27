@@ -212,9 +212,10 @@ prueba('R-06d · alacena por zonas: arriba y abajo, con puertas o Avento S y una
   assert.strictEqual(ala({ d01_cantidad_zonas: '2', c25tipopuerta: '10' }).d01_cantidad_zonas, '1');
   // Con dos zonas las puertas van por fuera; nombre con la zona 2.
   assert.strictEqual(ala({ d01_cantidad_zonas: '2', f02_montaje: '2' }).f02_montaje, '1');
-  var n = function (c) { return T.autoNombre(man.alacena, registro('alacena', Object.assign({ LenX: '800' }, c)).valores); };
-  assert.strictEqual(n({ d01_cantidad_zonas: '2', c25tipopuerta: '6', d35_z2_cant_puertas: '3' }), 'ALA-800-AS1-Z2P2');
-  assert.strictEqual(n({}), 'ALA-800-P1I');
+  var n = function (c) { return T.autoNombre(man.alacena, registro('alacena', Object.assign({ LenX: '800', LenZ: '700' }, c)).valores); };
+  assert.strictEqual(n({ d01_cantidad_zonas: '2', c25tipopuerta: '6', d35_z2_cant_puertas: '3' }), 'ALA-800-700-AS1-Z2P2');
+  assert.strictEqual(n({}), 'ALA-800-700-P1I');
+  assert.strictEqual(n({ LenZ: '900' }), 'ALA-800-900-P1I', 'el alto distingue la alacena alta');
   assert.ok(errores('alacena', { LenX: '800', LenY: '330', LenZ: '900', d01_cantidad_zonas: '2', d02_alto_zona_superior: '950' }).length > 0, 'zona de arriba más alta que el mueble');
 });
 
@@ -475,6 +476,7 @@ prueba('R-30 · el auto-nombre describe la configuración vigente', function () 
   assert.strictEqual(n({ d01_cantidad_zonas: '1', d11_z1_contenido: '3' }), 'GAB-600-T-Z1S');
   assert.strictEqual(n({ b01_gola_o_tirador: '2', g01_perfil_tipo: '2', d32_z2_cant_cajones: '2' }), 'GAB-600-GM-Z1P2-Z2C2');
   assert.strictEqual(n({ h01_entrepano: '0', b02_tipo_cajon: '2', d15_z1_cant_puertas: '1' }), 'GAB-600-T-Z1P1I-Z2C3-E-AN');
+  assert.strictEqual(n({ d01_cantidad_zonas: '1', i06_trasera: '1' }), 'GAB-600-T-Z1P2-TJ', 'la tarja no choca con 2 puertas');
   // Alacena y esquinero conservan su patrón sin códigos.
   assert.strictEqual(T.autoNombre(man.esquinero, registro('esquinero', {}).valores).indexOf('ESQ'), 0);
 });
@@ -687,6 +689,15 @@ prueba('sin falsos positivos: todo acomodo de zonas que cabe genera', function (
     assert.strictEqual(errores(fam, conDiv).length, 0, fam + ' con divisores: ' +
       JSON.stringify(errores(fam, conDiv)));
   });
+});
+
+prueba('R-31 · gabinete: entrepaños con puerta o con zona sin frente (abierta), no solo con cajones', function () {
+  var g = man.gabinete.grupos.filter(function (x) { return x.id === 'entrepanos'; })[0];
+  var activo = function (c) { return T.groupEnabled(g, man.gabinete, registro('gabinete', c).valores); };
+  assert.ok(activo({ d01_cantidad_zonas: '1', d11_z1_contenido: '1' }), 'puerta');
+  assert.ok(activo({ d01_cantidad_zonas: '1', d11_z1_contenido: '3' }), 'sin frente');
+  assert.ok(activo({ d01_cantidad_zonas: '2', d11_z1_contenido: '2', d31_z2_contenido: '3' }), 'cajón arriba y abierto abajo');
+  assert.ok(!activo({ d01_cantidad_zonas: '1', d11_z1_contenido: '2' }), 'solo cajones');
 });
 
 // ---------------------------------------------------------------------------

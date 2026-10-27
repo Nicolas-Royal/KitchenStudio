@@ -325,9 +325,13 @@ function aplicarDiseno(r) {
 
 // ==== Selectores con foto (frente / manija / material) =======================
 // Manija aparte para puertas y para cajones (reglas en reglas.js / opciones.json).
+// «Sin frente»: solo en un mueble cuya familia lo mapea (opciones.familias.<f>.sin_frente).
+const FRENTE_SIN_OPC = { id: RKReglas.FRENTE_SIN, nombre: "Sin frente", grupo: "Mueble abierto" };
+/* +fc+ = mapeo de la familia del mueble (en el diseño del proyecto no hay). */
 const PICKERS = [
   { key: "gola", titulo: "Gola", lista: () => S.opciones.golas, sinCambio: true },
-  { key: "frente", titulo: "Tipo de frente", lista: () => S.opciones.frentes },
+  { key: "frente", titulo: "Tipo de frente",
+    lista: (fc) => (fc && fc.sin_frente ? S.opciones.frentes.concat([FRENTE_SIN_OPC]) : S.opciones.frentes) },
   { key: "manija_puerta", titulo: "Manija de puertas", uso: "puerta", lista: () => S.opciones.tiradores },
   { key: "manija_cajon", titulo: "Manija de cajones", uso: "cajon", lista: () => S.opciones.tiradores },
   { key: "material", titulo: "Material del mueble", lista: () => S.opciones.materiales, buscar: true },
@@ -337,6 +341,7 @@ const SIN_MATERIAL = "SIN_MATERIAL";
 const esManija = (key) => key === "manija_puerta" || key === "manija_cajon";
 
 function opcion(key, id) {
+  if (key === "frente" && String(id) === RKReglas.FRENTE_SIN) return FRENTE_SIN_OPC;
   const p = PICKERS.find((x) => x.key === key);
   return (p.lista() || []).find((o) => String(o.id) === String(id)) || null;
 }
@@ -408,6 +413,7 @@ function bloqueo(key, o, d, fc) {
   if (p.uso) return RKReglas.manija(op, p.uso, o.id, d.frente);
   if (key === "material") return RKReglas.material(op, o.id, d.frente);
   if (key === "frente") {
+    if (String(o.id) === RKReglas.FRENTE_SIN) return "";
     // Solo lo que este frente rompería (no un problema que el diseño ya traía).
     const e = RKReglas.diseno(op, Object.assign({}, d, { frente: o.id }), false);
     return e && e !== RKReglas.diseno(op, d, false) ? e : "";
@@ -429,8 +435,10 @@ function pintarPickers(box, d, editable, onCambio, extra) {
     // En un mueble (+extra.fc+, su mapeo de opciones.json) solo lo que su
     // familia usa: la alacena no lleva gola ni manija de cajón.
     if (extra.fc && !extra.fc[p.key]) return;
-    // Con gola no hay manija y el frente es siempre Lisa: no se eligen.
-    const sinManija = esManija(p.key) && extra.gola;
+    // Con gola no hay manija y el frente es siempre Lisa: no se eligen. Sin
+    // frente tampoco hay manijas.
+    const abierto = RKReglas.sinFrente(extra.fc, d.frente);
+    const sinManija = esManija(p.key) && (extra.gola || abierto);
     const frenteGola = p.key === "frente" && extra.gola;
     const fijo = sinManija || frenteGola;
     const o = opcion(p.key, frenteGola ? RKReglas.frenteGola(S.opciones) : d[p.key]);
@@ -438,12 +446,12 @@ function pintarPickers(box, d, editable, onCambio, extra) {
     t.type = "button";
     t.className = "pick-tile" + (editable && !fijo ? "" : " off");
     t.disabled = !editable || fijo;
-    const nombre = sinManija ? "Con gola: sin manija" : frenteGola ? `Con gola: ${o ? o.nombre : "Lisa"}`
+    const nombre = sinManija ? (abierto ? "Sin frente: sin manija" : "Con gola: sin manija") : frenteGola ? `Con gola: ${o ? o.nombre : "Lisa"}`
       : (o ? o.nombre : (p.sinCambio ? "Como el módulo" : "—"));
     t.innerHTML = `<div class="pick-photo"><img alt=""></div><div class="pick-text"><span class="stamp">${p.titulo}</span>` +
       `<strong>${esc(nombre)}</strong><span class="pick-sub">${esc(o && o.grupo ? o.grupo : notaManija(p, o))}</span>` +
       (editable && !fijo ? "<span class='pick-change'>Cambiar…</span>" : "") + "</div>";
-    if (sinManija) setImg($("img", t), placeholder("Gola")); else fotoEn($("img", t), p.key, o);
+    if (sinManija) setImg($("img", t), placeholder(abierto ? "Sin frente" : "Gola")); else fotoEn($("img", t), p.key, o);
     if (editable && !fijo) t.onclick = () => abrirPicker(p, d, onCambio, extra.fc);
     // Con una gola elegida, en la misma tarjeta: L-C o L-L (si la familia la
     // combina: el esquinero lleva solo la L de arriba).
@@ -490,7 +498,7 @@ function pintarPicker() {
   const { p, d } = pk;
   const grid = $("#pk-grid");
   const q = $("#pk-q").value.trim().toLowerCase();
-  const lista = (p.lista() || []).filter((o) => !q || `${o.nombre} ${o.id} ${o.grupo || ""}`.toLowerCase().includes(q));
+  const lista = (p.lista(pk.fc) || []).filter((o) => !q || `${o.nombre} ${o.id} ${o.grupo || ""}`.toLowerCase().includes(q));
   const grupos = new Map();
   if (p.sinCambio && !q) grupos.set("", [null]);
   lista.forEach((o) => {
@@ -791,7 +799,42 @@ function frenteConGola(m, d) {
   return d;
 }
 
+/* Mientras se editan los entrepaños del mueble +id+ (el mouse sobre su
+   sección o el foco en uno de sus campos), la vista lo dibuja sin frentes
+   (S.verInterior; RKVista: huecos y el contorno punteado de puertas y
+   cajones, con un aviso). Al salir regresan tras un momento: los cambios ahí
+   son casi siempre clics sueltos o un arrastre, y hay que ver cómo quedó;
+   solo mientras se mantiene presionado no se alcanzaría a ver. */
+/* +id+: el del mueble, o una función que lo da (el contenedor fijo de la
+   página del mueble sirve para el que esté abierto).
+   Apagado por decisión (23/10/2026): queda listo para el futuro; el hueco
+   oscuro solo sale con «Sin frente» o una zona sin frente. */
+const VER_INTERIOR_AL_EDITAR = false;
+let tVerInterior = 0;
+function zonaInterior(nodo, id, repintar) {
+  if (!VER_INTERIOR_AL_EDITAR) return;
+  const clave = () => (typeof id === "function" ? id() : id);
+  const ver = (on) => {
+    clearTimeout(tVerInterior);
+    const k = clave();
+    if (k == null) return;
+    if (on) {
+      if (S.verInterior !== k) { S.verInterior = k; repintar(); }
+      return;
+    }
+    tVerInterior = setTimeout(() => {
+      if (nodo.matches(":hover") || nodo.contains(document.activeElement)) return;
+      if (S.verInterior === k) { S.verInterior = null; repintar(); }
+    }, 1200);
+  };
+  nodo.addEventListener("pointerenter", () => ver(true));
+  nodo.addEventListener("focusin", () => ver(true));
+  nodo.addEventListener("pointerleave", () => ver(false));
+  nodo.addEventListener("focusout", () => ver(false));
+}
+
 function abrirModulo(m, avanzado) {
+  S.verInterior = null;
   S.mod = m;
   S.avAbierto = !!avanzado;
   S.sec = "modulo";
@@ -847,7 +890,8 @@ function pintarModulo() {
 function pintarDiseno(m, d, real) {
   const personal = d.modo === "personal";
   const fc = cfgFamilia(m);
-  const gola = golaDe(m, d);
+  // Sin frente no lleva gola (Ruby la quita): el frente se puede volver a elegir.
+  const gola = golaDe(m, d) && !RKReglas.sinFrente(fc, d.frente);
   const esUsuario = M.clase(m) === "usuario";
   // Todos parten del diseño del proyecto. Los creados por usuario pueden ir
   // también con su diseño original; cualquiera se puede ajustar aquí.
@@ -942,6 +986,11 @@ function pintarInterior(m, d, editable) {
   const wrap = $("#md-interior-wrap");
   wrap.hidden = !(editable && g && window.RKEntrepanos);
   if (wrap.hidden) return;
+  // Una sola vez: el contenedor es fijo y sirve para el mueble abierto.
+  if (!wrap.__verInterior) {
+    wrap.__verInterior = true;
+    zonaInterior(wrap, () => S.mod && S.mod.id, () => pintarPreviewModulo(S.mod));
+  }
   const o = S.proyecto.modulos[m.id];
   const V = g.visual;
   const reg = regInterior(m, d);
@@ -957,7 +1006,7 @@ function pintarInterior(m, d, editable) {
   sw.disabled = !S.rcc.groupEnabled(g, man, reg.valores);
   if (sw.disabled) {
     sw.checked = false;
-    nota.textContent = "Este mueble no lleva puertas: no hay entrepaños que acomodar.";
+    nota.textContent = "Este mueble solo lleva cajones: no hay entrepaños que acomodar.";
     return;
   }
   let gr = null;
@@ -981,6 +1030,8 @@ function pintarInterior(m, d, editable) {
     g.campos.forEach((f) => { if (Object.prototype.hasOwnProperty.call(fila, f.attr)) o.interior[f.attr] = fila[f.attr]; });
     cambioDiseno(m);
     refrescar();
+    // La vista sigue al gráfico en vivo, como en «Avanzado» (se ven por un hueco sin frente).
+    pintarPreviewModulo(m);
   };
   sw.onchange = () => { reg.valores[activo.id] = sw.checked ? si : no; guardar(); };
   gr = RKEntrepanos.crear(V, man, reg, S.rcc, guardar, null, { alto: 200 });
@@ -1009,20 +1060,42 @@ function svgModulo(m, avanzado, enLista) {
     const v = st.reg.valores;
     const [ancho, alto, fondo] = MEDIDAS_VISTA[fam];
     const lay = layoutDe(fam, v, { ancho: RKVista.num(v.LenX, ancho), alto: RKVista.num(v.LenZ, alto), fondo: RKVista.num(v.LenY, fondo) });
+    conRepisas(lay, fam, v);
+    lay.verInterior = S.verInterior === m.id;
     // La manija de puertas es el primer attr que mapea su familia (d16_z1… en el gabinete).
     const mp = (((S.opciones.familias || {})[fam] || {}).manija_puerta || {}).attrs || [];
     return RKVista.svg(lay, disenoSvg({ frente: v.l01_linea_frente, manija_puerta: v[mp[0]],
       manija_cajon: v.e01_tirador_tipo, material: st.material }, v.b01_gola_o_tirador === "2", RKReglas.colorGola(S.opciones, golaFam(), "", v)));
   }
   const d = disenoDe(m, enLista);
-  const lay = (m.receta && layoutDe(fam, m.receta.valores, { ancho: d.ancho, alto: d.alto, fondo: d.fondo })) ||
+  // «Sin frente»: la receta con las zonas abiertas de su familia.
+  const fc = cfgFamilia(m), abierto = RKReglas.sinFrente(fc, d.frente);
+  const valores = m.receta && (abierto ? Object.assign({}, m.receta.valores, fc.sin_frente.valores) : m.receta.valores);
+  const lay = (m.receta && layoutDe(fam, valores, { ancho: d.ancho, alto: d.alto, fondo: d.fondo })) ||
     RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
+  // Los entrepaños con su ajuste de este proyecto y las medidas del diseño.
+  if (m.receta && S.manifiestos[fam]) conRepisas(lay, fam, regInterior(m, d).valores);
+  // Mientras se editan sus entrepaños (página del mueble), sin frentes.
+  lay.verInterior = !enLista && S.verInterior === m.id;
   // La gola elegida en el diseño cambia el dibujo aunque la receta no la traiga.
-  const gola = golaDe(m, d);
+  const gola = golaDe(m, d) && !abierto;
   lay.gola = gola;
   // La gola se dibuja según su tipo (aluminio o melamina).
   if (gola) Object.assign(lay, golaVista(d.gola, m.receta && m.receta.valores));
   return RKVista.svg(lay, disenoSvg(d, gola, colorGolaDe(m, d)));
+}
+
+/* Entrepaños y divisores para la vista (los que se ven por un hueco sin
+   frente), con el mismo cálculo que su gráfico en «Avanzado»
+   (RCC_CORE.geomEntrepanos sobre los valores del formulario +valores+): z =
+   canto de abajo desde el piso del cuerpo, retiro desde el frente (0 =
+   divisor). El esquinero no tiene gráfico: los reparte RKVista.desdeEsquinero. */
+function conRepisas(lay, fam, valores) {
+  const man = S.manifiestos[fam], g = man && S.rcc && grupoInterior(man);
+  if (!g || !lay) return lay;
+  const G = S.rcc.geomEntrepanos(man, valores, g.visual);
+  lay.repisas = G.on ? G.repisas.map((r) => ({ z: r.zCuerpo, retiro: r.retiro, divisor: r.divisor })) : [];
+  return lay;
 }
 
 /* Tipo de gola para la vista (aluminio o melamina): el de la gola elegida en el
@@ -1076,13 +1149,16 @@ function estadoAvanzado(m) {
       // La gola elegida (antes que frente y manijas: decide si llevan).
       Object.entries(RKReglas.cambiosGola(S.opciones, fc, d.gola, d.gola_combinacion || "1"))
         .forEach(([a, v]) => RKAvanzado.poner(man, valores, a, v, S.rcc));
-      if (fc.frente && d.frente) RKAvanzado.poner(man, valores, fc.frente.attr, d.frente, S.rcc);
+      // «Sin frente»: las zonas abiertas (sin manijas, que no se ponen abajo).
+      const abierto = RKReglas.sinFrente(fc, d.frente);
+      if (abierto) Object.entries(fc.sin_frente.valores).forEach(([a, v]) => RKAvanzado.poner(man, valores, a, v, S.rcc));
+      else if (fc.frente && d.frente) RKAvanzado.poner(man, valores, fc.frente.attr, d.frente, S.rcc);
       if (fc.tarja && m.receta) RKAvanzado.poner(man, valores, fc.tarja.attr, d.tarja ? fc.tarja.si : fc.tarja.no, S.rcc);
       // Manija de puertas y de cajones, con su posición forzada si la tiene.
       Object.entries(RKReglas.USOS).forEach(([uso, clave]) => {
         const h = fc[clave], id = d[clave];
         const req = h && h.requiere;
-        if (!h || !id || (req && String(valores[req.attr]) !== String(req.valor))) return;
+        if (abierto || !h || !id || (req && String(valores[req.attr]) !== String(req.valor))) return;
         h.attrs.forEach((a) => RKAvanzado.poner(man, valores, a, id, S.rcc));
         const pos = RKReglas.posicion(S.opciones, uso, id);
         if (pos) (h.posicion || []).forEach((a) => RKAvanzado.poner(man, valores, a, pos, S.rcc));
@@ -1139,6 +1215,8 @@ function pintarAvanzado(m) {
     if (csv) visor("#av-preview").mostrar(svgModulo(m, true), m.id);
     else pintarPreviewModulo(m);
   });
+  form.querySelectorAll(".adv-interior").forEach((sec) => zonaInterior(sec, m.id,
+    () => (csv ? visor("#av-preview").mostrar(svgModulo(m, true), m.id) : pintarPreviewModulo(m))));
   // Material del mueble: no es un campo del manifiesto (lo aplica Studio al
   // generar, a todo el mueble). Sin elegir, «Sin material» (blanco).
   // El espesor de puertas sigue al material (MDF 18, madera 22), como en Ruby.
@@ -1218,11 +1296,13 @@ function eleccionDe(m, d) {
   if (fc.tarja) eleccion.tarja = !!d.tarja;
   if (fc.frente && d.frente) eleccion.frente = d.frente;
   if (fc.gola && d.gola) { eleccion.gola = d.gola; eleccion.gola_combinacion = d.gola_combinacion || "1"; }
-  const gola = golaDe(m, d);
+  // Sin frente no hay manijas ni gola (Ruby tampoco las pone).
+  const abierto = RKReglas.sinFrente(fc, d.frente);
+  const gola = golaDe(m, d) && !abierto;
   // Con gola: máximo 2 cajones por zona (y lo demás del manifiesto).
-  const errGola = d.gola ? erroresConGola(m, d) : "";
+  const errGola = d.gola && !abierto ? erroresConGola(m, d) : "";
   if (errGola) return { aviso: `${m.name}: ${errGola}`, error: errGola };
-  Object.values(RKReglas.USOS).forEach((k) => { if (fc[k] && d[k] && !gola) eleccion[k] = d[k]; });
+  Object.values(RKReglas.USOS).forEach((k) => { if (fc[k] && d[k] && !gola && !abierto) eleccion[k] = d[k]; });
   if (fc.material && d.material) eleccion.material = d.material;
   if (d.modo === "personal" && d.interior) {
     const man = S.manifiestos[familiaDe(m)], g = grupoInterior(man);

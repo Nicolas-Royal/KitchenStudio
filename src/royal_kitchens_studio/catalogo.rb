@@ -17,6 +17,8 @@ module RoyalKitchens
       DIR = File.join(__dir__, "catalogo").freeze
       GRUPOS = %w[frentes tiradores materiales].freeze
       USOS = { "puerta" => "manija_puerta", "cajon" => "manija_cajon" }.freeze
+      # Tipo de frente «Sin frente» de un mueble (igual a RKReglas.FRENTE_SIN).
+      FRENTE_SIN = "sin".freeze
       NOMBRE_USO = { "puerta" => "puertas", "cajon" => "cajones" }.freeze
 
       def cargar
@@ -151,16 +153,23 @@ module RoyalKitchens
         # Gola elegida en el diseño (antes que frente y manijas: decide si llevan).
         cambios.merge!(cambios_gola(cfg, opciones, eleccion["gola"], eleccion["gola_combinacion"]))
         fa = cfg.dig("frente", "attr")
-        cambios[fa] = eleccion["frente"].to_s if fa && !eleccion["frente"].to_s.empty?
-        # Con gola el frente es siempre Lisa: el del proyecto no se aplica.
-        if fa && gola?(cfg, cambios, valores) && error_gola(opciones, cambios.fetch(fa, valores[fa]))
-          cambios[fa] = frente_gola(opciones).to_s
+        # «Sin frente» (solo en un mueble): abierto, sin puertas ni cajones; no
+        # lleva manijas ni gola (cfg["sin_frente"]["valores"]).
+        sin = eleccion["frente"].to_s == FRENTE_SIN && cfg["sin_frente"].is_a?(Hash)
+        if sin
+          (cfg["sin_frente"]["valores"] || {}).each { |a, v| cambios[a] = v.to_s }
+        else
+          cambios[fa] = eleccion["frente"].to_s if fa && !eleccion["frente"].to_s.empty?
+          # Con gola el frente es siempre Lisa: el del proyecto no se aplica.
+          if fa && gola?(cfg, cambios, valores) && error_gola(opciones, cambios.fetch(fa, valores[fa]))
+            cambios[fa] = frente_gola(opciones).to_s
+          end
         end
         frente = cambios.fetch(fa, valores[fa]).to_s
         USOS.each do |uso, clave|
           h = cfg[clave]
           id = eleccion[clave].to_s
-          next if h.nil? || id.empty? || excluida?(cfg, clave, id)
+          next if sin || h.nil? || id.empty? || excluida?(cfg, clave, id)
           req = h["requiere"]
           actual = req && cambios.fetch(req["attr"], valores[req["attr"]])
           next if req && !actual.nil? && actual.to_s != req["valor"].to_s

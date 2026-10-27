@@ -172,7 +172,9 @@ window.RKAvanzado = (function () {
     const cambio = () => refrescar();
 
     manifest.grupos.forEach((g, gi) => {
-      const sec = el("section", "adv-group" + (gi > 1 ? " is-collapsed" : ""));
+      // adv-interior: la sección de entrepaños (la vista quita los frentes mientras se edita).
+      const sec = el("section", "adv-group" + (gi > 1 ? " is-collapsed" : "") +
+        (g.visual && g.visual.tipo === "entrepanos" ? " adv-interior" : ""));
       const head = el("button", "adv-group-head");
       head.type = "button";
       head.innerHTML = `<span>${g.titulo}</span><i class="adv-count"></i><svg class="ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`;

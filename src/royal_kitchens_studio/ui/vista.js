@@ -114,7 +114,13 @@ window.RKVista = (function () {
     const abierto = String(v.c25tipopuerta == null ? "1" : v.c25tipopuerta) === "0";
     // Gola: solo la L de arriba, a lo largo de las dos hojas.
     const gola = !abierto && String(v.b01_gola_o_tirador) === "2";
-    return Object.assign({ esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola, esp: num(v.c01espestr, 18),
+    // Entrepaños en L (c24 = 0 «Sí», f01 = cuántos), con separaciones iguales
+    // como los reparte el componente; z = canto de abajo desde el piso del cuerpo.
+    const esp = num(v.c01espestr, 18);
+    const n = String(v.c24entrepano) === "0" ? Math.max(0, parseInt(v.f01cantdiv || v["divisor>f01cantdiv"], 10) || 1) : 0;
+    const hueco = (alto - 2 * esp - n * esp) / (n + 1);
+    const repisas = Array.from({ length: n }, (_, i) => ({ z: esp + (i + 1) * hueco + i * esp, retiro: 20, divisor: false }));
+    return Object.assign({ esquinero: true, izq, der, profIzq, profDer, alto, abierto, gola, esp, repisas,
              espPuerta: abierto ? 0 : num(v.c02esppuerta, 18),
              ancho: izq, zoclo: num(v.a02zocalo, 100), zocloVisible: true,
              zonas: [{ tipo: abierto ? "abierto" : "esquina", h: alto }],
@@ -295,6 +301,8 @@ window.RKVista = (function () {
 
   /* +conManija+ = false: la hoja de arriba de un Avento D unido (se jala de la de abajo). */
   function hoja(x, y, w, h, d, tipo, lado, conManija) {
+    // Mientras se editan los entrepaños el frente se quita: queda su contorno.
+    if (d._fantasma) return rect(x, y, w, h, 'fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.5" stroke-dasharray="12 8"');
     // Con la textura de veta, la puerta la lleva vertical (patrón girado).
     const conVeta = d.material && !d.material.foto && d.material.veta && d.material.textura;
     const fill = `url(#${d._pat}${conVeta && tipo !== "cajon" ? "-v" : ""})`;
@@ -303,6 +311,12 @@ window.RKVista = (function () {
       rect(x + 1.5, y + 1.5, w - 3, h - 3, 'fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1"') +
       estiloFrente(d.frente, x, y, w, h) +
       (sinManija ? "" : manija(tipo === "cajon" ? d.manijaCajon : d.manijaPuerta, x, y, w, h, tipo, lado, d.abajo, d.cantoManija));
+  }
+
+  /* Hueco sin frente: el mismo interior oscuro de arriba, más oscuro hacia
+     el fondo de arriba, con el canto de alrededor en sombra. */
+  function hueco(d, x, y, w, h) {
+    return rect(x, y, w, h, `fill="url(#${d._pat}-interior)" stroke="rgba(0,0,0,.45)" stroke-width="1.5"`);
   }
 
   /* "#rrggbb" mezclado con negro: f = 0 igual, 1 negro. */
@@ -334,9 +348,15 @@ window.RKVista = (function () {
   /* Zonas del frente de ancho +W+, planas (u a lo ancho, v hacia abajo desde
      el canto de arriba del cuerpo): puertas, Avento, cajones o hueco. Con
      gola, el canal sobre cada zona; el de la de arriba lo dibuja la vista en
-     3D (+golaArriba+), metido en L, y aquí solo se deja el lugar. */
-  function zonasFrente(layout, d, W, golaArriba) {
+     3D (+golaArriba+), metido en L, y aquí solo se deja el lugar. Una zona
+     sin frente es un hueco oscuro entre laterales, techo y piso (o la
+     división entre zonas); cada hueco se anota en +vanos+ ({ x0, x1, y0, y1 })
+     para que la vista dibuje adentro los entrepaños que se ven por él. Con
+     `layout.verInterior` (mientras se editan los entrepaños) todas las zonas
+     son hueco y sus frentes quedan solo como contorno punteado. */
+  function zonasFrente(layout, d, W, golaArriba, vanos) {
     let out = "", y = 0;
+    const E = layout.esp || 18, ultima = layout.zonas.length - 1;
     layout.zonas.forEach((z, i) => {
       let zy = y + GAP, zh = z.h - 2 * GAP;
       if (d.gola) {
@@ -346,13 +366,20 @@ window.RKVista = (function () {
         }
         zy += GOLA; zh -= GOLA;
       }
+      // Frentes de esta zona: los de siempre o, con verInterior, su contorno.
+      const dz = layout.verInterior ? Object.assign({}, d, { _fantasma: true }) : d;
+      if (layout.verInterior || z.tipo === "abierto") {
+        const v = { x0: E, x1: W - E, y0: d.gola ? zy : y + (i === 0 ? E : E / 2), y1: y + z.h - (i === ultima ? E : E / 2) };
+        out += hueco(d, v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
+        if (vanos) vanos.push(v);
+      }
       if (z.tipo === "puerta") {
         const n = z.n || 1;
         const w = (W - GAP * (n + 1)) / n;
         for (let i = 0; i < n; i++) {
           const lado = n === 1 ? z.lado : (i < n / 2 ? "izq" : "der");
           // En doble, la manija va hacia el centro: la hoja izquierda abre a la derecha.
-          out += hoja(GAP + i * (w + GAP), zy, w, zh, d, "puerta", lado);
+          out += hoja(GAP + i * (w + GAP), zy, w, zh, dz, "puerta", lado);
         }
       } else if (z.tipo === "avento") {
         // Columnas a lo ancho; en el Avento D, dos hojas por columna.
@@ -362,17 +389,14 @@ window.RKVista = (function () {
         for (let i = 0; i < n; i++) {
           const x = GAP + i * (w + GAP);
           if (filas === 2) {
-            out += hoja(x, zy, w, hSup, d, "avento", "centro", !z.unidas) +
-              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, d, "avento", "centro");
-          } else out += hoja(x, zy, w, zh, d, "avento", "centro");
+            out += hoja(x, zy, w, hSup, dz, "avento", "centro", !z.unidas) +
+              hoja(x, zy + hSup + GAP, w, zh - hSup - GAP, dz, "avento", "centro");
+          } else out += hoja(x, zy, w, zh, dz, "avento", "centro");
         }
       } else if (z.tipo === "cajones") {
         const n = z.n || 1;
         const h = (zh - GAP * (n - 1)) / n;
-        for (let i = 0; i < n; i++) out += hoja(GAP, zy + i * (h + GAP), W - 2 * GAP, h, d, "cajon");
-      } else {
-        out += rect(GAP + 18, zy, W - 2 * GAP - 36, zh, 'fill="#c9c4bb" stroke="rgba(0,0,0,.25)"') +
-          rect(GAP + 18, zy + zh / 2, W - 2 * GAP - 36, 18, 'fill="#e6e1d8"');
+        for (let i = 0; i < n; i++) out += hoja(GAP, zy + i * (h + GAP), W - 2 * GAP, h, dz, "cajon");
       }
       y += z.h;
     });
@@ -456,15 +480,35 @@ window.RKVista = (function () {
     const panel = (w, h, fill, luz) => rect(0, 0, w, h, `fill="${fill}" stroke="rgba(0,0,0,.4)" stroke-width="1"`) +
       rect(0, 0, w, h, `fill="rgba(0,0,0,${luz})"`);
     // Encuadre de los puntos +ps+ ([x, y, z]) con lugar abajo para el texto.
-    const svgDe = (ps, out, etiqueta, aria) => {
+    // +sinFrentes+: arriba, el aviso de que los frentes se quitaron mientras
+    // se editan los entrepaños (regresan al salir de esa sección).
+    const svgDe = (ps, out, etiqueta, aria, sinFrentes) => {
       const q = ps.map((p) => pr.iso(...p)), xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
-      const M = 50, x0 = Math.min(...xs) - M, x1 = Math.max(...xs) + M, y0 = Math.min(...ys) - M, y1 = Math.max(...ys) + 70;
+      // El aviso va a escala del dibujo (se lee igual en un mueble chico o en uno grande).
+      const AVISO = "Sin frentes mientras editas entrepaños";
+      const ancho = Math.max(...xs) - Math.min(...xs) + 100, fs = Math.max(20, ancho / 34), hA = fs * 2;
+      const M = 50, x0 = Math.min(...xs) - M, x1 = Math.max(...xs) + M, y0 = Math.min(...ys) - (sinFrentes ? M + hA + 20 : M), y1 = Math.max(...ys) + 70;
+      const wA = AVISO.length * fs * 0.62 + 2 * fs, cx = (x0 + x1) / 2;
+      const aviso = sinFrentes
+        ? rect(cx - wA / 2, y0 + 14, wA, hA, `rx="${(hA / 2).toFixed(1)}" fill="#1f2a2a" opacity=".85"`) +
+          `<text x="${cx.toFixed(0)}" y="${(y0 + 14 + hA * 0.66).toFixed(0)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="${fs.toFixed(0)}" fill="#fff">${esc(AVISO)}</text>`
+        : "";
       return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0.toFixed(0)} ${y0.toFixed(0)} ${(x1 - x0).toFixed(0)} ${(y1 - y0).toFixed(0)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${aria}">` +
-        defs(d) + out +
+        defs(d) + out + aviso +
         `<text x="${((x0 + x1) / 2).toFixed(0)}" y="${(y1 - 22).toFixed(0)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="20" fill="#4a5568">${esc(etiqueta)}</text>` +
         `</svg>`;
     };
-    return { top, conVeta, cuerpo, madera, poli, enZ, zoclo, costado, tabla, panel, svgDe };
+    // Lo que se ve por los huecos sin frente: +contenido+ recortado a la boca
+    // de cada uno (+bocas+: las 4 esquinas [x, y, z] de cada una).
+    const porHueco = (id, bocas, contenido) => {
+      if (!bocas.length || !contenido) return "";
+      const pol = bocas.map((b) => `<polygon points="${b.map((p) => pr.iso(...p).map((n) => n.toFixed(1)).join(",")).join(" ")}"/>`).join("");
+      return `<clipPath id="${id}">${pol}</clipPath><g clip-path="url(#${id})">${contenido}</g>`;
+    };
+    // Repisa acostada a la altura +z+ (su cara de arriba), en la sombra del hueco.
+    const repisa = (x0, y0, x1, y1, z) => tabla(x0, y0, x1, y1, null, z) +
+      poli([[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => pr.iso(x, y, z)), 'fill="rgba(0,0,0,.28)"');
+    return { top, conVeta, cuerpo, madera, poli, enZ, zoclo, costado, tabla, panel, svgDe, porHueco, repisa };
   }
 
   /* Gola: aluminio con el tono del perfil; melamina, forrada con el material
@@ -494,17 +538,17 @@ window.RKVista = (function () {
     const E = L.esp || 18, RF = 90, eP = L.espPuerta || 0;
     const conGola = !!d.gola && !L.abierto, GZ = conGola ? GOLA : 0, G = conGola ? (L.golaProf || 27) : 0;
     const fI = pI - (eP || 18) - G, fD = pD - (eP || 18) - G;
-    const { top, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe } = piezas(d, DESDE_ESQUINA, H, Z, GZ);
+    const { top, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe, porHueco, repisa } = piezas(d, DESDE_ESQUINA, H, Z, GZ);
     const { melamina, color: golaColor, K, fill: golaFill } = golaDe(L, d, E);
-    // Un frente: el canto del cuerpo y la hoja (o el hueco). Con gola la parte
-    // de arriba queda vacía: por ahí se ve el canal.
-    const frente = (w, lado, luz) => {
+    // Un frente: el canto del cuerpo y la hoja o, sin puerta, el hueco oscuro
+    // entre piso, techo y costado (+boca+ = [desde, hasta] a lo ancho). Con
+    // gola la parte de arriba queda vacía: por ahí se ve el canal.
+    const frente = (w, lado, luz, boca) => {
       let s = rect(0, GZ, w, H - GZ, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, w);
       const zy = GZ + GAP, zh = H - GZ - 2 * GAP;
-      s += L.abierto
-        ? rect(GAP + 18, zy, w - 2 * GAP - 36, zh, 'fill="#c9c4bb" stroke="rgba(0,0,0,.25)"') +
-          rect(GAP + 18, zy + zh / 2, w - 2 * GAP - 36, 18, 'fill="#e6e1d8"')
-        : hoja(GAP, zy, w - 2 * GAP, zh, d, "puerta", lado);
+      // Mientras se editan los entrepaños, hueco y la puerta solo en contorno.
+      if (L.abierto || L.verInterior) s += hueco(d, boca[0], E, boca[1] - boca[0], H - 2 * E);
+      if (!L.abierto) s += hoja(GAP, zy, w - 2 * GAP, zh, L.verInterior ? Object.assign({}, d, { _fantasma: true }) : d, "puerta", lado);
       return s + (luz ? rect(0, GZ, w, top - GZ, `fill="rgba(0,0,0,${luz})"`) : "");
     };
     const wIzq = LX - pD, wDer = LY - pI;
@@ -537,14 +581,27 @@ window.RKVista = (function () {
     // --- Cuerpo: costados (con su muesca si hay gola) y frentes.
     out += cara([0, LX, top], 1, costado(pI, [fI, pI]));
     out += cara([LY, pD, top], -1, costado(pD, [0, pD - fD]));
-    out += cara([pI, LX, top], -1, frente(wIzq, "izq", 0));
-    out += cara([pI, pD, top], 1, frente(wDer, "der", 0.07));
+    out += cara([pI, LX, top], -1, frente(wIzq, "izq", 0, [E, wIzq]));
+    out += cara([pI, pD, top], 1, frente(wDer, "der", 0.07, [0, wDer - E]));
+    // Sin puerta, los entrepaños en L que se ven por los dos huecos: a su
+    // altura, del respaldo a su retiro del frente.
+    if ((L.abierto || L.verInterior) && (L.repisas || []).length) {
+      let s = "";
+      L.repisas.slice().sort((a, b) => a.z - b.z).forEach((r) => {
+        const zt = Z + r.z + E, xf = pI - eP - (r.retiro || 0), yf = pD - eP - (r.retiro || 0);
+        s += repisa(E, E, xf, LX - E, zt) + repisa(xf, E, LY - E, yf, zt) +
+          cara([xf, LX - E, zt], -1, panel(LX - E - yf, E, madera, 0.15)) + cara([xf, yf, zt], 1, panel(LY - E - xf, E, madera, 0.22));
+      });
+      const z1 = top - E, z0 = Z + E;
+      out += porHueco(`${d._pat}-vano`, [[[pI, LX - E, z1], [pI, pD, z1], [pI, pD, z0], [pI, LX - E, z0]],
+                                         [[pI, pD, z1], [LY - E, pD, z1], [LY - E, pD, z0], [pI, pD, z0]]], s);
+    }
     // Esquina interior: la arista donde se juntan los dos frentes.
     const [a1, a2] = [iso(pI, pD, Z), iso(pI, pD, top - GZ)];
     out += `<line x1="${a1[0].toFixed(1)}" y1="${a1[1].toFixed(1)}" x2="${a2[0].toFixed(1)}" y2="${a2[1].toFixed(1)}" stroke="rgba(0,0,0,.5)" stroke-width="1.5"/>`;
     // Canto de arriba de las puertas, de costado a costado (la puerta tapa el
     // canto de los laterales): al ras de la tapa o, con gola, abajo.
-    if (eP && !L.abierto) out += tabla(pI - eP, pD - eP, pI, LX, null, top - GZ) + tabla(pI, pD - eP, LY, pD, null, top - GZ);
+    if (eP && !L.abierto && !L.verInterior) out += tabla(pI - eP, pD - eP, pI, LX, null, top - GZ) + tabla(pI, pD - eP, LY, pD, null, top - GZ);
     // --- Arriba (va la cubierta): los cantos de respaldos y costados y los
     // cuatro refuerzos, como los arma el componente: los de cada ala a lo
     // largo de ella, los delanteros detrás de la puerta y de la gola, y los
@@ -557,7 +614,7 @@ window.RKVista = (function () {
     if (conGola) out += tabla(fI, fD, fI + K, LX, melamina ? null : golaColor) + tabla(fI, fD, LY, fD + K, melamina ? null : golaColor);
     // Encuadre: lo que ocupan las esquinas del mueble, con lugar para el texto.
     const ps = [[0, LX, 0], [0, LX, top], [pI, LX, 0], [LY, 0, 0], [LY, 0, top], [LY, pD, 0], [0, 0, top], [pI, pD, 0]];
-    return svgDe(ps, out, L.etiqueta, "Vista previa del esquinero");
+    return svgDe(ps, out, L.etiqueta, "Vista previa del esquinero", L.verInterior);
   }
 
   // ---- Gabinete y alacena ----------------------------------------------------
@@ -574,7 +631,7 @@ window.RKVista = (function () {
     const conGola = !!d.gola, GZ = conGola ? GOLA : 0, G = conGola ? (L.golaProf || 27) : 0;
     // Cara de los refuerzos delanteros: detrás de la puerta y de la gola.
     const f = P - eP - G;
-    const { top, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe } = piezas(d, DESDE_FRENTE, H, Z, GZ);
+    const { top, cuerpo, madera, enZ, zoclo, costado, tabla, panel, svgDe, porHueco, repisa } = piezas(d, DESDE_FRENTE, H, Z, GZ);
     const { melamina, color: golaColor, K, fill: golaFill } = golaDe(L, d, E);
     const techo = L.techo || "4";
     const cerrado = techo === "5";
@@ -603,11 +660,25 @@ window.RKVista = (function () {
     // --- Cuerpo: el costado derecho (con su muesca si hay gola) y el frente:
     // el canto del cuerpo, el zoclo y las zonas.
     out += cara([W, P, top], -1, costado(P, [0, P - f]));
+    const vanos = [];
     out += cara([0, P, top], 1, rect(0, GZ, W, H - GZ, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, W) +
-      zonasFrente(L, d, W, conGola));
+      zonasFrente(L, d, W, conGola, vanos));
+    // Entrepaños y divisores que se ven por los huecos sin frente: a su altura,
+    // del respaldo a su retiro del frente del cuerpo (el divisor, al ras), de
+    // abajo hacia arriba (la de arriba tapa a la de abajo). Detrás de una
+    // puerta o un cajón no se dibujan.
+    if (vanos.length && (L.repisas || []).length) {
+      const yF = P - eP;
+      let s = "";
+      L.repisas.slice().sort((a, b) => a.z - b.z).forEach((r) => {
+        const zt = Z + r.z + E, yf = yF - (r.retiro || 0);
+        s += repisa(E, E, W - E, yf, zt) + cara([E, yf, zt], 1, panel(W - 2 * E, E, madera, r.divisor ? 0.05 : 0.15));
+      });
+      out += porHueco(`${d._pat}-vano`, vanos.map((v) => [[v.x0, P, top - v.y0], [v.x1, P, top - v.y0], [v.x1, P, top - v.y1], [v.x0, P, top - v.y1]]), s);
+    }
     // Canto de arriba de las puertas, de costado a costado: al ras de la tapa
     // o, con gola, abajo.
-    if (eP) out += tabla(0, P - eP, W, P, null, top - GZ);
+    if (eP && !L.verInterior) out += tabla(0, P - eP, W, P, null, top - GZ);
     // --- Arriba: el techo entero, o los cantos de laterales y respaldo y los
     // refuerzos (delantero detrás de la puerta y de la gola, trasero junto al
     // respaldo).
@@ -621,7 +692,7 @@ window.RKVista = (function () {
     // Labio del canal: el canto del frente de la gola o el borde del perfil.
     if (conGola) out += tabla(0, f, W, f + K, melamina ? null : golaColor);
     const ps = [[0, 0, top], [W, 0, top], [W, 0, 0], [W, P, 0], [0, P, 0], [0, P, top], [W, P, top]];
-    return svgDe(ps, out, L.etiqueta || `${Math.round(W)} × ${Math.round(H)} · fondo ${Math.round(P)} mm`, "Vista previa del mueble");
+    return svgDe(ps, out, L.etiqueta || `${Math.round(W)} × ${Math.round(H)} · fondo ${Math.round(P)} mm`, "Vista previa del mueble", L.verInterior);
   }
 
   return { desdeValores, desdeAlacena, desdeEsquinero, desdeEtiquetas, svg, num, filtroVeta };

@@ -99,3 +99,11 @@ assert !c.key?("d16_tirador_tipo"), "esquinero: Lateral negra del proyecto no se
 c = C.cambios_receta(ESQ, { "manija_puerta" => "21" }, OP, { "b01_gola_o_tirador" => "1" })
 assert c["d16_tirador_tipo"] == "21", "esquinero: otra manija sí"
 assert C.excluida?(ESQ, "manija_puerta", 7) && !C.excluida?(CFG, "manija_puerta", "7"), "solo el esquinero la excluye"
+
+# «Sin frente» (solo en un mueble): zonas abiertas, sin manijas ni gola.
+c = C.cambios_receta(CFG, { "frente" => C::FRENTE_SIN, "manija_puerta" => "21", "gola" => "aluminio_oscuro" }, OP,
+                     { "b01_gola_o_tirador" => "1", "l01_linea_frente" => "1" })
+assert c.values_at("d11_z1_contenido", "d31_z2_contenido", "b01_gola_o_tirador") == %w[3 3 1], "gabinete sin frente: zonas abiertas y sin gola"
+assert !c.key?("l01_linea_frente") && !c.key?("d16_z1_tirador_tipo"), "sin frente: ni línea de frente ni manijas"
+c = C.cambios_receta(ESQ, { "frente" => C::FRENTE_SIN }, OP, { "b01_gola_o_tirador" => "1" })
+assert c["c25tipopuerta"] == "0", "esquinero sin frente: sin puerta"

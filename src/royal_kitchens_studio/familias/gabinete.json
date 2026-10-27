@@ -3,7 +3,7 @@
   "titulo": "Gabinete",
   "descripcion": "Gabinete inferior por zonas de fachada (GABINETE-BASE-ZONAS). Todas las variables se escriben en el gabinete padre; las piezas las leen con parent!.",
   "componente_base": "componentes/GABINETE.skp",
-  "nombre_patron": "GAB-{LenX}-{b01_gola_o_tirador}{g01_perfil_tipo}[-Z1{d11_z1_contenido}{d15_z1_cant_puertas}{d12_z1_cant_cajones}][-Z2{d31_z2_contenido}{d35_z2_cant_puertas}{d32_z2_cant_cajones}]{h01_entrepano}{b02_tipo_cajon}",
+  "nombre_patron": "GAB-{LenX}-{b01_gola_o_tirador}{g01_perfil_tipo}[-Z1{d11_z1_contenido}{d15_z1_cant_puertas}{d12_z1_cant_cajones}][-Z2{d31_z2_contenido}{d35_z2_cant_puertas}{d32_z2_cant_cajones}]{h01_entrepano}{i06_trasera}{b02_tipo_cajon}",
   "catalogo": {
     "categoria": "Gabinetes",
     "ubicacion": "Gabinete bajo: va apoyado en piso, debajo de la cubierta.",
@@ -38,6 +38,7 @@
       "3": "2"
     },
     "h01_entrepano": { "0": "-E", "1": "" },
+    "i06_trasera": { "0": "", "1": "-TJ" },
     "b02_tipo_cajon": { "1": "", "2": "-AN", "3": "-TL" }
   },
   "reglas_frentes": { "nombre": "{pieza} {linea}", "attr_linea": "l01_linea_frente", "piezas": { "Puerta": "PUERTA", "Tapa_cajon": "TAPA CAJÓN" } },
@@ -524,10 +525,10 @@
       "titulo": "Entrepaños y divisores",
       "condicion": {
         "alguna": [
-          { "attr": "d11_z1_contenido", "valor": "1" },
-          { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "valor": "1" }] }
+          { "attr": "d11_z1_contenido", "valores": ["1", "3"] },
+          { "todas": [{ "attr": "d01_cantidad_zonas", "valor": "2" }, { "attr": "d31_z2_contenido", "valores": ["1", "3"] }] }
         ],
-        "mensaje": "Se activa cuando alguna zona lleva puerta."
+        "mensaje": "Se activa cuando alguna zona lleva puerta o va sin frente (abierta)."
       },
       "visual": {
         "tipo": "entrepanos",

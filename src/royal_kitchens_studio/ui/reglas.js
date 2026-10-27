@@ -7,6 +7,11 @@
    Sin DOM: se prueba en node. */
 window.RKReglas = (function () {
   const USOS = { puerta: "manija_puerta", cajon: "manija_cajon" };
+  /* «Sin frente» en el tipo de frente de un mueble: lo deja abierto con los
+     valores de opciones.familias.<f>.sin_frente (sin puertas ni cajones, sin
+     manijas ni gola). Igual a Catalogo::FRENTE_SIN. */
+  const FRENTE_SIN = "sin";
+  const sinFrente = (fam, frente) => String(frente) === FRENTE_SIN && !!(fam && fam.sin_frente);
   const NOMBRE_USO = { puerta: "puertas", cajon: "cajones" };
 
   const buscar = (lista, id) => (lista || []).find((o) => String(o.id) === String(id)) || null;
@@ -96,6 +101,8 @@ window.RKReglas = (function () {
 
   /* Primer problema del diseño +d+ ({frente, manija_puerta, manija_cajon, material}), o "". */
   function diseno(op, d, conGola) {
+    // Sin frente no hay manijas que revisar (ni frente con qué compararlas).
+    if (String(d.frente) === FRENTE_SIN) return material(op, d.material, null);
     if (conGola) {
       const e = gola(op, d.frente);
       if (e) return e;
@@ -141,5 +148,5 @@ window.RKReglas = (function () {
     return out.filter((e, i) => out.findIndex((x) => x.msg === e.msg) === i);
   }
 
-  return { USOS, manija, excluida, material, espesorPuerta, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
+  return { USOS, FRENTE_SIN, sinFrente, manija, excluida, material, espesorPuerta, gola, frenteGola, llevaGola, golaOpcion, conGola, cambiosGola, colorGola, diseno, posicion, receta };
 })();

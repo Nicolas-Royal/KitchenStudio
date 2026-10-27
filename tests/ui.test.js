@@ -203,6 +203,59 @@ prueba("vista: gabinete y alacena en axonométrica desde el frente, como el esqu
   assert.ok(as.includes("800 × 700 · fondo 330 mm"));
 });
 
+prueba("vista: zona sin frente = hueco oscuro, con los entrepaños y divisores que se ven por él", () => {
+  const TAPA = "0.8660 0.2113 -0.5000 0.3660";
+  const grupos = (svg) => svg.split('<g transform="matrix(').slice(1);
+  // Hueco para horno arriba (600) y un cajón abajo; sin repisas: solo el interior oscuro, sin recorte.
+  const horno = RKVista.desdeValores({ d01_cantidad_zonas: "2", d02_alto_zona_superior: "600", d11_z1_contenido: "3",
+    d31_z2_contenido: "2", d32_z2_cant_cajones: "1" }, { ancho: 600, alto: 770 });
+  const s = RKVista.svg(horno, { frente: "1" });
+  assert.ok(!s.includes('fill="#c9c4bb"'), "ya no es el hueco gris");
+  assert.ok((s.match(/fill="url\(#rk-mat-\d+-interior\)"/g) || []).length >= 2, "arriba y en el hueco, el interior oscuro");
+  assert.ok(!s.includes("<clipPath"), "sin repisas no hay nada que recortar");
+  // Con un entrepaño (retiro 50) a media zona y un divisor al ras: se dibujan recortados a la boca del hueco.
+  const conRep = Object.assign({}, horno, { repisas: [{ z: 450, retiro: 50, divisor: false }, { z: 300, retiro: 0, divisor: true }] });
+  const r = RKVista.svg(conRep, { frente: "1" });
+  const recorte = r.slice(r.indexOf("<clipPath"));
+  assert.ok(/<clipPath id="rk-mat-\d+-vano"><polygon points=/.test(r) && r.includes('clip-path="url(#'), "recortadas al hueco");
+  assert.strictEqual(grupos(recorte).filter((c) => c.startsWith(TAPA)).length >= 2, true, "una cara de arriba por repisa");
+  // El divisor llega al frente del cuerpo; el entrepaño se queda 50 mm atrás (su canto en y = fondo − puerta − retiro).
+  const cantos = grupos(recorte).filter((c) => c.startsWith("0.8660 0.2113 0 0.9063"));
+  assert.strictEqual(cantos.length, 2, "el canto de cada una");
+  // Detrás de una puerta no se dibujan: sin hueco, no hay recorte aunque haya repisas.
+  const puertas = Object.assign(RKVista.desdeValores({ d01_cantidad_zonas: "1", d11_z1_contenido: "1" }, { ancho: 600, alto: 770 }),
+    { repisas: [{ z: 380, retiro: 50 }] });
+  assert.ok(!RKVista.svg(puertas, { frente: "1" }).includes("<clipPath"));
+  // Alacena de microondas: hueco abajo, con el interior oscuro.
+  const micro = RKVista.desdeAlacena({ LenZ: "900", d01_cantidad_zonas: "2", d02_alto_zona_superior: "500", c25tipopuerta: "1",
+    d15_cant_puertas: "3", d31_z2_contenido: "0" }, { ancho: 600, alto: 900 });
+  assert.ok(/fill="url\(#rk-mat-\d+-interior\)"/.test(RKVista.svg(micro, { frente: "1" })));
+  // Esquinero sin puerta: dos huecos y sus entrepaños en L repartidos iguales.
+  const esq = RKVista.desdeEsquinero({ c25tipopuerta: "0", c24entrepano: "0", f01cantdiv: "2", a0101profizq: "578", a0102profder: "578" },
+    { ancho: 1000, alto: 770, fondo: 1000 });
+  assert.deepStrictEqual(esq.repisas.map((x) => Math.round(x.z)), [251, 501], "2 entrepaños: 3 espacios iguales (como geomEntrepanos)");
+  const se = RKVista.svg(esq, { frente: "1" });
+  assert.ok(/<clipPath id="rk-mat-\d+-vano">(?:<polygon [^>]*\/>){2}<\/clipPath>/.test(se), "recortadas a los dos huecos");
+  assert.strictEqual(RKVista.desdeEsquinero({ c24entrepano: "1" }, { ancho: 1000, alto: 770, fondo: 1000 }).repisas.length, 0);
+});
+
+prueba("vista: mientras se editan los entrepaños, sin frentes (huecos, contorno punteado y aviso)", () => {
+  const lay = Object.assign(RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "2", d12_z1_cant_cajones: "1",
+    d31_z2_contenido: "1", d35_z2_cant_puertas: "3" }, { ancho: 600, alto: 770 }), { repisas: [{ z: 300, retiro: 26 }] });
+  const barra = { forma: "barra", color: "#123456" };
+  const normal = RKVista.svg(lay, { frente: "1", manijaPuerta: barra, manijaCajon: barra });
+  assert.ok(!normal.includes("stroke-dasharray") && !normal.includes("<clipPath") && normal.includes('fill="#123456"'));
+  const s = RKVista.svg(Object.assign({}, lay, { verInterior: true }), { frente: "1", manijaPuerta: barra, manijaCajon: barra });
+  assert.strictEqual((s.match(/stroke-dasharray="12 8"/g) || []).length, 3, "cajón y las 2 hojas, solo en contorno");
+  assert.ok(!s.includes('fill="#123456"'), "sin manijas");
+  assert.ok(/<clipPath id="rk-mat-\d+-vano">(?:<polygon [^>]*\/>){2}<\/clipPath>/.test(s), "las dos zonas son hueco y se ve el entrepaño");
+  assert.ok(s.includes("Sin frentes mientras editas entrepaños"), "aviso de que es temporal");
+  const esq = Object.assign(RKVista.desdeEsquinero({ c25tipopuerta: "1", c24entrepano: "0", a0101profizq: "578", a0102profder: "578" },
+    { ancho: 1000, alto: 770, fondo: 1000 }), { verInterior: true });
+  const se = RKVista.svg(esq, { frente: "1" });
+  assert.ok((se.match(/stroke-dasharray/g) || []).length === 2 && se.includes("<clipPath"), "esquinero: las dos hojas en contorno y el entrepaño en L");
+});
+
 const CAT = path.join(__dirname, "..", "src", "royal_kitchens_studio", "catalogo");
 const op = JSON.parse(fs.readFileSync(path.join(CAT, "opciones.json"), "utf8"));
 prueba("opciones.json: cada material tiene tono y cada manija (salvo «sin») su forma", () => {
@@ -251,6 +304,16 @@ prueba("esquinero sin Lateral negra: ni se elige ni la pone el proyecto", () => 
   assert.strictEqual(R.excluida(f.gabinete, "manija_puerta", "7"), false, "el gabinete sí la lleva");
   assert.strictEqual(R.excluida(f.esquinero, "manija_cajon", "7"), false, "sin mapeo de cajón no excluye");
   assert.strictEqual(R.excluida(null, "manija_puerta", "7"), false);
+});
+
+prueba("reglas: «Sin frente» solo en familias que lo mapean, sin manijas que revisar", () => {
+  const f = op.familias;
+  ["gabinete", "alacena", "esquinero"].forEach((k) => assert.ok(f[k].sin_frente && f[k].sin_frente.valores, k));
+  assert.strictEqual(R.sinFrente(f.gabinete, R.FRENTE_SIN), true);
+  assert.strictEqual(R.sinFrente(null, R.FRENTE_SIN), false, "el diseño del proyecto no lo ofrece");
+  assert.strictEqual(R.sinFrente(f.gabinete, "1"), false);
+  assert.strictEqual(R.diseno(op, { frente: R.FRENTE_SIN, manija_puerta: "21", manija_cajon: "15" }, false), "", "Berlín o concha no importan sin frente");
+  assert.ok(!op.frentes.some((x) => String(x.id) === R.FRENTE_SIN), "no es un frente del catálogo");
 });
 
 prueba("espesor de puertas según el material: madera 22, MDF 18, sin material sin regla", () => {
