@@ -8,6 +8,9 @@ require_relative "motor/plantilla"
 require_relative "motor/importer"
 require_relative "motor/rk_mitered"
 
+# Después del de RK::Mitered, para quedar por fuera (ver Engine.instalar_hook).
+RoyalKitchens::Studio::Engine.instalar_hook
+
 module RoyalKitchens
   module Studio
     # Generar muebles desde una receta (fila plana del manifiesto) con el
@@ -500,6 +503,7 @@ module RoyalKitchens
         end
 
         RK::Mitered.instalar_hook
+        Engine.instalar_hook
         antes = sueltas(model)
         base_def = model.definitions.load(base_path)
         opts = {

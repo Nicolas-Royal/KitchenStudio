@@ -210,7 +210,8 @@ module RoyalKitchens
       #     inyectado contra el desplazamiento en y de cada pieza).
       #
       # Se escribe SOLO el nombre de instancia: las definiciones se comparten con
-      # el componente base y renombrarlas contaminaría otras unidades.
+      # el componente base y renombrarlas contaminaría otras unidades. Y nunca
+      # en la copia del DC misma (ver abajo).
       #
       # Devuelve la lista de warnings (vacía si todo salió bien).
       # ---------------------------------------------------------------------
@@ -234,7 +235,13 @@ module RoyalKitchens
 
         copias.each_with_index do |copia, i|
           break if i >= nombres.size
-          hoja_de(copia).name = nombres[i]
+          # La copia misma no se renombra: el DC reconoce sus copias por el
+          # nombre («Repisa copy 001»), y en el siguiente redibujado tomaba
+          # cada una por original y las encimaba todas en la primera altura.
+          # Pasa en el esquinero, donde cada repisa tiene dos hijos (Panel y
+          # CE_Panel) y hoja_de no puede bajar.
+          hoja = hoja_de(copia)
+          hoja.name = nombres[i] unless hoja == copia
         end
 
         warnings
@@ -861,6 +868,100 @@ module RoyalKitchens
           end
         end
         copias.size
+      end
+
+      # ---------------------------------------------------------------------
+      # Vuelve a juntar las piezas iguales de un mueble después de que el
+      # componente dinámico lo redibuja (Opciones de componente, escalar…).
+      #
+      # El redibujado independiza cada copia: los 4 entrepaños que salían en
+      # un renglón «ENTREPAÑO ×4» quedaban en 4 definiciones (ENTREPAÑO#18…#21)
+      # y OpenCutList los listaba de a uno. Lo mismo frentes y herrajes.
+      #
+      # No hace falta la receta: las piezas que el motor dejó compartidas
+      # conservan la marca «compartida» y su nombre (la definición con «#n»).
+      # Dos con el mismo nombre y la misma firma_pieza vuelven a ser una.
+      # El atributo dinámico «name» sí lo reescribe el redibujado: se repone.
+      #
+      # Devuelve cuántas piezas volvieron a compartir definición.
+      # ---------------------------------------------------------------------
+      def recompartir(inst)
+        gemelas = {}
+        sueltas = []
+        vistas  = {}
+        n = 0
+        pila = [inst.definition]
+        until pila.empty?
+          defn = pila.pop
+          next if vistas[defn]
+          vistas[defn] = true
+          defn.entities.to_a.each do |e|
+            next unless e.is_a?(Sketchup::ComponentInstance) || e.is_a?(Sketchup::Group)
+            d = e.definition
+            if e.is_a?(Sketchup::ComponentInstance) && d.get_attribute(DICT_STUDIO, 'compartida')
+              nombre = d.name.sub(/#\d+\z/, '')
+              firma  = firma_pieza(d)
+              lista  = (gemelas[nombre] ||= [])
+              gemela = lista.find { |_, f| f == firma }
+              lista << [d, firma] unless gemela
+              [e, d].each { |x| x.set_attribute(DICT, 'name', nombre) }
+              if gemela && gemela[0] != d
+                e.definition = gemela[0]
+                sueltas << d
+                n += 1
+                next
+              end
+            end
+            pila << d
+          end
+        end
+        # Las que quedaron sin instancias las dejó este paso: no se acumulan.
+        sueltas.uniq.each { |d| d.model.definitions.remove(d) if d.valid? && d.count_instances.zero? }
+        n
+      end
+
+      # El mueble de Studio que contiene a +ent+ (o +ent+ mismo), subiendo
+      # mientras cada nivel tenga una sola instancia; nil si no es de Studio.
+      # Se reconoce por el sello del generador o la marca de la escena.
+      def mueble_de(ent)
+        10.times do
+          return nil unless ent.is_a?(Sketchup::ComponentInstance) && ent.valid?
+          return ent if ent.definition.attribute_dictionary('RK_Studio_Generado') ||
+                        ent.attribute_dictionary('RK_Studio_Mueble')
+          padre = ent.parent
+          return nil unless padre.is_a?(Sketchup::ComponentDefinition) && padre.instances.size == 1
+          ent = padre.instances.first
+        end
+        nil
+      end
+
+      # Después de cada redibujado del DC. Mientras se genera no hay sello
+      # todavía: ahí el motor comparte las piezas él mismo, al final.
+      module HookRedibujo
+        def redraw_with_undo(entity, *args)
+          r = super
+          begin
+            mueble = Engine.mueble_de(entity)
+            if mueble
+              model = mueble.model
+              model.start_operation('Juntar piezas iguales', true, false, true)
+              Engine.recompartir(mueble)
+              model.commit_operation
+            end
+          rescue StandardError => e
+            puts "Studio, piezas iguales tras redibujar: #{e.message}"
+          end
+          r
+        end
+      end
+
+      # Va por fuera del de RK::Mitered (se instala después): así junta las
+      # piezas ya horneadas.
+      def instalar_hook
+        return false unless defined?($dc_observers) && $dc_observers
+        k = $dc_observers.get_latest_class.class
+        k.prepend(HookRedibujo) unless k.ancestors.include?(HookRedibujo)
+        true
       end
 
       # ---------------------------------------------------------------------
