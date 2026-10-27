@@ -227,6 +227,38 @@ prueba("vista: gabinete y alacena en axonométrica desde el frente, como el esqu
   assert.ok(as.includes("800 × 700 · fondo 330 mm"));
 });
 
+prueba("vista: gabinete para tarja sin respaldo, con los 2 amarres traseros y el hueco entre ellos", () => {
+  const TAPA = "0.8660 0.2113 -0.5000 0.3660", FRENTE = "0.8660 0.2113 0 0.9063";
+  const grupos = (svg) => svg.split('<g transform="matrix(').slice(1);
+  const conVeta = { color: "#8b5a3c", veta: true, textura: { url: "veta.png", ancho: 1800, alto: 400, luminancia: 215 } };
+  const base = { d11_z1_contenido: "3" };
+  const sin = RKVista.desdeValores(base, { ancho: 600, alto: 770 });
+  const con = RKVista.desdeValores(Object.assign({ i06_trasera: "1" }, base), { ancho: 600, alto: 770 });
+  assert.strictEqual(sin.tarja, undefined);
+  // Medidas del componente (B.AmarrePost): 90 de alto, del espesor del fondo, en ranura a 12 del canto.
+  assert.deepStrictEqual(con.tarja, { alto: 90, esp: 12, ranura: 12 });
+  assert.strictEqual(RKVista.desdeValores({ i06_trasera: "1", i05_ceja_trasera: "1" }, { ancho: 600, alto: 770 }).tarja.ranura, 0, "sin ceja: al canto");
+  assert.strictEqual(RKVista.desdeValores({ i06_trasera: "1", i25_fondo_distancia_ranura: "0" }, { ancho: 600, alto: 770 }).tarja.ranura, 18, "ranura 0 = espesor de la estructura");
+  const s0 = RKVista.svg(sin, { frente: "1", material: conVeta }), s1 = RKVista.svg(con, { frente: "1", material: conVeta });
+  // Sin tarja, respaldo y lateral parados (alto 752) por arriba y por el hueco; con tarja solo el lateral.
+  const paradas = (s) => (s.match(/height="752\.0" fill="url\(#rk-mat-\d+-v\)"/g) || []).length;
+  assert.deepStrictEqual([paradas(s0), paradas(s1)], [4, 2]);
+  // Atrás, entre los amarres, no se pinta nada (se ve el fondo del visor): por el hueco, el fondo
+  // oscuro de la zona sin frente se recorta en la abertura.
+  const interior = (s) => (s.match(/fill="url\(#rk-mat-\d+-interior\)"/g) || []).length;
+  assert.strictEqual(interior(s1), interior(s0), "sin relleno oscuro atrás");
+  assert.ok(!s0.includes("-abertura") && /<mask id="rk-mat-\d+-abertura"[^]*<g mask="url\(#rk-mat-\d+-abertura\)">/.test(s1), "recorte de la abertura");
+  assert.ok(!RKVista.svg(RKVista.desdeValores({ i06_trasera: "1" }, { ancho: 600, alto: 770 }), { frente: "1" }).includes("-abertura"), "con puertas no hay recorte");
+  // Los 2 amarres de 90 a lo ancho con veta horizontal.
+  const amarres = grupos(s1).filter((c) => c.startsWith(FRENTE) && /^[^>]*><rect x="0\.0" y="0\.0" width="564\.0" height="90\.0" fill="url\(#rk-mat-\d+\)"/.test(c));
+  assert.strictEqual(amarres.length, 4, "2 amarres, arriba y por el hueco");
+  // Arriba: el canto del amarre en vez del respaldo, y el del amarre de abajo (en el hueco, 2 veces).
+  assert.strictEqual(grupos(s1).filter((c) => c.startsWith(TAPA)).length - grupos(s0).filter((c) => c.startsWith(TAPA)).length, 2);
+  assert.ok(s1.includes('<rect x="18.0" y="12.0" width="564.0" height="12.0"'), "canto del amarre de arriba, a 12 del canto trasero");
+  assert.ok(s1.includes('<rect x="18.0" y="24.0" width="564.0" height="90.0"') && !s1.includes('<rect x="18.0" y="18.0" width="564.0" height="90.0"'),
+    "el refuerzo de arriba va delante de los amarres");
+});
+
 prueba("vista: zona sin frente = el interior de madera, con los entrepaños y divisores que se ven por él", () => {
   const TAPA = "0.8660 0.2113 -0.5000 0.3660";
   const PISO = 'fill="rgba(0,0,0,.4)" stroke="rgba(0,0,0,.4)"';

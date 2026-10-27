@@ -62,7 +62,19 @@ window.RKVista = (function () {
       // Arriba: 1 nada, 2 refuerzo delantero, 3 trasero, 4 los dos, 5 techo completo.
       techo: String(v.i03_tipo_techo || "4"),
       zonas,
-    }, tipoGola(v));
+    }, tipoGola(v), tarjaDe(v));
+  }
+
+  /* Módulo para tarja (i06 = 1): sin respaldo, 2 amarres traseros como los
+     arma el componente (B.AmarrePost): de i17 de alto (90), del espesor del
+     fondo (c03, 12), uno sobre la base y otro al ras de arriba, separados del
+     canto trasero la distancia de ranura (i25; 0 = el espesor de la
+     estructura) salvo «sin ceja» (i05 = 1), que van al canto. */
+  function tarjaDe(v) {
+    if (String(v.i06_trasera) !== "1") return {};
+    const esp = num(v.c03_espesor_fondo, 12);
+    const ranura = String(v.i05_ceja_trasera) === "1" ? 0 : num(v.i25_fondo_distancia_ranura, 12) || num(v.c01_espesor_estructura, 18);
+    return { tarja: { alto: num(v.i17_ancho_amarre_post, 90), esp, ranura } };
   }
 
   /* Tipo de gola (g01: 1 aluminio, 2 melamina) y su hondo (los refuerzos
@@ -670,18 +682,32 @@ window.RKVista = (function () {
     // plano, y si paraban donde va la puerta asomaba una raya oscura.
     const piso = Z + E, yF = P - eP, vetaV = d.material ? `url(#${d._pat}${conVeta ? "-v" : ""})` : madera;
     const pared = (w, luz) => panel(w, top - piso, vetaV, luz) + rect(0, 0, w, top - piso, `fill="url(#${d._pat}-hueco)"`);
-    let adentro = cara([E, E, top], 1, pared(W - 2 * E, 0.2)) + cara([E, P, top], -1, pared(P - E, 0.12)) +
-      tabla(E, E, W - E, P, null, piso, true) +
-      enZ(piso)([[E, E], [W - E, E], [W - E, P], [E, P]], 'fill="rgba(0,0,0,.4)" stroke="rgba(0,0,0,.4)" stroke-width="1.5"');
+    // Con tarja no hay respaldo: atrás queda abierto entre los 2 amarres (se
+    // ve el fondo del visor, no se pinta nada), y lateral, piso y repisas
+    // llegan al canto trasero. +yR+: donde empieza, desde atrás, lo que va
+    // dentro (y el refuerzo de arriba).
+    const T = L.tarja, yA = T ? 0 : E, yR = T ? T.ranura + T.esp : E;
+    let adentro = (T ? "" : cara([E, E, top], 1, pared(W - 2 * E, 0.2))) +
+      cara([E, P, top], -1, pared(P - yA, 0.12)) +
+      tabla(E, yA, W - E, P, null, piso, true) +
+      enZ(piso)([[E, yA], [W - E, yA], [W - E, P], [E, P]], 'fill="rgba(0,0,0,.4)" stroke="rgba(0,0,0,.4)" stroke-width="1.5"');
+    // Los amarres: tablas paradas a lo ancho (veta horizontal), el de abajo
+    // sobre la base con su canto de arriba (sin contorno: con 12 mm de canto
+    // sería una raya oscura); el de arriba, su canto en la tapa.
+    if (T) {
+      adentro += cara([E, yR, piso + T.alto], 1, panel(W - 2 * E, T.alto, madera, 0.15)) +
+        tabla(E, T.ranura, W - E, yR, null, piso + T.alto, true) +
+        cara([E, yR, top], 1, panel(W - 2 * E, T.alto, madera, 0.15));
+    }
     (L.repisas || []).slice().sort((a, b) => a.z - b.z).forEach((r) => {
       const zt = Z + r.z + E, yf = yF - (r.retiro || 0);
-      adentro += repisa(E, E, W - E, yf, zt) + cara([E, yf, zt], 1, panel(W - 2 * E, E, madera, r.divisor ? 0.05 : 0.15));
+      adentro += repisa(E, yA, W - E, yf, zt) + cara([E, yf, zt], 1, panel(W - 2 * E, E, madera, r.divisor ? 0.05 : 0.15));
     });
     // Sin techo se ve desde arriba, con el canto del refuerzo trasero; el del
     // delantero da a la puerta y no se ve.
     if (!cerrado) {
       out += adentro;
-      if (techo === "3" || techo === "4") out += cara([E, E + RF, top], 1, panel(W - 2 * E, E, madera, 0.28));
+      if (techo === "3" || techo === "4") out += cara([E, yR + RF, top], 1, panel(W - 2 * E, E, madera, 0.28));
     }
     // Canal de la gola: el piso a la altura de la puerta bajada, la pared del
     // fondo y su punta en el costado; corre de costado a costado.
@@ -695,25 +721,40 @@ window.RKVista = (function () {
     // el canto del cuerpo, el zoclo y las zonas.
     out += cara([W, P, top], -1, costado(P, [0, P - f]));
     const vanos = [];
-    out += cara([0, P, top], 1, rect(0, GZ, W, H - GZ, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, W) +
+    let frente = cara([0, P, top], 1, rect(0, GZ, W, H - GZ, `${cuerpo} stroke="rgba(0,0,0,.35)" stroke-width="1.5"`) + zoclo(0, W) +
       zonasFrente(L, d, W, conGola, vanos));
+    const bocas = vanos.map((v) => [[v.x0, P, top - v.y0], [v.x1, P, top - v.y0], [v.x1, P, top - v.y1], [v.x0, P, top - v.y1]]);
+    // Con tarja, por el hueco se ve a través de la abertura entre los amarres:
+    // el fondo oscuro del hueco se recorta ahí (la abertura, dentro de la boca).
+    // Abajo llega a la cara del amarre (+yR+): por la ranura detrás de su
+    // canto también se ve a través. 2 mm de más hacia amarres y laterales, que
+    // se dibujan encima: así no asoma una raya oscura en los bordes.
+    if (T && bocas.length) {
+      const iso = (p) => DESDE_FRENTE.iso(...p).map((n) => n.toFixed(1)).join(",");
+      const pol = (pts, attrs) => `<polygon points="${pts.map(iso).join(" ")}" ${attrs}/>`;
+      const z0 = piso + T.alto - 2, z1 = top - T.alto + 2, id = `${d._pat}-abertura`;
+      frente = `<clipPath id="${id}-boca">${bocas.map((b) => pol(b, "")).join("")}</clipPath>` +
+        `<mask id="${id}" maskUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000">` +
+        `<rect x="-100000" y="-100000" width="200000" height="200000" fill="#fff"/>` +
+        `<g clip-path="url(#${id}-boca)">${pol([[E - 2, yR, z0], [W - E + 2, yR, z0], [W - E + 2, 0, z1], [E - 2, 0, z1]], 'fill="#000"')}</g></mask>` +
+        `<g mask="url(#${id})">${frente}</g>`;
+    }
+    out += frente;
     // El mismo interior por los huecos sin frente; detrás de una puerta o un
     // cajón no se dibuja.
-    if (vanos.length) {
-      out += porHueco(`${d._pat}-vano`, vanos.map((v) => [[v.x0, P, top - v.y0], [v.x1, P, top - v.y0], [v.x1, P, top - v.y1], [v.x0, P, top - v.y1]]), adentro);
-    }
+    if (bocas.length) out += porHueco(`${d._pat}-vano`, bocas, adentro);
     // Canto de arriba de las puertas, de costado a costado: al ras de la tapa
     // o, con gola, abajo.
     // También mientras se editan los entrepaños (las puertas siguen ahí).
     if (eP) out += tabla(0, P - eP, W, P, null, top - GZ);
     // --- Arriba: el techo entero, o los cantos de laterales y respaldo y los
     // refuerzos (delantero detrás de la puerta y de la gola, trasero junto al
-    // respaldo).
+    // respaldo). Con tarja, el canto del amarre de arriba en vez del respaldo.
     const fin = conGola ? f : P - eP;
     if (cerrado) out += tabla(0, 0, W, fin);
     else {
-      out += tabla(0, 0, E, fin) + tabla(W - E, 0, W, fin) + tabla(E, 0, W - E, E);
-      if (techo === "3" || techo === "4") out += tabla(E, E, W - E, E + RF);
+      out += tabla(0, 0, E, fin) + tabla(W - E, 0, W, fin) + (T ? tabla(E, T.ranura, W - E, yR) : tabla(E, 0, W - E, E));
+      if (techo === "3" || techo === "4") out += tabla(E, yR, W - E, yR + RF);
       if (techo === "2" || techo === "4") out += tabla(E, f - RF, W - E, f);
     }
     // Labio del canal: el canto del frente de la gola o el borde del perfil.
