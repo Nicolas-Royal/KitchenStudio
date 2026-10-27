@@ -1071,7 +1071,9 @@ function svgModulo(m, avanzado, enLista) {
   const d = disenoDe(m, enLista);
   // «Sin frente»: la receta con las zonas abiertas de su familia.
   const fc = cfgFamilia(m), abierto = RKReglas.sinFrente(fc, d.frente);
-  const valores = m.receta && (abierto ? Object.assign({}, m.receta.valores, fc.sin_frente.valores) : m.receta.valores);
+  // La tarja elegida en el diseño (sin respaldo, con sus amarres traseros).
+  const valores = m.receta && Object.assign({}, m.receta.valores, abierto ? fc.sin_frente.valores : {},
+    fc && fc.tarja ? { [fc.tarja.attr]: String(d.tarja ? fc.tarja.si : fc.tarja.no) } : {});
   const lay = (m.receta && layoutDe(fam, valores, { ancho: d.ancho, alto: d.alto, fondo: d.fondo })) ||
     RKVista.desdeEtiquetas(Object.assign({}, m, { specs: Object.assign({}, m.specs, { ancho_mm: d.ancho, alto_mm: d.alto }) }));
   // Los entrepaños con su ajuste de este proyecto y las medidas del diseño.
