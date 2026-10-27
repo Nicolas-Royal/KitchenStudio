@@ -116,6 +116,13 @@
       "attrs_espacio": ["divisor>f03espacio1", "divisor>f03espacio2", "divisor>f03espacio3", "divisor>f03espacio4", "divisor>f03espacio5", "divisor>f03espacio6"]
     }
   },
+  "formulas_piezas": [
+    {
+      "_doc": "Reparto con 1 entrepaño (27/10/2026): el base trae f03espacio1/2 = 1426/166, así m01cantdiv = 2 y m04seppers dividía entre (1 + 1) − 2 = 0. El DC evalúa las dos ramas del IF y con el DIV/0 m05sep01 caía en f03espacio1: el entrepaño de una alacena de 700 quedaba a 1444 mm. Mismo resguardo que ya trae el divisor de GABINETE.skp.",
+      "pieza": "DivisorHorizontal",
+      "formulas": { "m04seppers": "(LenZ-m02anchodiv-e05espesor*f01cantdiv)/LARGEST(1,(f01cantdiv+1)-m01cantdiv)" }
+    }
+  ],
   "reglas_geometria": [
     { "attrs": ["d02_alto_zona_superior"], "menor_que": "LenZ", "mensaje": "La zona de arriba no deja lugar a la de abajo: mide más que el alto." },
     {

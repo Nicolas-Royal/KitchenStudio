@@ -542,6 +542,14 @@ prueba('E-07 · la holgura lateral es solo de los entrepaños: el divisor va peg
   assert.ok(fp.some(function (r) { return r.hijos === 'PanelXY' && /margenfrontal=0,0/.test(r.formulas.x); }), 'el componente recibe la regla por repisa');
 });
 
+prueba('E-08 · alacena con 1 entrepaño: el reparto no divide entre 0 (si no, queda a f03espacio1)', function () {
+  // ALACENA.skp trae f03espacio1/2 = 1426/166: con 1 entrepaño m01cantdiv = 2 y
+  // (f01cantdiv + 1) − m01cantdiv = 0. El DIV/0 hacía que m05sep01 tomara 1426.
+  var r = (man.alacena.formulas_piezas || []).filter(function (x) { return x.pieza === 'DivisorHorizontal' && x.formulas.m04seppers; })[0];
+  assert.ok(r, 'la alacena corrige m04seppers del divisor');
+  assert.ok(/\/LARGEST\(1,\(f01cantdiv\+1\)-m01cantdiv\)$/.test(r.formulas.m04seppers), r.formulas.m04seppers);
+});
+
 prueba('E-05 · con n repisas se inyectan los n + 1 espacios; vacío = 0 (reparto)', function () {
   var f = plano('gabinete', { h01_entrepano: '0', h02_cantidad: '1', h03_tipo_medida: '2', h11_espacio1_alto: '200', h12_espacio2_alto: '' });
   assert.strictEqual(f.h11_espacio1_alto, '200mm');
