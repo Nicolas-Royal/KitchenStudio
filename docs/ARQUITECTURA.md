@@ -368,6 +368,16 @@ Acabado (`acabado.rb`, 10/2026):
   `RKVista`); la veta de la imagen es horizontal: cajones así, puertas con el
   patrón girado (en SketchUp el componente ya gira las piezas). `VETA_VERSION`
   regenera las que Studio ya hizo; una textura puesta a mano no se toca.
+- **Muestras (28/10/2026).** Cada material trae `muestra` =
+  `catalogo/materiales/<id>.jpg`: su foto de la Guía RK (págs. 22-31),
+  cuadrada de 247 px. Solo la usan los selectores (`muestra_abs`, `fotoEn`);
+  la vista previa y SketchUp siguen con la veta teñida.
+- **Texturas grandes (en preparación).** Se generan con Gemini (foto de la
+  muestra + un prompt fijo) y `tools/texturas.ps1 -Entrada <carpeta>` las
+  deja listas: quita la franja oscura de las orillas, las vuelve repetibles
+  (cada eje fundido con la imagen desplazada media vuelta) y ajusta el
+  promedio de color al de su muestra; deja `<id>.png` de 1024 px, un mosaico
+  3×3 de prueba y un reporte de color y costura. Aún no se usan en el código.
 
 Gola elegida en el diseño (`golas[]`: sin gola, melamina, aluminio claro,
 aluminio oscuro; `proyecto.global.gola` / `modulos[id].gola`, "" = la del
