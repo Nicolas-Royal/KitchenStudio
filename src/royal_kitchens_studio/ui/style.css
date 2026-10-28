@@ -803,6 +803,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Madera sin foto: la textura de veta teñida (filtro SVG): que llene la foto. */
 .pick-photo img.veta, .pk-photo img.veta { object-fit: cover; }
+/* Material con su foto de la Guía RK: que también llene el recuadro. */
+.pick-photo img.muestra, .pk-photo img.muestra { object-fit: cover; }
 
 /* ---- Diseño del proyecto ---------------------------------------------- */
 /* La sección crece hacia abajo (el escenario se desplaza): «Así se verá»

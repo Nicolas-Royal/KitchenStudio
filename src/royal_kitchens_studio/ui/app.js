@@ -354,10 +354,14 @@ function fotoDe(key, o) {
   return placeholder(o ? o.nombre : "—");
 }
 
-/* Foto de una opción en +img+. La madera sin foto se ve con la textura de
-   veta teñida de su color (la misma que en SketchUp y en «Así se verá»): la
-   imagen base con un filtro SVG del documento (RKVista.filtroVeta). */
+/* Foto de una opción en +img+. Un material con muestra (su foto de la Guía RK)
+   se ve con ella. La madera sin foto se ve con la textura de veta teñida de su
+   color (la misma que en SketchUp y en «Así se verá»): la imagen base con un
+   filtro SVG del documento (RKVista.filtroVeta). */
 function fotoEn(img, key, o) {
+  const m = key === "material" && o && o.muestra_abs ? fileURL(o.muestra_abs) : null;
+  img.classList.toggle("muestra", !!m);
+  if (m) { img.classList.remove("veta"); img.style.filter = ""; setImg(img, m); return; }
   const t = key === "material" && o && !o.foto_abs && o.veta ? texturaVeta() : null;
   img.classList.toggle("veta", !!t);
   img.style.filter = t ? `url(#${filtroMaterial(o, t)})` : "";
@@ -518,7 +522,7 @@ function pintarPicker() {
       b.className = "pk-item" + (String(d[p.key] || "") === id ? " active" : "");
       const motivo = o ? bloqueo(p.key, o, d, pk.fc) : "";
       b.disabled = !!motivo;
-      b.title = motivo || (o && o.color && !o.foto_abs && !(p.key === "material" && o.veta && texturaVeta()) ? "Tono aproximado: falta la foto" : "");
+      b.title = motivo || (o && o.color && !o.foto_abs && !o.muestra_abs && !(p.key === "material" && o.veta && texturaVeta()) ? "Tono aproximado: falta la foto" : "");
       b.innerHTML = `<div class="pk-photo"><img alt="" loading="lazy"></div><span class="pk-name">${esc(o ? o.nombre : "Como el módulo")}</span>` +
         (motivo ? `<span class="pk-why">${esc(motivo)}</span>` : "");
       fotoEn($("img", b), p.key, o);

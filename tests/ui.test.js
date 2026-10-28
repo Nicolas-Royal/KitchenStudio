@@ -335,6 +335,13 @@ prueba("catálogo propio: cada frente y manija (salvo «sin») tiene su foto en 
   });
 });
 
+prueba("catálogo propio: cada material (salvo «Sin material») tiene su muestra de la Guía RK", () => {
+  op.materiales.filter((m) => m.id !== "SIN_MATERIAL").forEach((m) => {
+    assert.ok(m.muestra && fs.existsSync(path.join(CAT, m.muestra)), `${m.nombre}: ${m.muestra}`);
+    assert.strictEqual(path.basename(m.muestra, ".jpg"), m.id, `la muestra de ${m.nombre} lleva su id`);
+  });
+});
+
 prueba("vista: manija distinta en puertas y en cajones", () => {
   const lay = RKVista.desdeValores({ d01_cantidad_zonas: "2", d11_z1_contenido: "1", d15_z1_cant_puertas: "3",
     d31_z2_contenido: "2", d32_z2_cant_cajones: "3" }, { ancho: 600, alto: 770 });

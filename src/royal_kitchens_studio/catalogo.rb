@@ -32,10 +32,14 @@ module RoyalKitchens
       end
 
       # opciones.json + ruta absoluta de cada foto ("foto_abs"), listo para la UI.
+      # La "muestra" de un material (su foto de la Guía RK) solo se ve en los
+      # selectores: el material en SketchUp sigue saliendo de "foto" o de la veta.
       def para_ui
         data = cargar
         GRUPOS.each do |g|
-          data[g] = Array(data[g]).map { |o| o.merge("foto_abs" => foto_abs(o["foto"])) }
+          data[g] = Array(data[g]).map do |o|
+            o.merge("foto_abs" => foto_abs(o["foto"]), "muestra_abs" => foto_abs(o["muestra"]))
+          end
         end
         data["textura_veta"] = textura_veta(data)
         data
